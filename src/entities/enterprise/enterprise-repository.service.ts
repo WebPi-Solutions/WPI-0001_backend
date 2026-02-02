@@ -111,21 +111,39 @@ export class EnterpriseRepository {
   }
 
   /**
-   * Obtiene la ruta del archivo del logo de la empresa en Dropbox
+   * Obtiene la ruta de la carpeta de la empresa en Dropbox.
+   * La variable de entorno DROPBOX_ENTERPRISE_FOLDER_PATH debe contener el placeholder :enterpriseId.
    * @param enterpriseId - ID de la empresa
-   * @returns La ruta del archivo del logo de la empresa en Dropbox
+   * @returns La ruta de la carpeta de la empresa en Dropbox
+   * @throws HttpException Si la variable de entorno no está configurada
    */
   getEnterpriseFolderPath(enterpriseId: string): string {
-    return `${process.env.DROPBOX_ENTERPRISE_FOLDER_PATH.replace(':enterpriseId', enterpriseId)}`;
+    const folderPathTemplate = process.env.DROPBOX_ENTERPRISE_FOLDER_PATH;
+    if (!folderPathTemplate || typeof folderPathTemplate !== 'string') {
+      throw new HttpException(
+        'Configuración de Dropbox incompleta: la variable de entorno DROPBOX_ENTERPRISE_FOLDER_PATH no está definida',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+    return folderPathTemplate.replace(':enterpriseId', enterpriseId);
   }
 
   /**
-   * Obtiene la ruta del archivo del logo de la empresa en Dropbox
+   * Obtiene la ruta del archivo del logo de la empresa en Dropbox.
+   * La variable de entorno DROPBOX_ENTERPRISE_LOGO_FILE_PATH debe contener el placeholder :enterpriseId.
    * @param enterpriseId - ID de la empresa
-   * @param extension - Extensión del archivo
+   * @param extension - Extensión del archivo (ej: png, jpeg)
    * @returns La ruta del archivo del logo de la empresa en Dropbox
+   * @throws HttpException Si la variable de entorno no está configurada
    */
   getLogoFilePath(enterpriseId: string, extension: string): string {
-    return `${process.env.DROPBOX_ENTERPRISE_LOGO_FILE_PATH.replace(':enterpriseId', enterpriseId)}.${extension}`;
+    const logoFilePathTemplate = process.env.DROPBOX_ENTERPRISE_LOGO_FILE_PATH;
+    if (!logoFilePathTemplate || typeof logoFilePathTemplate !== 'string') {
+      throw new HttpException(
+        'Configuración de Dropbox incompleta: la variable de entorno DROPBOX_ENTERPRISE_LOGO_FILE_PATH no está definida',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+    return `${logoFilePathTemplate.replace(':enterpriseId', enterpriseId)}.${extension}`;
   }
 }
