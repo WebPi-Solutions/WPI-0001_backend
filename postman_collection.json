@@ -1,0 +1,1039 @@
+{
+  "info": {
+    "_postman_id": "af1e8d5e-1234-5678-9abc-def012345678",
+    "name": "SOL-0001 API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Colección para acceder a las APIs del sistema de gestión SOL-0001"
+  },
+  "variable": [
+    {
+      "key": "url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Usuarios",
+      "item": [
+        {
+          "name": "Obtener todos los usuarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/users?page=1&pageSize=10&sort=name&order=ASC&relations=userEnterprises",
+              "host": ["{{url}}"],
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "name"
+                },
+                {
+                  "key": "order",
+                  "value": "ASC"
+                },
+                {
+                  "key": "relations",
+                  "value": "userEnterprises"
+                }
+              ]
+            },
+            "description": "Obtiene una lista paginada de usuarios con sus relaciones"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener usuario por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/users/:id?relations=userEnterprises",
+              "host": ["{{url}}"],
+              "path": ["users", ":id"],
+              "query": [
+                {
+                  "key": "relations",
+                  "value": "userEnterprises"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-del-usuario"
+                }
+              ]
+            },
+            "description": "Obtiene un usuario específico por su ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener usuario por Email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/users/email/:email?relations=userEnterprises",
+              "host": ["{{url}}"],
+              "path": ["users", "email", ":email"],
+              "query": [
+                {
+                  "key": "relations",
+                  "value": "userEnterprises"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "email",
+                  "value": "usuario@ejemplo.com"
+                }
+              ]
+            },
+            "description": "Obtiene un usuario específico por su correo electrónico"
+          },
+          "response": []
+        },
+        {
+          "name": "Crear usuario",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nombre Usuario\",\n  \"email\": \"usuario@ejemplo.com\",\n  \"phone\": \"+34600000000\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/users",
+              "host": ["{{url}}"],
+              "path": ["users"]
+            },
+            "description": "Crea un nuevo usuario"
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar usuario",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nombre Actualizado\",\n  \"phone\": \"+34600000001\",\n  \"role\": \"user\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/users/:id",
+              "host": ["{{url}}"],
+              "path": ["users", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-del-usuario"
+                }
+              ]
+            },
+            "description": "Actualiza un usuario existente"
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar usuario",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/users/:id",
+              "host": ["{{url}}"],
+              "path": ["users", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-del-usuario"
+                }
+              ]
+            },
+            "description": "Elimina un usuario específico por su ID"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints relacionados con la gestión de usuarios"
+    },
+    {
+      "name": "Clientes",
+      "item": [
+        {
+          "name": "Obtener todos los clientes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/clients?page=1&pageSize=10&sort=name&order=ASC&relations=enterprise,invoices&filter={\"enterpriseId\":\"uuid-empresa\"}",
+              "host": ["{{url}}"],
+              "path": ["clients"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "name"
+                },
+                {
+                  "key": "order",
+                  "value": "ASC"
+                },
+                {
+                  "key": "relations",
+                  "value": "enterprise,invoices"
+                },
+                {
+                  "key": "filter",
+                  "value": "{\"enterpriseId\":\"uuid-empresa\"}"
+                }
+              ]
+            },
+            "description": "Obtiene una lista paginada de clientes con sus relaciones"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener cliente por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/clients/:id?relations=enterprise,invoices",
+              "host": ["{{url}}"],
+              "path": ["clients", ":id"],
+              "query": [
+                {
+                  "key": "relations",
+                  "value": "enterprise,invoices"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-del-cliente"
+                }
+              ]
+            },
+            "description": "Obtiene un cliente específico por su ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Crear cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cliente Ejemplo\",\n  \"enterpriseId\": \"uuid-empresa\",\n  \"nif\": \"B12345678\",\n  \"email\": \"cliente@ejemplo.com\",\n  \"phone\": \"+34600000000\",\n  \"address\": \"Calle Ejemplo 123\",\n  \"type\": \"empresa\",\n  \"accountNumber\": \"ES1234567890\",\n  \"equivalenceSurcharge\": \"0\",\n  \"description\": \"Cliente de prueba\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/clients",
+              "host": ["{{url}}"],
+              "path": ["clients"]
+            },
+            "description": "Crea un nuevo cliente"
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar cliente",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cliente Actualizado\",\n  \"email\": \"actualizado@ejemplo.com\",\n  \"phone\": \"+34600000001\",\n  \"address\": \"Calle Nueva 456\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/clients/:id",
+              "host": ["{{url}}"],
+              "path": ["clients", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-del-cliente"
+                }
+              ]
+            },
+            "description": "Actualiza un cliente existente"
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar cliente",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/clients/:id",
+              "host": ["{{url}}"],
+              "path": ["clients", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-del-cliente"
+                }
+              ]
+            },
+            "description": "Elimina un cliente específico por su ID"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints relacionados con la gestión de clientes"
+    },
+    {
+      "name": "Empresas",
+      "item": [
+        {
+          "name": "Obtener todas las empresas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/enterprises?page=1&pageSize=10&sort=name&order=ASC&relations=clients,suppliers,userEnterprises",
+              "host": ["{{url}}"],
+              "path": ["enterprises"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "name"
+                },
+                {
+                  "key": "order",
+                  "value": "ASC"
+                },
+                {
+                  "key": "relations",
+                  "value": "clients,suppliers,userEnterprises"
+                }
+              ]
+            },
+            "description": "Obtiene una lista paginada de empresas con sus relaciones"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener empresa por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/enterprises/:id?relations=clients,suppliers,userEnterprises",
+              "host": ["{{url}}"],
+              "path": ["enterprises", ":id"],
+              "query": [
+                {
+                  "key": "relations",
+                  "value": "clients,suppliers,userEnterprises"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-empresa"
+                }
+              ]
+            },
+            "description": "Obtiene una empresa específica por su ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Crear empresa",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Empresa Ejemplo\",\n  \"email\": \"empresa@ejemplo.com\",\n  \"nif\": \"A12345678\",\n  \"phone\": \"+34900000000\",\n  \"address\": \"Avenida Principal 789\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/enterprises",
+              "host": ["{{url}}"],
+              "path": ["enterprises"]
+            },
+            "description": "Crea una nueva empresa"
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar empresa",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Empresa Actualizada\",\n  \"email\": \"actualizada@ejemplo.com\",\n  \"phone\": \"+34900000001\",\n  \"address\": \"Avenida Nueva 123\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/enterprises/:id",
+              "host": ["{{url}}"],
+              "path": ["enterprises", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-empresa"
+                }
+              ]
+            },
+            "description": "Actualiza una empresa existente"
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar empresa",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/enterprises/:id",
+              "host": ["{{url}}"],
+              "path": ["enterprises", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-empresa"
+                }
+              ]
+            },
+            "description": "Elimina una empresa específica por su ID"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints relacionados con la gestión de empresas"
+    },
+    {
+      "name": "Proveedores",
+      "item": [
+        {
+          "name": "Obtener todos los proveedores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/suppliers?page=1&pageSize=10&sort=name&order=ASC&relations=enterprise,spents&filter={\"enterpriseId\":\"uuid-empresa\"}",
+              "host": ["{{url}}"],
+              "path": ["suppliers"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "name"
+                },
+                {
+                  "key": "order",
+                  "value": "ASC"
+                },
+                {
+                  "key": "relations",
+                  "value": "enterprise,spents"
+                },
+                {
+                  "key": "filter",
+                  "value": "{\"enterpriseId\":\"uuid-empresa\"}"
+                }
+              ]
+            },
+            "description": "Obtiene una lista paginada de proveedores con sus relaciones"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener proveedor por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/suppliers/:id?relations=enterprise,spents",
+              "host": ["{{url}}"],
+              "path": ["suppliers", ":id"],
+              "query": [
+                {
+                  "key": "relations",
+                  "value": "enterprise,spents"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-del-proveedor"
+                }
+              ]
+            },
+            "description": "Obtiene un proveedor específico por su ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Crear proveedor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Proveedor Ejemplo\",\n  \"enterpriseId\": \"uuid-empresa\",\n  \"nif\": \"B87654321\",\n  \"email\": \"proveedor@ejemplo.com\",\n  \"phone\": \"+34600111222\",\n  \"address\": \"Calle Proveedores 123\",\n  \"type\": \"mayorista\",\n  \"accountNumber\": \"ES9876543210\",\n  \"equivalenceSurcharge\": \"0\",\n  \"description\": \"Proveedor de prueba\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/suppliers",
+              "host": ["{{url}}"],
+              "path": ["suppliers"]
+            },
+            "description": "Crea un nuevo proveedor"
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar proveedor",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Proveedor Actualizado\",\n  \"email\": \"actualizado@proveedor.com\",\n  \"phone\": \"+34600111333\",\n  \"address\": \"Calle Nueva Proveedores 456\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/suppliers/:id",
+              "host": ["{{url}}"],
+              "path": ["suppliers", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-del-proveedor"
+                }
+              ]
+            },
+            "description": "Actualiza un proveedor existente"
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar proveedor",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/suppliers/:id",
+              "host": ["{{url}}"],
+              "path": ["suppliers", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-del-proveedor"
+                }
+              ]
+            },
+            "description": "Elimina un proveedor específico por su ID"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints relacionados con la gestión de proveedores"
+    },
+    {
+      "name": "Facturas",
+      "item": [
+        {
+          "name": "Obtener todas las facturas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/invoices?page=1&pageSize=10&sort=issuedDate&order=DESC&relations=client,series&filter={\"clientId\":\"uuid-cliente\"}",
+              "host": ["{{url}}"],
+              "path": ["invoices"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "issuedDate"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "relations",
+                  "value": "client,series"
+                },
+                {
+                  "key": "filter",
+                  "value": "{\"clientId\":\"uuid-cliente\"}"
+                }
+              ]
+            },
+            "description": "Obtiene una lista paginada de facturas con sus relaciones"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener factura por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/invoices/:id?relations=client,series",
+              "host": ["{{url}}"],
+              "path": ["invoices", ":id"],
+              "query": [
+                {
+                  "key": "relations",
+                  "value": "client,series"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-factura"
+                }
+              ]
+            },
+            "description": "Obtiene una factura específica por su ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Crear factura",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"uuid-cliente\",\n  \"seriesId\": \"uuid-serie\",\n  \"seriesNumber\": 1,\n  \"issuedDate\": \"2023-07-01\",\n  \"collectionDate\": \"2023-08-01\",\n  \"concepts\": [\n    {\n      \"description\": \"Servicio 1\",\n      \"quantity\": 1,\n      \"unitPrice\": 100,\n      \"taxRate\": 21,\n      \"total\": 121\n    }\n  ],\n  \"status\": \"pending\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/invoices",
+              "host": ["{{url}}"],
+              "path": ["invoices"]
+            },
+            "description": "Crea una nueva factura"
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar factura",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"issuedDate\": \"2023-07-15\",\n  \"collectionDate\": \"2023-08-15\",\n  \"concepts\": [\n    {\n      \"description\": \"Servicio 1 Actualizado\",\n      \"quantity\": 2,\n      \"unitPrice\": 100,\n      \"taxRate\": 21,\n      \"total\": 242\n    }\n  ],\n  \"status\": \"paid\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/invoices/:id",
+              "host": ["{{url}}"],
+              "path": ["invoices", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-factura"
+                }
+              ]
+            },
+            "description": "Actualiza una factura existente"
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar factura",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/invoices/:id",
+              "host": ["{{url}}"],
+              "path": ["invoices", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-factura"
+                }
+              ]
+            },
+            "description": "Elimina una factura específica por su ID"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints relacionados con la gestión de facturas"
+    },
+    {
+      "name": "Series de Facturas",
+      "item": [
+        {
+          "name": "Obtener todas las series",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/invoice-series?page=1&pageSize=10&sort=series&order=ASC&relations=invoices",
+              "host": ["{{url}}"],
+              "path": ["invoice-series"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "series"
+                },
+                {
+                  "key": "order",
+                  "value": "ASC"
+                },
+                {
+                  "key": "relations",
+                  "value": "invoices"
+                }
+              ]
+            },
+            "description": "Obtiene una lista paginada de series de facturas con sus relaciones"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener serie por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/invoice-series/:id?relations=invoices",
+              "host": ["{{url}}"],
+              "path": ["invoice-series", ":id"],
+              "query": [
+                {
+                  "key": "relations",
+                  "value": "invoices"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-serie"
+                }
+              ]
+            },
+            "description": "Obtiene una serie de facturas específica por su ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Crear serie de facturas",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"series\": \"A\",\n  \"description\": \"Serie A - Facturas nacionales\",\n  \"collectionDate\": \"2023-08-01\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/invoice-series",
+              "host": ["{{url}}"],
+              "path": ["invoice-series"]
+            },
+            "description": "Crea una nueva serie de facturas"
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar serie de facturas",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Serie A - Facturas nacionales actualizada\",\n  \"collectionDate\": \"2023-09-01\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/invoice-series/:id",
+              "host": ["{{url}}"],
+              "path": ["invoice-series", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-serie"
+                }
+              ]
+            },
+            "description": "Actualiza una serie de facturas existente"
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar serie de facturas",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/invoice-series/:id",
+              "host": ["{{url}}"],
+              "path": ["invoice-series", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-serie"
+                }
+              ]
+            },
+            "description": "Elimina una serie de facturas específica por su ID"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints relacionados con la gestión de series de facturas"
+    },
+    {
+      "name": "Gastos",
+      "item": [
+        {
+          "name": "Obtener todos los gastos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/spents?page=1&pageSize=10&sort=issuedDate&order=DESC&relations=supplier&filter={\"supplierId\":\"uuid-proveedor\"}",
+              "host": ["{{url}}"],
+              "path": ["spents"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "issuedDate"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "relations",
+                  "value": "supplier"
+                },
+                {
+                  "key": "filter",
+                  "value": "{\"supplierId\":\"uuid-proveedor\"}"
+                }
+              ]
+            },
+            "description": "Obtiene una lista paginada de gastos con sus relaciones"
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener gasto por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/spents/:id?relations=supplier",
+              "host": ["{{url}}"],
+              "path": ["spents", ":id"],
+              "query": [
+                {
+                  "key": "relations",
+                  "value": "supplier"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-gasto"
+                }
+              ]
+            },
+            "description": "Obtiene un gasto específico por su ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Crear gasto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplierId\": \"uuid-proveedor\",\n  \"issuedDate\": \"2023-07-01\",\n  \"collectionDate\": \"2023-08-01\",\n  \"concepts\": [\n    {\n      \"description\": \"Material 1\",\n      \"quantity\": 5,\n      \"unitPrice\": 20,\n      \"taxRate\": 21,\n      \"total\": 121\n    }\n  ],\n  \"status\": \"pending\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/spents",
+              "host": ["{{url}}"],
+              "path": ["spents"]
+            },
+            "description": "Crea un nuevo gasto"
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar gasto",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"issuedDate\": \"2023-07-15\",\n  \"collectionDate\": \"2023-08-15\",\n  \"concepts\": [\n    {\n      \"description\": \"Material 1 Actualizado\",\n      \"quantity\": 10,\n      \"unitPrice\": 20,\n      \"taxRate\": 21,\n      \"total\": 242\n    }\n  ],\n  \"status\": \"paid\"\n}"
+            },
+            "url": {
+              "raw": "{{url}}/spents/:id",
+              "host": ["{{url}}"],
+              "path": ["spents", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-gasto"
+                }
+              ]
+            },
+            "description": "Actualiza un gasto existente"
+          },
+          "response": []
+        },
+        {
+          "name": "Eliminar gasto",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{url}}/spents/:id",
+              "host": ["{{url}}"],
+              "path": ["spents", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "uuid-de-gasto"
+                }
+              ]
+            },
+            "description": "Elimina un gasto específico por su ID"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints relacionados con la gestión de gastos"
+    }
+  ]
+} 
