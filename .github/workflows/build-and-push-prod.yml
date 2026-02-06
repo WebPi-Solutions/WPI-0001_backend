@@ -31,3 +31,16 @@ jobs:
       - name: Push Docker image (prod)
         run: |
           docker push ghcr.io/webpi-solutions/wpi-0001_backend:prod
+
+      - name: Trigger Portainer stack update
+        run: |
+          curl --fail --location "${DEPLOYS_URL}/update-stack" \
+            --header 'Content-Type: application/json' \
+            --data "{
+              \"project_code\": \"${DEPLOYS_PROJECT_CODE}\",
+              \"api_key\": \"${DEPLOYS_API_KEY}\"
+            }"
+        env:
+          DEPLOYS_URL: ${{ secrets.DEPLOYS_URL }}
+          DEPLOYS_API_KEY: ${{ secrets.DEPLOYS_API_KEY }}
+          DEPLOYS_PROJECT_CODE: ${{ secrets.DEPLOYS_PROJECT_CODE }}
