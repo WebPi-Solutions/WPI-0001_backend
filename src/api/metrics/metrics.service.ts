@@ -1,7 +1,8 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InvoiceRepository } from '../../entities/invoice/invoice-repository.service';
+import { QuoteRepository } from '../../entities/quote/quote-repository.service';
 import { SpentRepository } from '../../entities/spent/spent-repository.service';
-import { FinancialMetricsDto, MonthlyMetricsDto, YearlyMetricsDto } from './dto';
+import { FinancialMetricsDto, InvoiceSubtotalsByStatusDto, QuoteSubtotalsByStatusDto, SpentSubtotalsByStatusDto, MonthlyMetricsDto, YearlyMetricsDto } from './dto';
 
 @Injectable()
 export class MetricsService {
@@ -9,8 +10,57 @@ export class MetricsService {
 
   constructor(
     private readonly invoiceRepository: InvoiceRepository,
+    private readonly quoteRepository: QuoteRepository,
     private readonly spentRepository: SpentRepository
   ) {}
+
+  /**
+   * Obtiene los importes imponibles (subtotales) de facturas desglosados por estado,
+   * aplicando los filtros de la vista de facturas.
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Filtros aplicados (status, series.id, client.id, fechas, búsquedas)
+   * @returns Subtotales y conteos por estado
+   */
+  async getInvoiceSubtotalsByStatus(
+    enterpriseId: string,
+    filter: Record<string, any> = {}
+  ): Promise<InvoiceSubtotalsByStatusDto> {
+    this.logger.log(`Obteniendo subtotales por estado para empresa ${enterpriseId}`);
+
+    return this.invoiceRepository.getInvoiceSubtotalsByStatus(enterpriseId, filter);
+  }
+
+  /**
+   * Obtiene los importes imponibles (subtotales) de presupuestos desglosados por estado,
+   * aplicando los filtros de la vista de presupuestos.
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Filtros aplicados (status, client.id, fechas, búsquedas)
+   * @returns Subtotales y conteos por estado
+   */
+  async getQuoteSubtotalsByStatus(
+    enterpriseId: string,
+    filter: Record<string, any> = {}
+  ): Promise<QuoteSubtotalsByStatusDto> {
+    this.logger.log(`Obteniendo subtotales por estado de presupuestos para empresa ${enterpriseId}`);
+
+    return this.quoteRepository.getQuoteSubtotalsByStatus(enterpriseId, filter);
+  }
+
+  /**
+   * Obtiene los importes imponibles (subtotales) de gastos desglosados por estado,
+   * aplicando los filtros de la vista de gastos.
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Filtros aplicados (status, supplier.id, fechas, búsquedas)
+   * @returns Subtotales y conteos por estado
+   */
+  async getSpentSubtotalsByStatus(
+    enterpriseId: string,
+    filter: Record<string, any> = {}
+  ): Promise<SpentSubtotalsByStatusDto> {
+    this.logger.log(`Obteniendo subtotales por estado de gastos para empresa ${enterpriseId}`);
+
+    return this.spentRepository.getSpentSubtotalsByStatus(enterpriseId, filter);
+  }
 
   /**
    * Calcula métricas de facturas emitidas para un rango de fechas

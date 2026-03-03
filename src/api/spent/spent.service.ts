@@ -24,7 +24,7 @@ export class SpentService {
   async create(spent: Spent): Promise<Spent> {
     this.logger.log(`Iniciando proceso de creación de gasto: ${spent.name}`);
     this.logger.log(`Datos del gasto a crear:`, JSON.stringify(spent, null, 2));
-    
+
     try {
       const newSpent = await this.spentRepository.create(spent);
       this.logger.log(`Gasto creado exitosamente con ID: ${newSpent.id}`);

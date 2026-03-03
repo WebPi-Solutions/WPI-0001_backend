@@ -9,6 +9,7 @@ export enum InvoiceStatus {
   ISSUED = 'issued',
   PAID = 'paid',
   PARTIALLY_PAID = 'partially_paid',
+  CANCELLED = 'cancelled',
 }
 
 /**

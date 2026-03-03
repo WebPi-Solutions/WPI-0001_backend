@@ -1,6 +1,6 @@
 import { Controller, Get, Query, Logger, BadRequestException, HttpException, HttpStatus } from '@nestjs/common';
 import { MetricsService } from './metrics.service';
-import { FinancialMetricsDto, YearlyMetricsDto } from './dto';
+import { FinancialMetricsDto, InvoiceSubtotalsByStatusDto, QuoteSubtotalsByStatusDto, SpentSubtotalsByStatusDto, YearlyMetricsDto } from './dto';
 import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOkResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
 @Controller('metrics')
@@ -8,6 +8,147 @@ export class MetricsController {
   private readonly logger = new Logger(MetricsController.name);
 
   constructor(private readonly metricsService: MetricsService) {}
+
+  /**
+   * Obtiene los importes imponibles (subtotales) de facturas desglosados por estado,
+   * aplicando los mismos filtros que la vista de facturas.
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Filtros en formato JSON (status, series.id, client.id, fechas, name_ilike, client.name_ilike)
+   * @returns Subtotales y conteos por estado (total, draft, issued, paid, partially_paid, cancelled)
+   */
+  @Get('invoices/subtotals-by-status')
+  @ApiOperation({ summary: 'Obtiene importes imponibles de facturas desglosados por estado' })
+  @ApiBearerAuth('auth_token')
+  @ApiQuery({ name: 'enterpriseId', description: 'ID de la empresa', required: true })
+  @ApiQuery({ name: 'filter', description: 'Filtros en formato JSON (opcional)', required: false })
+  @ApiOkResponse({ description: 'Subtotales por estado calculados' })
+  @ApiBadRequestResponse({ description: 'Bad Request' })
+  @ApiInternalServerErrorResponse({ description: 'Error interno del servidor' })
+  async getInvoiceSubtotalsByStatus(
+    @Query('enterpriseId') enterpriseId: string,
+    @Query('filter') filter?: string
+  ): Promise<InvoiceSubtotalsByStatusDto> {
+    this.logger.log(`Solicitud de subtotales por estado - Empresa: ${enterpriseId}`);
+
+    if (!enterpriseId) {
+      throw new BadRequestException('El parámetro enterpriseId es requerido');
+    }
+
+    let filterObj: Record<string, any> = {};
+    if (filter) {
+      try {
+        filterObj = JSON.parse(filter);
+      } catch (error) {
+        this.logger.warn(`Error al parsear filtro JSON: ${error.message}`);
+      }
+    }
+
+    try {
+      const metrics = await this.metricsService.getInvoiceSubtotalsByStatus(enterpriseId, filterObj);
+      this.logger.log(`Subtotales por estado obtenidos exitosamente para empresa ${enterpriseId}`);
+      return metrics;
+    } catch (error) {
+      this.logger.error(`Error obteniendo subtotales por estado: ${error.message}`, error.stack);
+      throw new HttpException(
+        `Error obteniendo subtotales por estado: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * Obtiene los importes imponibles (subtotales) de gastos desglosados por estado,
+   * aplicando los mismos filtros que la vista de gastos.
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Filtros en formato JSON (status, supplier.id, fechas, name_ilike, supplier.name_ilike)
+   * @returns Subtotales y conteos por estado (total, pending, paid, partially_paid, cancelled)
+   */
+  @Get('spents/subtotals-by-status')
+  @ApiOperation({ summary: 'Obtiene importes imponibles de gastos desglosados por estado' })
+  @ApiBearerAuth('auth_token')
+  @ApiQuery({ name: 'enterpriseId', description: 'ID de la empresa', required: true })
+  @ApiQuery({ name: 'filter', description: 'Filtros en formato JSON (opcional)', required: false })
+  @ApiOkResponse({ description: 'Subtotales por estado calculados' })
+  @ApiBadRequestResponse({ description: 'Bad Request' })
+  @ApiInternalServerErrorResponse({ description: 'Error interno del servidor' })
+  async getSpentSubtotalsByStatus(
+    @Query('enterpriseId') enterpriseId: string,
+    @Query('filter') filter?: string
+  ): Promise<SpentSubtotalsByStatusDto> {
+    this.logger.log(`Solicitud de subtotales por estado de gastos - Empresa: ${enterpriseId}`);
+
+    if (!enterpriseId) {
+      throw new BadRequestException('El parámetro enterpriseId es requerido');
+    }
+
+    let filterObj: Record<string, any> = {};
+    if (filter) {
+      try {
+        filterObj = JSON.parse(filter);
+      } catch (error) {
+        this.logger.warn(`Error al parsear filtro JSON: ${error.message}`);
+      }
+    }
+
+    try {
+      const metrics = await this.metricsService.getSpentSubtotalsByStatus(enterpriseId, filterObj);
+      this.logger.log(`Subtotales por estado de gastos obtenidos exitosamente para empresa ${enterpriseId}`);
+      return metrics;
+    } catch (error) {
+      this.logger.error(`Error obteniendo subtotales por estado de gastos: ${error.message}`, error.stack);
+      throw new HttpException(
+        `Error obteniendo subtotales por estado de gastos: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
+
+  /**
+   * Obtiene los importes imponibles (subtotales) de presupuestos desglosados por estado,
+   * aplicando los mismos filtros que la vista de presupuestos.
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Filtros en formato JSON (status, client.id, fechas, name_ilike, client.name_ilike)
+   * @returns Subtotales y conteos por estado (total, draft, issued, converted, rejected)
+   */
+  @Get('quotes/subtotals-by-status')
+  @ApiOperation({ summary: 'Obtiene importes imponibles de presupuestos desglosados por estado' })
+  @ApiBearerAuth('auth_token')
+  @ApiQuery({ name: 'enterpriseId', description: 'ID de la empresa', required: true })
+  @ApiQuery({ name: 'filter', description: 'Filtros en formato JSON (opcional)', required: false })
+  @ApiOkResponse({ description: 'Subtotales por estado calculados' })
+  @ApiBadRequestResponse({ description: 'Bad Request' })
+  @ApiInternalServerErrorResponse({ description: 'Error interno del servidor' })
+  async getQuoteSubtotalsByStatus(
+    @Query('enterpriseId') enterpriseId: string,
+    @Query('filter') filter?: string
+  ): Promise<QuoteSubtotalsByStatusDto> {
+    this.logger.log(`Solicitud de subtotales por estado de presupuestos - Empresa: ${enterpriseId}`);
+
+    if (!enterpriseId) {
+      throw new BadRequestException('El parámetro enterpriseId es requerido');
+    }
+
+    let filterObj: Record<string, any> = {};
+    if (filter) {
+      try {
+        filterObj = JSON.parse(filter);
+      } catch (error) {
+        this.logger.warn(`Error al parsear filtro JSON: ${error.message}`);
+      }
+    }
+
+    try {
+      const metrics = await this.metricsService.getQuoteSubtotalsByStatus(enterpriseId, filterObj);
+      this.logger.log(`Subtotales por estado de presupuestos obtenidos exitosamente para empresa ${enterpriseId}`);
+      return metrics;
+    } catch (error) {
+      this.logger.error(`Error obteniendo subtotales por estado de presupuestos: ${error.message}`, error.stack);
+      throw new HttpException(
+        `Error obteniendo subtotales por estado de presupuestos: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
+  }
 
   /**
    * Obtiene métricas de facturas emitidas (no borrador) en un rango de fechas

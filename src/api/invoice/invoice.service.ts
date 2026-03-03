@@ -194,7 +194,7 @@ export class InvoiceService {
    * @returns La factura con los datos persistentes asignados
    */
   async setInvoicePersistentData(invoice: Invoice): Promise<Invoice> {
-    const clientId = invoice.client.id || invoice.clientId;
+    const clientId = invoice.client?.id ?? invoice.clientId;
     if(!clientId) {
       this.logger.error(`La factura debe tener un cliente`);
       throw new HttpException(`La factura debe tener un cliente`, HttpStatus.BAD_REQUEST);
