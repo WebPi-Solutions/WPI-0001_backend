@@ -32,8 +32,8 @@ export class CreateUserDto {
   @Type(() => UserEnterprise)
   userEnterprises: UserEnterprise[];
 
-  @ApiProperty({ description: 'Contraseña del usuario', required: true, example: '123456' })
+  @ApiProperty({ description: 'Contraseña del usuario (obligatoria solo para usuarios nuevos)', required: false, example: '123456' })
   @IsString()
-  @IsNotEmpty()
-  password: string;
+  @IsOptional()
+  password?: string;
 }

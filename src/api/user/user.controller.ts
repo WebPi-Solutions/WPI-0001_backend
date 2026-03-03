@@ -132,16 +132,21 @@ export class UserController {
   }
 
   /**
-   * Elimina un usuario por su id
-   * @param id - El id del usuario
-   * @returns El usuario eliminado
+   * Desvincula un usuario de una empresa.
+   * Si el usuario solo tiene esa empresa, se elimina por completo (BD y Firebase).
+   * Si tiene más empresas, solo se elimina la relación con la empresa indicada.
    */
-  @Delete(':id')
-  @ApiOperation({ summary: 'Eliminar un usuario por su id' })
-  @ApiResponse({ status: 200, description: 'El usuario ha sido eliminado correctamente.' })
+  @Delete(':id/enterprise/:enterpriseId')
+  @ApiOperation({ summary: 'Desvincular usuario de una empresa' })
+  @ApiResponse({ status: 200, description: 'Usuario desvinculado o eliminado correctamente.' })
+  @ApiResponse({ status: 400, description: 'El usuario no está vinculado a esta empresa.' })
+  @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
-  async delete(@Param('id') id: string) {
-    return this.userService.deleteById(id);
+  async unlinkUserFromEnterprise(
+    @Param('id') id: string,
+    @Param('enterpriseId') enterpriseId: string
+  ) {
+    return this.userService.unlinkUserFromEnterprise(id, enterpriseId);
   }
 }

@@ -5,6 +5,7 @@ import { join } from 'path';
 import { EntitiesModule } from 'src/entities/entities.module';
 import { MappingModule } from 'src/mapping/mapping.module';
 import { DropboxModule } from 'src/services/dropbox/dropbox.module';
+import { FirebaseModule } from 'src/services/firebase/firebase.module';
 import { MulterModule } from '@nestjs/platform-express';
 
 /**
@@ -91,6 +92,7 @@ export class ApiModule {
       imports: [
         EntitiesModule.register(),
         DropboxModule,
+        FirebaseModule,
         MulterModule.register({
           limits: {
             fileSize: parseInt(process.env.MAX_FILE_SIZE, 10) * 1024 * 1024, // 10MB max file size

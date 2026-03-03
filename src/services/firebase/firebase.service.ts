@@ -1,8 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { firebaseAdmin } from 'src/middleware/firebase/firebase.service';
 
 @Injectable()
 export class FirebaseService {
+  private readonly logger = new Logger(FirebaseService.name);
+
+  /**
+   * Genera una contraseña aleatoria
+   * @returns La contraseña generada
+   */
   generateRandomPassword() {
     const length = 12
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -31,6 +37,23 @@ export class FirebaseService {
       return userRecord;
     } catch (error) {
       throw new Error(`Error fetching user by email: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verifica si existe un usuario con el email en Firebase
+   * @param email - El email del usuario a verificar
+   * @returns true si el usuario existe, false en caso contrario
+   */
+  async verifyUserExistsByEmail(email: string): Promise<boolean> {
+    try {
+      this.logger.log(`Verificando si existe un usuario con el email: ${email} en Firebase`);
+      await firebaseAdmin.auth().getUserByEmail(email);
+      this.logger.log(`El usuario ${email} existe en Firebase`);
+      return true;
+    } catch {
+      this.logger.log(`El usuario ${email} no existe en Firebase`);
+      return false;
     }
   }
 

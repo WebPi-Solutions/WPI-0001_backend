@@ -33,6 +33,42 @@ export interface QueryFilterOptions extends PaginationOptions {
  */
 export class QueryBuilderService {
   /**
+   * Cuenta los registros que coinciden con los filtros y relaciones especificados
+   * @param repository Repositorio de TypeORM
+   * @param entityAlias Alias para la entidad principal
+   * @param filter Filtros a aplicar
+   * @param relations Relaciones a incluir para aplicar filtros con relaciones
+   * @returns Número de registros que coinciden
+   */
+  static async getCount<T extends ObjectLiteral>(
+    repository: Repository<T>,
+    entityAlias: string,
+    filter: Record<string, any> = {},
+    relations?: QueryRelation[]
+  ): Promise<number> {
+    // Crear el query builder
+    const queryBuilder = repository.createQueryBuilder(entityAlias);
+
+    // Aplicar relaciones (joins) si se proporcionan
+    if (relations && relations.length > 0) {
+      // Convertir relaciones para que solo hagan join (no select) para el count
+      const countRelations = relations.map(relation => ({
+        ...relation,
+        isLeftJoinAndSelect: false // Solo necesitamos el join para filtrar, no seleccionar
+      }));
+      this.applyRelations(queryBuilder, countRelations, entityAlias);
+    }
+
+    // Aplicar filtros
+    if (filter && Object.keys(filter).length > 0) {
+      this.applyFilters(queryBuilder, filter, entityAlias);
+    }
+
+    // Retornar el count
+    return await queryBuilder.getCount();
+  }
+
+  /**
    * Construye una consulta paginada con filtros y ordenación
    * @param repository Repositorio de TypeORM
    * @param entityAlias Alias para la entidad principal
@@ -174,6 +210,52 @@ export class QueryBuilderService {
     filter: Record<string, any>,
     entityAlias: string
   ): void {
+    // Procesar filtros OR primero si existen
+    if (filter.$or && Array.isArray(filter.$or)) {
+      const orConditions: string[] = [];
+      const orParams: Record<string, any> = {};
+      let paramCounter = 0;
+      
+      filter.$or.forEach((orFilter: Record<string, any>) => {
+        // Construir condiciones AND dentro de cada grupo OR
+        const andConditions: string[] = [];
+        
+        Object.entries(orFilter).forEach(([key, value]) => {
+          const paramKey = `or_param_${paramCounter++}`;
+          const condition = this.buildFilterCondition(key, value, entityAlias, paramKey, orParams);
+          if (condition) {
+            andConditions.push(condition);
+          }
+        });
+        
+        if (andConditions.length > 0) {
+          orConditions.push(`(${andConditions.join(' AND ')})`);
+        }
+      });
+      
+      if (orConditions.length > 0) {
+        // Combinar todas las condiciones OR
+        const orQuery = orConditions.join(' OR ');
+        queryBuilder.andWhere(`(${orQuery})`, orParams);
+      }
+      
+      // Eliminar $or del filtro para que no se procese nuevamente
+      delete filter.$or;
+    }
+    
+    // Procesar filtros AND si existen
+    if (filter.$and && Array.isArray(filter.$and)) {
+      filter.$and.forEach((andFilter: Record<string, any>) => {
+        // Aplicar cada filtro AND como una condición adicional
+        Object.entries(andFilter).forEach(([key, value]) => {
+          this.applySingleFilter(queryBuilder, key, value, entityAlias);
+        });
+      });
+      
+      // Eliminar $and del filtro para que no se procese nuevamente
+      delete filter.$and;
+    }
+    
     // Primero procesamos los filtros de fecha especiales (_from y _to)
     const dateRangeFilters = new Set<string>();
     // Procesamos los filtros LIKE especiales (_like y _ilike)
@@ -301,6 +383,28 @@ export class QueryBuilderService {
     
     // Procesar el resto de filtros normales
     Object.entries(filter).forEach(([key, value]) => {
+      // Ignorar operadores especiales que ya fueron procesados
+      if (key === '$or' || key === '$and') {
+        return;
+      }
+      
+      this.applySingleFilter(queryBuilder, key, value, entityAlias);
+    });
+  }
+
+  /**
+   * Aplica un filtro individual al query builder
+   * @param queryBuilder Query builder de TypeORM
+   * @param key Clave del filtro
+   * @param value Valor del filtro
+   * @param entityAlias Alias de la entidad principal
+   */
+  private static applySingleFilter<T>(
+    queryBuilder: SelectQueryBuilder<T>,
+    key: string,
+    value: any,
+    entityAlias: string
+  ): void {
       // Verificar si es un filtro para una propiedad anidada (con notación de punto)
       const isNestedProperty = key.includes('.');
       
@@ -328,31 +432,91 @@ export class QueryBuilderService {
           }
         } else {
           // Si es un valor único (no array)
-          const isRelationFilter = queryBuilder.expressionMap.aliases.some(
-            alias => alias.name === parentKey
-          );
-          
-          if (isRelationFilter) {
-            // Filtro por relación (ej: enterprise.name)
-            queryBuilder.andWhere(`${parentKey}.${childKey} = :${paramKey}`, {
-              [paramKey]: value
-            });
+          // Manejar valores null explícitamente
+          if (value === null || value === undefined) {
+            const isRelationFilter = queryBuilder.expressionMap.aliases.some(
+              alias => alias.name === parentKey
+            );
+            
+            if (isRelationFilter) {
+              // Filtro IS NULL por relación
+              queryBuilder.andWhere(`${parentKey}.${childKey} IS NULL`);
+            } else {
+              // Filtro IS NULL por propiedad JSON
+              queryBuilder.andWhere(`(${entityAlias}.${parentKey}).${childKey} IS NULL`);
+            }
           } else {
-            // Filtro por propiedad JSON (ej: address.province)
-            queryBuilder.andWhere(`(${entityAlias}.${parentKey}).${childKey} = :${paramKey}`, {
-              [paramKey]: value
-            });
+            const isRelationFilter = queryBuilder.expressionMap.aliases.some(
+              alias => alias.name === parentKey
+            );
+            
+            if (isRelationFilter) {
+              // Filtro por relación (ej: enterprise.name)
+              queryBuilder.andWhere(`${parentKey}.${childKey} = :${paramKey}`, {
+                [paramKey]: value
+              });
+            } else {
+              // Filtro por propiedad JSON (ej: address.province)
+              queryBuilder.andWhere(`(${entityAlias}.${parentKey}).${childKey} = :${paramKey}`, {
+                [paramKey]: value
+              });
+            }
           }
         }
       } else {
         // Filtro para propiedades simples (no anidadas)
         if (Array.isArray(value)) {
           queryBuilder.andWhere(`${entityAlias}.${key} IN (:...${key})`, { [key]: value });
+        } else if (value === null || value === undefined) {
+          // Manejar valores null explícitamente usando IS NULL
+          queryBuilder.andWhere(`${entityAlias}.${key} IS NULL`);
         } else {
           queryBuilder.andWhere(`${entityAlias}.${key} = :${key}`, { [key]: value });
         }
       }
-    });
+  }
+
+  /**
+   * Construye una condición de filtro para usar en consultas OR
+   * @param key Clave del filtro
+   * @param value Valor del filtro
+   * @param entityAlias Alias de la entidad principal
+   * @param paramKey Clave del parámetro para usar en la consulta
+   * @param params Objeto para almacenar parámetros
+   * @returns Condición SQL como string o null
+   */
+  private static buildFilterCondition(
+    key: string,
+    value: any,
+    entityAlias: string,
+    paramKey: string,
+    params: Record<string, any>
+  ): string | null {
+    const isNestedProperty = key.includes('.');
+    
+    if (isNestedProperty) {
+      const [parentKey, childKey] = key.split('.');
+      
+      if (Array.isArray(value)) {
+        params[paramKey] = value;
+        return `${entityAlias}.${key} IN (:...${paramKey})`;
+      } else if (value === null || value === undefined) {
+        return `${entityAlias}.${key} IS NULL`;
+      } else {
+        params[paramKey] = value;
+        return `${entityAlias}.${key} = :${paramKey}`;
+      }
+    } else {
+      if (Array.isArray(value)) {
+        params[paramKey] = value;
+        return `${entityAlias}.${key} IN (:...${paramKey})`;
+      } else if (value === null || value === undefined) {
+        return `${entityAlias}.${key} IS NULL`;
+      } else {
+        params[paramKey] = value;
+        return `${entityAlias}.${key} = :${paramKey}`;
+      }
+    }
   }
 
   /**
