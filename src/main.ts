@@ -21,8 +21,8 @@ async function bootstrap() {
     Swagger set up
   */
   const config = new DocumentBuilder()
-    .setTitle('Gabriel de Larriva Pérez - Software de gestión')
-    .setDescription('API documentation for Gabriel de Larriva Pérez Software de gestión. Developed by Webpi Solutions.')
+    .setTitle('AppHunters Development SL - Software de gestión')
+    .setDescription('API para el software de gestión de AppHunters Development SL. Desarrollado por Webpi Solutions.')
     .setVersion('1.0.0')
     .addBearerAuth(
       {
