@@ -2,7 +2,22 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InvoiceRepository } from '../../entities/invoice/invoice-repository.service';
 import { QuoteRepository } from '../../entities/quote/quote-repository.service';
 import { SpentRepository } from '../../entities/spent/spent-repository.service';
-import { FinancialMetricsDto, InvoiceSubtotalsByStatusDto, QuoteSubtotalsByStatusDto, SpentSubtotalsByStatusDto, MonthlyMetricsDto, YearlyMetricsDto } from './dto';
+import {
+  FinancialMetricsDto,
+  InvoiceSubtotalsByStatusDto,
+  QuoteSubtotalsByStatusDto,
+  SpentSubtotalsByStatusDto,
+  MonthlyMetricsDto,
+  YearlyMetricsDto,
+  UserCountsByStatusDto,
+  ClientCountsByTypeDto,
+  SupplierCountsByTypeDto,
+  InvoiceSeriesListCountsDto,
+} from './dto';
+import { UserRepository } from '../../entities/user/user-repository.service';
+import { ClientRepository } from '../../entities/client/client-repository.service';
+import { SupplierRepository } from '../../entities/supplier/supplier-repository.service';
+import { InvoiceSeriesRepository } from '../../entities/invoice-series/invoice-series-repository.service';
 
 @Injectable()
 export class MetricsService {
@@ -11,7 +26,11 @@ export class MetricsService {
   constructor(
     private readonly invoiceRepository: InvoiceRepository,
     private readonly quoteRepository: QuoteRepository,
-    private readonly spentRepository: SpentRepository
+    private readonly spentRepository: SpentRepository,
+    private readonly userRepository: UserRepository,
+    private readonly clientRepository: ClientRepository,
+    private readonly supplierRepository: SupplierRepository,
+    private readonly invoiceSeriesRepository: InvoiceSeriesRepository,
   ) {}
 
   /**
@@ -60,6 +79,78 @@ export class MetricsService {
     this.logger.log(`Obteniendo subtotales por estado de gastos para empresa ${enterpriseId}`);
 
     return this.spentRepository.getSpentSubtotalsByStatus(enterpriseId, filter);
+  }
+
+  /**
+   * Obtiene conteos de usuarios de una empresa para el listado (total, activos, inactivos),
+   * usando {@link UserRepository.getListViewCounts} (tres llamadas a `count`).
+   *
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Mismos filtros que la tabla de usuarios (sin `userEnterprises.enterpriseId`)
+   * @returns Conteos alineados con las tarjetas de la vista
+   */
+  async getUserCountsByStatus(
+    enterpriseId: string,
+    filter: Record<string, unknown> = {},
+  ): Promise<UserCountsByStatusDto> {
+    this.logger.log(`Obteniendo conteos de usuarios para empresa ${enterpriseId}`);
+
+    return this.userRepository.getListViewCounts(enterpriseId, filter);
+  }
+
+  /**
+   * Obtiene conteos de clientes (total, personas físicas, empresas) para el listado,
+   * usando {@link ClientRepository.getListViewCounts}.
+   *
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Mismos filtros que la tabla (sin `enterpriseId`)
+   * @returns Conteos alineados con las tarjetas de la vista
+   */
+  async getClientCountsByType(
+    enterpriseId: string,
+    filter: Record<string, unknown> = {},
+  ): Promise<ClientCountsByTypeDto> {
+    this.logger.log(`Obteniendo conteos de clientes por tipo para empresa ${enterpriseId}`);
+
+    return this.clientRepository.getListViewCounts(enterpriseId, filter);
+  }
+
+  /**
+   * Obtiene conteos de proveedores (total, personas físicas, empresas) para el listado,
+   * usando {@link SupplierRepository.getListViewCounts}.
+   *
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Mismos filtros que la tabla (sin `enterpriseId`)
+   * @returns Conteos alineados con las tarjetas de la vista
+   */
+  async getSupplierCountsByType(
+    enterpriseId: string,
+    filter: Record<string, unknown> = {},
+  ): Promise<SupplierCountsByTypeDto> {
+    this.logger.log(`Obteniendo conteos de proveedores por tipo para empresa ${enterpriseId}`);
+
+    return this.supplierRepository.getListViewCounts(enterpriseId, filter);
+  }
+
+  /**
+   * Obtiene conteos de series de factura (total filtrado, mes y semana por `created_at`),
+   * usando {@link InvoiceSeriesRepository.getListViewCounts}.
+   *
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Mismos filtros base que la tabla (sin rangos de creación de estadísticas)
+   * @param monthRange - Rango inclusive del mes (createdAt_from / createdAt_to)
+   * @param weekRange - Rango inclusive de la semana (createdAt_from / createdAt_to)
+   * @returns Conteos alineados con las tarjetas de la vista
+   */
+  async getInvoiceSeriesListCounts(
+    enterpriseId: string,
+    filter: Record<string, unknown> = {},
+    monthRange: { from: string; to: string },
+    weekRange: { from: string; to: string },
+  ): Promise<InvoiceSeriesListCountsDto> {
+    this.logger.log(`Obteniendo conteos de series de factura para empresa ${enterpriseId}`);
+
+    return this.invoiceSeriesRepository.getListViewCounts(enterpriseId, filter, monthRange, weekRange);
   }
 
   /**

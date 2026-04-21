@@ -1,5 +1,15 @@
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { UserEnterprise } from '../user/user-enterprise.entity';
+import { WorkSchedule } from '../work-schedule/work-schedule.entity';
+import { Signing } from '../signing/signing.entity';
+import { Vacation } from '../vacation/vacation.entity';
 
 export enum UserStatusTypes {
   ACTIVE = 'active',
@@ -67,8 +77,27 @@ export class User {
   updatedAt: Date;
 
   /**
-   * Relación con UsuarioEmpresa - Todas las asociaciones de empresas para este usuario
+   * Relación con UsuarioEmpresa - Todas las asociaciones de empresas para este usuario.
+   * La plantilla de horario por defecto (`default_schedule_id`) vive en cada fila de `user_enterprise`.
    */
   @OneToMany(() => UserEnterprise, userEnterprise => userEnterprise.user)
   userEnterprises: UserEnterprise[];
+
+  /**
+   * Franjas de trabajo efectivas registradas para el usuario
+   */
+  @OneToMany(() => WorkSchedule, workSchedule => workSchedule.user)
+  workSchedules: WorkSchedule[];
+
+  /**
+   * Fichajes del usuario
+   */
+  @OneToMany(() => Signing, signing => signing.user)
+  signings: Signing[];
+
+  /**
+   * Días de vacaciones u otros permisos
+   */
+  @OneToMany(() => Vacation, vacation => vacation.user)
+  vacations: Vacation[];
 }

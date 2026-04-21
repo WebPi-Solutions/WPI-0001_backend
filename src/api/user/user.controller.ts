@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { Request } from 'express';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { User } from 'src/entities/user/user.entity';
 import { UserService } from './user.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
@@ -87,6 +87,47 @@ export class UserController {
   }
 
   /**
+   * Obtiene un usuario por el identificador de tarjeta (`card_id`) asignado en el vínculo `user_enterprise`
+   * dentro de la empresa indicada.
+   *
+   * @param enterpriseId - Empresa activa (obligatoria)
+   * @param cardId - Identificador numérico de tarjeta
+   * @returns Usuario encontrado (si existe vínculo)
+   */
+  @Get('card/:cardId')
+  @ApiOperation({ summary: 'Obtener un usuario por card_id (empresa)' })
+  @ApiQuery({
+    name: 'enterpriseId',
+    required: true,
+    description: 'ID de la empresa donde se valida el card_id.',
+  })
+  @ApiResponse({ status: 200, description: 'Usuario obtenido correctamente.' })
+  @ApiResponse({ status: 400, description: 'Falta enterpriseId o cardId inválido.' })
+  @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
+  async findByCardId(
+    @Param('cardId') cardId: string,
+    @Query('enterpriseId') enterpriseId: string,
+    @Query('relations') relations?: string,
+  ): Promise<User> {
+    if (!enterpriseId) {
+      throw new HttpException(
+        'Es obligatorio especificar el ID de la empresa',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const parsedCardId = Number.parseInt(String(cardId), 10);
+    if (!Number.isFinite(parsedCardId) || parsedCardId <= 0) {
+      throw new HttpException('cardId inválido', HttpStatus.BAD_REQUEST);
+    }
+    const relationsArray = relations ? relations.split(',') : [];
+    return this.userService.findByEnterpriseCardId(
+      enterpriseId,
+      parsedCardId,
+      relationsArray,
+    );
+  }
+
+  /**
    * Obtiene un usuario por su id
    * @param id - El id del usuario
    * @returns El usuario
@@ -124,11 +165,21 @@ export class UserController {
    */
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar un usuario por su id' })
+  @ApiQuery({
+    name: 'enterpriseId',
+    required: false,
+    description:
+      'Empresa activa. Obligatorio si el cuerpo incluye defaultScheduleId (validación de la plantilla de horario).',
+  })
   @ApiResponse({ status: 200, description: 'El usuario ha sido actualizado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
-  async updateById(@Param('id') id: string, @Body() user: User) {
-    return this.userService.updateById(id, user);
+  async updateById(
+    @Param('id') id: string,
+    @Body() user: User,
+    @Query('enterpriseId') enterpriseId?: string,
+  ) {
+    return this.userService.updateById(id, user, enterpriseId);
   }
 
   /**

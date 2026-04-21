@@ -3,6 +3,8 @@ import { Client } from '../client/client.entity';
 import { UserEnterprise } from '../user/user-enterprise.entity';
 import { Supplier } from '../supplier/supplier.entity';
 import { InvoiceSeries } from '../invoice-series/invoice-series.entity';
+import { DefaultSchedule } from '../default-schedule/default-schedule.entity';
+import { Holiday } from '../holiday/holiday.entity';
 
 /**
  * Entidad Empresa que representa la tabla enterprises en la base de datos
@@ -93,4 +95,16 @@ export class Enterprise {
    */
   @OneToMany(() => InvoiceSeries, invoiceSeries => invoiceSeries.enterprise)
   invoiceSeries: InvoiceSeries[];
+
+  /**
+   * Plantillas de horario por defecto definidas para la empresa (fichajes)
+   */
+  @OneToMany(() => DefaultSchedule, defaultSchedule => defaultSchedule.enterprise)
+  defaultSchedules: DefaultSchedule[];
+
+  /**
+   * Festivos y días no laborables de la empresa (fichajes)
+   */
+  @OneToMany(() => Holiday, holiday => holiday.enterprise)
+  holidays: Holiday[];
 } 

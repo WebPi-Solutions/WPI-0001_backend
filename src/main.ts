@@ -21,8 +21,8 @@ async function bootstrap() {
     Swagger set up
   */
   const config = new DocumentBuilder()
-    .setTitle('AppHunters Development SL - Software de gestión')
-    .setDescription('API para el software de gestión de AppHunters Development SL. Desarrollado por Webpi Solutions.')
+    .setTitle('Webpi Solutions Digital Services SL - Software de gestión')
+    .setDescription('API para el software de gestión de Webpi Solutions Digital Services SL. Desarrollado por Webpi Solutions.')
     .setVersion('1.0.0')
     .addBearerAuth(
       {

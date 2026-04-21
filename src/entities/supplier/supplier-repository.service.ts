@@ -20,6 +20,44 @@ export class SupplierRepository {
   }
 
   /**
+   * Cuenta proveedores con los mismos filtros que el listado.
+   */
+  async count(
+    filter: Record<string, any> = {},
+    relations?: string[],
+  ): Promise<number> {
+    const queryRelations: QueryRelation[] | undefined = relations
+      ? relations.map((relation) => ({
+          property: relation,
+          alias: relation,
+          isLeftJoinAndSelect: false,
+        }))
+      : undefined;
+    return QueryBuilderService.getCount(
+      this.supplierRepository,
+      'supplier',
+      filter,
+      queryRelations,
+    );
+  }
+
+  /**
+   * Conteos para tarjetas del listado: total, personas físicas y empresas.
+   */
+  async getListViewCounts(
+    enterpriseId: string,
+    filter: Record<string, unknown> = {},
+  ): Promise<{ total: number; individuals: number; companies: number }> {
+    const base: Record<string, unknown> = { enterpriseId, ...filter };
+    const [total, individuals, companies] = await Promise.all([
+      this.count(base as Record<string, any>),
+      this.count({ ...base, type: 'individual' } as Record<string, any>),
+      this.count({ ...base, type: 'company' } as Record<string, any>),
+    ]);
+    return { total, individuals, companies };
+  }
+
+  /**
    * Obtiene todos los proveedores con paginación, filtros y ordenación
    * @param page - Número de página
    * @param pageSize - Tamaño de página

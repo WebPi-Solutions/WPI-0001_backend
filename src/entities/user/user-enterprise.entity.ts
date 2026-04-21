@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, RelationId, Unique, UpdateDateColumn } from 'typeorm';
 import { User } from './user.entity';
 import { Enterprise } from '../enterprise/enterprise.entity';
+import { DefaultSchedule } from '../default-schedule/default-schedule.entity';
 
 /**
  * Entidad UsuarioEmpresa que representa la tabla user_enterprise en la base de datos
@@ -8,6 +9,7 @@ import { Enterprise } from '../enterprise/enterprise.entity';
  * entre usuarios y empresas con información adicional de rol
  */
 @Entity('user_enterprise')
+@Unique('user_enterprise_enterprise_id_card_id_key', ['enterpriseId', 'cardId'])
 export class UserEnterprise {
   /**
    * ID de Usuario - Parte de la clave primaria compuesta
@@ -26,6 +28,30 @@ export class UserEnterprise {
    */
   @Column()
   role: string;
+
+  /**
+   * Identificador de tarjeta o credencial NFC en el ámbito de esta empresa (fichajes).
+   * Correlativo por empresa; único junto con enterprise_id en base de datos.
+   */
+  @Column({ name: 'card_id', type: 'int' })
+  cardId: number;
+
+  /**
+   * Plantilla de horario por defecto del usuario **en esta empresa** (FK opcional hacia `default_schedules`).
+   * Misma semántica que `card_id`: un valor por vínculo usuario–empresa.
+   */
+  @ManyToOne(() => DefaultSchedule, defaultSchedule => defaultSchedule.userEnterpriseLinks, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'default_schedule_id' })
+  defaultSchedule: DefaultSchedule | null;
+
+  /**
+   * UUID de la plantilla (útil en JSON sin expandir `defaultSchedule`).
+   */
+  @RelationId((link: UserEnterprise) => link.defaultSchedule)
+  defaultScheduleId: string | null;
 
   /**
    * Fecha en que se creó la asociación

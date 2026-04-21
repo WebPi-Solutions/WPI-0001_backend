@@ -2,7 +2,11 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Client } from './client.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryBuilderService, QueryFilterOptions } from 'src/helpers/query-builder/query-builder.service';
+import {
+  QueryBuilderService,
+  QueryFilterOptions,
+  QueryRelation,
+} from 'src/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 
 @Injectable()
@@ -17,6 +21,51 @@ export class ClientRepository {
    */
   create(client: Client): Promise<Client> {
     return this.clientRepository.save(client);
+  }
+
+  /**
+   * Cuenta clientes con los mismos filtros que el listado (sin paginar).
+   * @param filter - Filtros de consulta
+   * @param relations - Relaciones solo JOIN (para filtros anidados)
+   * @returns Número de filas
+   */
+  async count(
+    filter: Record<string, any> = {},
+    relations?: string[],
+  ): Promise<number> {
+    const queryRelations: QueryRelation[] | undefined = relations
+      ? relations.map((relation) => ({
+          property: relation,
+          alias: relation,
+          isLeftJoinAndSelect: false,
+        }))
+      : undefined;
+    return QueryBuilderService.getCount(
+      this.clientRepository,
+      'client',
+      filter,
+      queryRelations,
+    );
+  }
+
+  /**
+   * Conteos para tarjetas del listado: total, personas físicas y empresas.
+   * Tres llamadas a {@link count}; el tipo fuerza `individual` o `company`.
+   *
+   * @param enterpriseId - Empresa
+   * @param filter - Filtros de la vista (sin `enterpriseId`)
+   */
+  async getListViewCounts(
+    enterpriseId: string,
+    filter: Record<string, unknown> = {},
+  ): Promise<{ total: number; individuals: number; companies: number }> {
+    const base: Record<string, unknown> = { enterpriseId, ...filter };
+    const [total, individuals, companies] = await Promise.all([
+      this.count(base as Record<string, any>),
+      this.count({ ...base, type: 'individual' } as Record<string, any>),
+      this.count({ ...base, type: 'company' } as Record<string, any>),
+    ]);
+    return { total, individuals, companies };
   }
 
   /**

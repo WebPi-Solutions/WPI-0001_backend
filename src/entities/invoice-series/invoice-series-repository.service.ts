@@ -20,6 +20,54 @@ export class InvoiceSeriesRepository {
   }
 
   /**
+   * Cuenta series con los mismos filtros que el listado.
+   */
+  async count(
+    filter: Record<string, any> = {},
+    relations?: string[],
+  ): Promise<number> {
+    const queryRelations: QueryRelation[] | undefined = relations
+      ? relations.map((relation) => ({
+          property: relation,
+          alias: relation,
+          isLeftJoinAndSelect: false,
+        }))
+      : undefined;
+    return QueryBuilderService.getCount(
+      this.invoiceSeriesRepository,
+      'invoiceSeries',
+      filter,
+      queryRelations,
+    );
+  }
+
+  /**
+   * Conteos para tarjetas: total filtrado, rango mes calendario y rango última semana (created_at).
+   */
+  async getListViewCounts(
+    enterpriseId: string,
+    filter: Record<string, unknown>,
+    monthRange: { from: string; to: string },
+    weekRange: { from: string; to: string },
+  ): Promise<{ total: number; thisMonth: number; lastWeek: number }> {
+    const base: Record<string, unknown> = { enterpriseId, ...filter };
+    const [total, thisMonth, lastWeek] = await Promise.all([
+      this.count(base as Record<string, any>),
+      this.count({
+        ...base,
+        createdAt_from: monthRange.from,
+        createdAt_to: monthRange.to,
+      } as Record<string, any>),
+      this.count({
+        ...base,
+        createdAt_from: weekRange.from,
+        createdAt_to: weekRange.to,
+      } as Record<string, any>),
+    ]);
+    return { total, thisMonth, lastWeek };
+  }
+
+  /**
    * Obtiene todas las series de facturas con paginación, filtros y ordenación
    * @param page - Número de página
    * @param pageSize - Tamaño de página

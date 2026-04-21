@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsEmail, IsOptional, IsBoolean, IsInt, IsDate, IsUUID, IsEnum } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsInt, IsUUID, IsEnum, IsOptional, ValidateIf } from 'class-validator';
 import { UserRoleTypes } from '../user.entity';
 
 export class CreateUserEnterpriseDto {
@@ -17,4 +17,26 @@ export class CreateUserEnterpriseDto {
   @IsEnum(UserRoleTypes)
   @IsNotEmpty()
   role: string;
+
+  @ApiProperty({
+    description: 'Identificador de tarjeta/NFC en el ámbito de la empresa (asignado por el servidor al vincular)',
+    example: 1,
+  })
+  @IsInt()
+  @IsNotEmpty()
+  cardId: number;
+
+  /**
+   * Plantilla de horario por defecto para este vínculo usuario–empresa (`user_enterprise.default_schedule_id`).
+   */
+  @ApiPropertyOptional({
+    description:
+      'UUID opcional de plantilla de horario de la empresa para este vínculo (tabla default_schedules).',
+    format: 'uuid',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined && value !== '')
+  @IsUUID()
+  defaultScheduleId?: string | null;
 }

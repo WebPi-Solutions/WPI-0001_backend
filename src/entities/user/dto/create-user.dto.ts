@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsEmail, IsOptional, IsBoolean, IsInt, IsDate, IsEnum, IsArray, ValidateNested } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsEmail, IsOptional, IsEnum, IsArray, ValidateNested, IsUUID, ValidateIf } from 'class-validator';
 import { UserStatusTypes } from '../user.entity';
 import { UserEnterprise } from '../user-enterprise.entity';
 import { Type } from 'class-transformer';
@@ -36,4 +36,19 @@ export class CreateUserDto {
   @IsString()
   @IsOptional()
   password?: string;
+
+  /**
+   * UUID de la plantilla de horario por defecto para el vínculo con la empresa indicada (`user_enterprise.default_schedule_id`).
+   * Opcional; si se omite o es nulo, ese vínculo no tendrá plantilla asignada.
+   */
+  @ApiPropertyOptional({
+    description:
+      'UUID opcional de plantilla de horario para el vínculo usuario–empresa (columna default_schedule_id en user_enterprise).',
+    format: 'uuid',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null && value !== undefined && value !== '')
+  @IsUUID()
+  defaultScheduleId?: string | null;
 }
