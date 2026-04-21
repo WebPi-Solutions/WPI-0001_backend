@@ -7,7 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { User } from '../user/user.entity';
+import { UserEnterprise } from '../user/user-enterprise.entity';
 
 /**
  * Día de vacaciones u otro permiso de un usuario (tabla vacations).
@@ -21,10 +21,11 @@ export class Vacation {
   id: string;
 
   /**
-   * Usuario al que pertenece el permiso
+   * Identificador del vínculo usuario–empresa que posee el permiso.
+   * En multi-empresa, los permisos deben colgar del vínculo (`user_enterprise`).
    */
-  @Column({ name: 'user_id' })
-  userId: string;
+  @Column({ name: 'user_enterprise_id' })
+  userEnterpriseId: string;
 
   /**
    * Descripción corta (por defecto «Vacaciones» en base de datos)
@@ -51,9 +52,9 @@ export class Vacation {
   updatedAt: Date;
 
   /**
-   * Usuario asociado
+   * Vínculo usuario–empresa asociado
    */
-  @ManyToOne(() => User, user => user.vacations, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
-  user: User;
+  @ManyToOne(() => UserEnterprise, (link) => link.vacations, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_enterprise_id' })
+  userEnterprise: UserEnterprise;
 }

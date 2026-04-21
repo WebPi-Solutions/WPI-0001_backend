@@ -83,7 +83,7 @@ export class VacationRepository {
       throw new HttpException('Registro de vacaciones no encontrado', HttpStatus.NOT_FOUND);
     }
     await this.vacationRepository.save({ ...existing, ...partial });
-    return this.findById(id, ['user']);
+    return this.findById(id, ['userEnterprise', 'userEnterprise.user', 'userEnterprise.enterprise']);
   }
 
   /**

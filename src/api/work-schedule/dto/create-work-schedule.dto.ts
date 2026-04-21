@@ -7,11 +7,11 @@ import { IsDateString, IsNotEmpty, IsUUID } from 'class-validator';
  */
 export class CreateWorkScheduleDto {
   @ApiProperty({
-    description: 'Identificador del usuario propietario de la franja',
+    description: 'Vínculo usuario–empresa propietario de la franja (user_enterprise.id)',
   })
   @IsUUID()
   @IsNotEmpty()
-  userId: string;
+  userEnterpriseId: string;
 
   @ApiProperty({
     description: 'Inicio del periodo (ISO 8601)',

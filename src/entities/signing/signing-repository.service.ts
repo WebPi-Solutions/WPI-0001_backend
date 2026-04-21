@@ -1,9 +1,9 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DeleteResult, Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { QueryBuilderService, QueryFilterOptions } from 'src/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
-import { Signing } from './signing.entity';
+import { Signing, SigningAction } from './signing.entity';
 
 /**
  * Repositorio de fichajes (signings).
@@ -18,12 +18,69 @@ export class SigningRepository {
   ) {}
 
   /**
+   * Expone el `EntityManager` del repositorio TypeORM para ejecutar transacciones.
+   *
+   * @returns Manager asociado al repositorio `signings`
+   */
+  getEntityManager(): EntityManager {
+    return this.signingRepository.manager;
+  }
+
+  /**
    * Crea un fichaje
    * @param entity - Datos del fichaje
    * @returns Registro persistido
    */
   create(entity: Partial<Signing>): Promise<Signing> {
     return this.signingRepository.save(entity);
+  }
+
+  /**
+   * Obtiene el último fichaje de entrada (`start`) sin duración calculada para un usuario, antes (o en) un momento dado.
+   * Se usa al registrar una salida para asignar `duration_in_seconds` al `start`.
+   *
+   * @param userEnterpriseId Identificador del vínculo `user_enterprise`
+   * @param inclusiveEndMoment Momento de la salida (límite superior, inclusive)
+   * @returns Signing `start` pendiente o `null` si no existe
+   */
+  async findLatestOpenStartSigningForUser(
+    userEnterpriseId: string,
+    inclusiveEndMoment: Date,
+  ): Promise<Signing | null> {
+    return this.signingRepository
+      .createQueryBuilder('s')
+      .where('s.userEnterpriseId = :userEnterpriseId', { userEnterpriseId })
+      .andWhere('s.action = :action', { action: SigningAction.START })
+      .andWhere('s.durationInSeconds IS NULL')
+      .andWhere('s.cancelled = :activeSigning', { activeSigning: false })
+      .andWhere('s.moment <= :endMoment', { endMoment: inclusiveEndMoment })
+      .orderBy('s.moment', 'DESC')
+      .getOne();
+  }
+
+  /**
+   * Devuelve todos los fichajes de un vínculo usuario–empresa, ordenados cronológicamente.
+   * A igualdad de `moment`, se ordena poniendo `start` antes de `end` (intervalo cero) y
+   * luego por `id` (orden estable).
+   *
+   * @param userEnterpriseId - UUID de `user_enterprise.id`
+   * @returns Fichajes ordenados
+   */
+  async findByUserEnterpriseIdOrderedByMoment(
+    userEnterpriseId: string,
+  ): Promise<Signing[]> {
+    return this.signingRepository
+      .createQueryBuilder('s')
+      .where('s.userEnterpriseId = :userEnterpriseId', { userEnterpriseId })
+      .andWhere('s.cancelled = :activeSigning', { activeSigning: false })
+      .orderBy('s.moment', 'ASC')
+      .addOrderBy(
+        `CASE WHEN s.action = :actionStart THEN 0 ELSE 1 END`,
+        'ASC',
+      )
+      .setParameter('actionStart', SigningAction.START)
+      .addOrderBy('s.id', 'ASC')
+      .getMany();
   }
 
   /**
@@ -50,6 +107,13 @@ export class SigningRepository {
       sort,
       order,
       filter,
+      /**
+       * Listados: solo fichajes no cancelados (independientemente de filtros añadidos en cliente).
+       */
+      extraAndWhere: {
+        sql: 'signing.cancelled = :signingListActiveOnly',
+        parameters: { signingListActiveOnly: false },
+      },
       relations: (relations ?? []).map(relation => ({
         property: relation,
         alias: relation,
@@ -83,16 +147,19 @@ export class SigningRepository {
       throw new HttpException('Fichaje no encontrado', HttpStatus.NOT_FOUND);
     }
     await this.signingRepository.save({ ...existing, ...partial });
-    return this.findById(id, ['user']);
+    return this.findById(id, ['userEnterprise', 'userEnterprise.user']);
   }
 
   /**
-   * Elimina un fichaje
-   * @param id - UUID
-   * @returns Resultado del borrado
+   * Marca un fichaje como cancelado (anulación lógica; no borra la fila).
+   * El registro debe existir; el ámbito de empresa se valida en el servicio.
+   *
+   * @param signing - Entidad cargada
+   * @returns Registro guardado
    */
-  deleteById(id: string): Promise<DeleteResult> {
-    this.logger.log(`Eliminando signing id: ${id}`);
-    return this.signingRepository.delete(id);
+  markCancelledEntity(signing: Signing): Promise<Signing> {
+    this.logger.log(`Anulando lógicamente signing id: ${signing.id}`);
+    signing.cancelled = true;
+    return this.signingRepository.save(signing);
   }
 }

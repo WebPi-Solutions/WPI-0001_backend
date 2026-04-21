@@ -4,7 +4,7 @@ import { IsDateString, IsEnum, IsInt, IsOptional, Min } from 'class-validator';
 import { SigningAction } from 'src/entities/signing/signing.entity';
 
 /**
- * Actualización parcial de un fichaje (no permite cambiar `userId` desde la API pública).
+ * Actualización parcial de un fichaje (no permite cambiar el vínculo `userEnterpriseId` desde esta API).
  */
 export class UpdateSigningDto {
   @ApiProperty({

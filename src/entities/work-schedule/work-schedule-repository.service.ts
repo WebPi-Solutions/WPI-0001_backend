@@ -87,7 +87,7 @@ export class WorkScheduleRepository {
       throw new HttpException('Franja de horario no encontrada', HttpStatus.NOT_FOUND);
     }
     await this.workScheduleRepository.save({ ...existing, ...partial });
-    return this.findById(id, ['user']);
+    return this.findById(id, ['userEnterprise', 'userEnterprise.user', 'userEnterprise.enterprise']);
   }
 
   /**

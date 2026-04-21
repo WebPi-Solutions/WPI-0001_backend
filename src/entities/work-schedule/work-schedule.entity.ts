@@ -7,7 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { User } from '../user/user.entity';
+import { UserEnterprise } from '../user/user-enterprise.entity';
 
 /**
  * Franja de trabajo efectiva de un usuario (tabla schedules).
@@ -22,10 +22,11 @@ export class WorkSchedule {
   id: string;
 
   /**
-   * Usuario al que pertenece la franja
+   * Identificador del vínculo usuario–empresa propietario de la franja.
+   * En multi-empresa, las franjas deben colgar del vínculo (`user_enterprise`).
    */
-  @Column({ name: 'user_id' })
-  userId: string;
+  @Column({ name: 'user_enterprise_id' })
+  userEnterpriseId: string;
 
   /**
    * Inicio del periodo trabajado (timestamptz)
@@ -52,9 +53,9 @@ export class WorkSchedule {
   updatedAt: Date;
 
   /**
-   * Usuario asociado
+   * Vínculo usuario–empresa asociado
    */
-  @ManyToOne(() => User, user => user.workSchedules, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
-  user: User;
+  @ManyToOne(() => UserEnterprise, (link) => link.workSchedules, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_enterprise_id' })
+  userEnterprise: UserEnterprise;
 }

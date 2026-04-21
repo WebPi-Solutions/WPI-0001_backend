@@ -15,10 +15,10 @@ import { SigningAction } from 'src/entities/signing/signing.entity';
  * Cuerpo para registrar un fichaje (`signings`).
  */
 export class CreateSigningDto {
-  @ApiProperty({ description: 'Usuario que ficha' })
+  @ApiProperty({ description: 'Vínculo usuario–empresa que ficha (user_enterprise.id)' })
   @IsUUID()
   @IsNotEmpty()
-  userId: string;
+  userEnterpriseId: string;
 
   @ApiProperty({
     description: 'Tipo de fichaje',

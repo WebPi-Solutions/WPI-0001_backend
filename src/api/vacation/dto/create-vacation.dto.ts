@@ -11,10 +11,10 @@ import {
  * Cuerpo para crear un día de vacaciones o permiso (`vacations`).
  */
 export class CreateVacationDto {
-  @ApiProperty({ description: 'Usuario al que pertenece el permiso' })
+  @ApiProperty({ description: 'Vínculo usuario–empresa del permiso (user_enterprise.id)' })
   @IsUUID()
   @IsNotEmpty()
-  userId: string;
+  userEnterpriseId: string;
 
   @ApiProperty({
     description: 'Descripción corta',

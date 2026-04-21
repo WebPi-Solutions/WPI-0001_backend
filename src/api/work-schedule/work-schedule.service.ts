@@ -7,8 +7,12 @@ import { DeleteResult } from 'typeorm';
 import { CreateWorkScheduleDto } from './dto/create-work-schedule.dto';
 import { UpdateWorkScheduleDto } from './dto/update-work-schedule.dto';
 
-/** Relaciones mínimas para filtrar fichajes por empresa vía `user_enterprise`. */
-const USER_ENTERPRISE_RELATIONS = ['user', 'user.userEnterprises'];
+/** Relaciones mínimas para filtrar por empresa vía `user_enterprise`. */
+const USER_ENTERPRISE_RELATIONS = [
+  'userEnterprise',
+  'userEnterprise.enterprise',
+  'userEnterprise.user',
+];
 
 /**
  * Servicio de API para franjas de trabajo (`schedules`).
@@ -49,13 +53,10 @@ export class WorkScheduleService {
         HttpStatus.NOT_FOUND,
       );
     }
-    await this.enterpriseAccessService.assertUserBelongsToEnterprise(
-      entity.userId,
+    await this.enterpriseAccessService.assertUserEnterpriseBelongsToEnterprise(
+      entity.userEnterpriseId,
       enterpriseId,
-      {
-        operationContext: 'work-schedule',
-        notFoundMessage: 'Franja de horario no encontrada',
-      },
+      { operationContext: 'work-schedule', notFoundMessage: 'Franja de horario no encontrada' },
     );
     return entity;
   }
@@ -71,20 +72,17 @@ export class WorkScheduleService {
     dto: CreateWorkScheduleDto,
   ): Promise<WorkSchedule> {
     this.logger.log(
-      `Creando franja de trabajo para usuario ${dto.userId} (empresa ${enterpriseId})`,
+      `Creando franja de trabajo para userEnterprise ${dto.userEnterpriseId} (empresa ${enterpriseId})`,
     );
 
-    await this.enterpriseAccessService.assertUserBelongsToEnterprise(
-      dto.userId,
+    await this.enterpriseAccessService.assertUserEnterpriseBelongsToEnterprise(
+      dto.userEnterpriseId,
       enterpriseId,
-      {
-        operationContext: 'work-schedule',
-        notFoundMessage: 'Franja de horario no encontrada',
-      },
+      { operationContext: 'work-schedule', notFoundMessage: 'Franja de horario no encontrada' },
     );
 
     const entityData: Partial<WorkSchedule> = {
-      userId: dto.userId,
+      userEnterpriseId: dto.userEnterpriseId,
       startsAt: new Date(dto.startsAt),
       endsAt: new Date(dto.endsAt),
     };
@@ -105,7 +103,7 @@ export class WorkScheduleService {
    * @param pageSize - Tamaño
    * @param sort - Orden
    * @param order - Dirección
-   * @param filter - Filtros (debe incluir `userEnterprises.enterpriseId` y opcionalmente `userId`)
+   * @param filter - Filtros (debe incluir `userEnterprise.enterpriseId` y opcionalmente `userEnterpriseId`)
    * @param relations - Relaciones (se fusionan con las necesarias para el filtro por empresa)
    * @returns Página de resultados
    */
@@ -177,7 +175,10 @@ export class WorkScheduleService {
 
     if (Object.keys(entityData).length === 0) {
       this.logger.log(`Sin campos editables; se devuelve el registro actual`);
-      return this.findById(id, enterpriseId, ['user']);
+      return this.findById(id, enterpriseId, [
+        'userEnterprise',
+        'userEnterprise.user',
+      ]);
     }
 
     try {

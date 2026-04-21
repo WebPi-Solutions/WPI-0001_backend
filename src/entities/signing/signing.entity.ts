@@ -7,7 +7,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { User } from '../user/user.entity';
+import { UserEnterprise } from '../user/user-enterprise.entity';
 
 /**
  * Valores del tipo PostgreSQL `signing_actions` (entrada/salida de fichaje).
@@ -30,10 +30,12 @@ export class Signing {
   id: string;
 
   /**
-   * Usuario que ficha
+   * Identificador del vínculo usuario–empresa que realiza el fichaje.
+   * En un sistema multi-empresa, los fichajes pertenecen a una relación concreta (`user_enterprise`),
+   * no al usuario global.
    */
-  @Column({ name: 'user_id' })
-  userId: string;
+  @Column({ name: 'user_enterprise_id' })
+  userEnterpriseId: string;
 
   /**
    * Tipo de acción: inicio o fin de jornada/franja (columna `action`, tipo enum en PostgreSQL)
@@ -59,6 +61,13 @@ export class Signing {
   durationInSeconds: number | null;
 
   /**
+   * Anulación lógica: true si el registro dejó de mostrarse en listados
+   * (p. ej. tras «eliminar» desde la app; en base de datos no se borra la fila).
+   */
+  @Column({ name: 'cancelled', type: 'boolean', default: false })
+  cancelled: boolean;
+
+  /**
    * Marca de creación del registro (auditoría, no debe alterarse en negocio)
    */
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
@@ -73,7 +82,7 @@ export class Signing {
   /**
    * Usuario que realiza el fichaje
    */
-  @ManyToOne(() => User, user => user.signings, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'user_id' })
-  user: User;
+  @ManyToOne(() => UserEnterprise, (link) => link.signings, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_enterprise_id' })
+  userEnterprise: UserEnterprise;
 }

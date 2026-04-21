@@ -64,7 +64,7 @@ export class VacationController {
   @ApiResponse({ status: 400, description: 'Falta enterpriseId.' })
   async findAll(
     @Query('enterpriseId') enterpriseId: string,
-    @Query('userId') userId?: string,
+    @Query('userEnterpriseId') userEnterpriseId?: string,
     @Query('page') page: number = 1,
     @Query('pageSize') pageSize: number = 10,
     @Query('sort') sort: string = 'calendarDate',
@@ -84,17 +84,17 @@ export class VacationController {
     const relationsArray = relations ? relations.split(',') : [];
 
     let filterObj: Record<string, unknown> = {
-      'userEnterprises.enterpriseId': enterpriseId,
+      'userEnterprise.enterpriseId': enterpriseId,
     };
-    if (userId) {
-      filterObj.userId = userId;
+    if (userEnterpriseId) {
+      filterObj.userEnterpriseId = userEnterpriseId;
     }
     if (filter) {
       try {
         filterObj = {
           ...JSON.parse(filter),
-          'userEnterprises.enterpriseId': enterpriseId,
-          ...(userId ? { userId } : {}),
+          'userEnterprise.enterpriseId': enterpriseId,
+          ...(userEnterpriseId ? { userEnterpriseId } : {}),
         };
       } catch (error) {
         console.error('Error al parsear filter JSON (vacations):', error);

@@ -225,6 +225,26 @@ export class UserRepository {
   }
 
   /**
+   * Obtiene el vínculo `user_enterprise` asociado a un `card_id` en una empresa.
+   * Útil para terminales/kiosco, ya que los flujos multi-empresa deben operar con `userEnterpriseId`.
+   *
+   * @param enterpriseId Empresa donde se valida el card_id
+   * @param cardId Identificador numérico asignado a la tarjeta en esa empresa
+   * @param relations Relaciones opcionales (p. ej. `user`, `enterprise`)
+   * @returns Vínculo o null si no existe
+   */
+  async findUserEnterpriseByEnterpriseAndCardId(
+    enterpriseId: string,
+    cardId: number,
+    relations?: string[],
+  ): Promise<UserEnterprise | null> {
+    return this.userEnterpriseRepository.findOne({
+      where: { enterpriseId, cardId },
+      relations,
+    });
+  }
+
+  /**
    * Actualiza un usuario existente por su ID
    * @param id - El ID del usuario a actualizar
    * @param user - El usuario con datos actualizados (puede ser parcial)
@@ -297,6 +317,39 @@ export class UserRepository {
       this.logger.log(`El usuario ${userId} no tiene acceso a la empresa ${enterpriseId}`);
     }
     return link ?? null;
+  }
+
+  /**
+   * Obtiene un vínculo `user_enterprise` por su UUID.
+   *
+   * @param userEnterpriseId - UUID del vínculo
+   * @param relations - Relaciones opcionales
+   * @returns Vínculo encontrado o null
+   */
+  async findUserEnterpriseById(
+    userEnterpriseId: string,
+    relations?: string[],
+  ): Promise<UserEnterprise | null> {
+    return this.userEnterpriseRepository.findOne({
+      where: { id: userEnterpriseId },
+      relations,
+    });
+  }
+
+  /**
+   * Comprueba que un vínculo `user_enterprise` pertenezca a una empresa concreta.
+   *
+   * @param userEnterpriseId - UUID del vínculo
+   * @param enterpriseId - UUID de empresa
+   * @returns Vínculo si existe; null si no
+   */
+  async findUserEnterpriseByIdAndEnterprise(
+    userEnterpriseId: string,
+    enterpriseId: string,
+  ): Promise<UserEnterprise | null> {
+    return this.userEnterpriseRepository.findOne({
+      where: { id: userEnterpriseId, enterpriseId },
+    });
   }
 
   /**

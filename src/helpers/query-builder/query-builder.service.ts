@@ -26,6 +26,11 @@ export interface QueryRelation {
 export interface QueryFilterOptions extends PaginationOptions {
   relations?: QueryRelation[];
   filter?: Record<string, any>;
+  /**
+   * Condición AND adicional tras los JOINs y antes de aplicar `filter`.
+   * Se usa, por ejemplo, para excluir registros cancelados lógicamente.
+   */
+  extraAndWhere?: { sql: string; parameters?: Record<string, any> };
 }
 
 /**
@@ -85,6 +90,13 @@ export class QueryBuilderService {
 
     // Aplicar relaciones (joins)
     this.applyRelations(queryBuilder, options.relations || [], entityAlias);
+
+    if (options.extraAndWhere?.sql) {
+      queryBuilder.andWhere(
+        options.extraAndWhere.sql,
+        options.extraAndWhere.parameters,
+      );
+    }
 
     // Aplicar filtros
     if (options.filter && Object.keys(options.filter).length > 0) {

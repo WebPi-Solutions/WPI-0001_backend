@@ -1,7 +1,10 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn, RelationId, Unique, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, RelationId, Unique, UpdateDateColumn } from 'typeorm';
 import { User } from './user.entity';
 import { Enterprise } from '../enterprise/enterprise.entity';
 import { DefaultSchedule } from '../default-schedule/default-schedule.entity';
+import { Signing } from '../signing/signing.entity';
+import { Vacation } from '../vacation/vacation.entity';
+import { WorkSchedule } from '../work-schedule/work-schedule.entity';
 
 /**
  * Entidad UsuarioEmpresa que representa la tabla user_enterprise en la base de datos
@@ -12,15 +15,21 @@ import { DefaultSchedule } from '../default-schedule/default-schedule.entity';
 @Unique('user_enterprise_enterprise_id_card_id_key', ['enterpriseId', 'cardId'])
 export class UserEnterprise {
   /**
-   * ID de Usuario - Parte de la clave primaria compuesta
+   * Identificador único del vínculo usuario–empresa.
    */
-  @PrimaryColumn({ name: 'user_id' })
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  /**
+   * ID de Usuario.
+   */
+  @Column({ name: 'user_id' })
   userId: string;
 
   /**
-   * ID de Empresa - Parte de la clave primaria compuesta
+   * ID de Empresa.
    */
-  @PrimaryColumn({ name: 'enterprise_id' })
+  @Column({ name: 'enterprise_id' })
   enterpriseId: string;
 
   /**
@@ -78,4 +87,22 @@ export class UserEnterprise {
   @ManyToOne(() => Enterprise, enterprise => enterprise.userEnterprises)
   @JoinColumn({ name: 'enterprise_id' })
   enterprise: Enterprise;
+
+  /**
+   * Fichajes registrados en el ámbito de este vínculo usuario–empresa.
+   */
+  @OneToMany(() => Signing, (signing) => signing.userEnterprise)
+  signings: Signing[];
+
+  /**
+   * Permisos/vacaciones registrados en el ámbito de este vínculo usuario–empresa.
+   */
+  @OneToMany(() => Vacation, (vacation) => vacation.userEnterprise)
+  vacations: Vacation[];
+
+  /**
+   * Franjas de trabajo registradas en el ámbito de este vínculo usuario–empresa.
+   */
+  @OneToMany(() => WorkSchedule, (workSchedule) => workSchedule.userEnterprise)
+  workSchedules: WorkSchedule[];
 } 

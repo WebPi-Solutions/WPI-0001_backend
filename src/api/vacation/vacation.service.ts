@@ -7,7 +7,11 @@ import { DeleteResult } from 'typeorm';
 import { CreateVacationDto } from './dto/create-vacation.dto';
 import { UpdateVacationDto } from './dto/update-vacation.dto';
 
-const USER_ENTERPRISE_RELATIONS = ['user', 'user.userEnterprises'];
+const USER_ENTERPRISE_RELATIONS = [
+  'userEnterprise',
+  'userEnterprise.enterprise',
+  'userEnterprise.user',
+];
 
 /**
  * Servicio de API para vacaciones y permisos (`vacations`), aislado por empresa.
@@ -44,13 +48,10 @@ export class VacationService {
         HttpStatus.NOT_FOUND,
       );
     }
-    await this.enterpriseAccessService.assertUserBelongsToEnterprise(
-      entity.userId,
+    await this.enterpriseAccessService.assertUserEnterpriseBelongsToEnterprise(
+      entity.userEnterpriseId,
       enterpriseId,
-      {
-        operationContext: 'vacation',
-        notFoundMessage: 'Registro de vacaciones no encontrado',
-      },
+      { operationContext: 'vacation', notFoundMessage: 'Registro de vacaciones no encontrado' },
     );
     return entity;
   }
@@ -66,20 +67,17 @@ export class VacationService {
     dto: CreateVacationDto,
   ): Promise<Vacation> {
     this.logger.log(
-      `Creando vacación/permiso para usuario ${dto.userId} (empresa ${enterpriseId})`,
+      `Creando vacación/permiso para userEnterprise ${dto.userEnterpriseId} (empresa ${enterpriseId})`,
     );
 
-    await this.enterpriseAccessService.assertUserBelongsToEnterprise(
-      dto.userId,
+    await this.enterpriseAccessService.assertUserEnterpriseBelongsToEnterprise(
+      dto.userEnterpriseId,
       enterpriseId,
-      {
-        operationContext: 'vacation',
-        notFoundMessage: 'Registro de vacaciones no encontrado',
-      },
+      { operationContext: 'vacation', notFoundMessage: 'Registro de vacaciones no encontrado' },
     );
 
     const entityData: Partial<Vacation> = {
-      userId: dto.userId,
+      userEnterpriseId: dto.userEnterpriseId,
       name: dto.name ?? 'Vacaciones',
       calendarDate: dto.calendarDate,
     };
@@ -95,7 +93,7 @@ export class VacationService {
   }
 
   /**
-   * Listado paginado con filtro por empresa (join usuario → user_enterprise).
+   * Listado paginado con filtro por empresa (vía `userEnterprise` / `userEnterprise.enterpriseId`).
    * @param page - Página
    * @param pageSize - Tamaño
    * @param sort - Orden
@@ -172,7 +170,10 @@ export class VacationService {
 
     if (Object.keys(entityData).length === 0) {
       this.logger.log(`Sin campos editables; se devuelve el registro actual`);
-      return this.findById(id, enterpriseId, ['user']);
+      return this.findById(id, enterpriseId, [
+        'userEnterprise',
+        'userEnterprise.user',
+      ]);
     }
 
     try {

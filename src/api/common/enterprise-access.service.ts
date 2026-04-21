@@ -97,5 +97,37 @@ export class EnterpriseAccessService {
     }
   }
 
+  /**
+   * Comprueba que exista una fila `user_enterprise` por id y que pertenezca a `enterpriseId`.
+   * Si no existe, lanza HTTP 404 con el mensaje indicado.
+   *
+   * @param userEnterpriseId - UUID del vínculo usuario–empresa
+   * @param enterpriseId - UUID de la empresa
+   * @param options - Contexto y mensaje de no encontrado
+   * @returns El vínculo (útil para obtener `userId`)
+   */
+  async assertUserEnterpriseBelongsToEnterprise(
+    userEnterpriseId: string,
+    enterpriseId: string,
+    options: AssertUserBelongsToEnterpriseOptions,
+  ): Promise<{ userId: string; enterpriseId: string; id: string }> {
+    const link = await this.userRepository.findUserEnterpriseByIdAndEnterprise(
+      userEnterpriseId,
+      enterpriseId,
+    );
+
+    if (!link) {
+      const contextSuffix = options.operationContext
+        ? ` (${options.operationContext})`
+        : '';
+      this.logger.warn(
+        `El vínculo user_enterprise ${userEnterpriseId} no pertenece a la empresa ${enterpriseId}${contextSuffix}`,
+      );
+      throw new HttpException(options.notFoundMessage, HttpStatus.NOT_FOUND);
+    }
+
+    return { id: link.id, userId: link.userId, enterpriseId: link.enterpriseId };
+  }
+
   // --- Ampliar con nuevas validaciones de acceso por empresa debajo de esta línea ---
 }

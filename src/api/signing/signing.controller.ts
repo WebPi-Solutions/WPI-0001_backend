@@ -9,8 +9,11 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { SigningUpdate } from 'src/entities/signing/signing-update.entity';
 import { Signing } from 'src/entities/signing/signing.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { CreateSigningDto } from './dto/create-signing.dto';
@@ -64,7 +67,7 @@ export class SigningController {
   @ApiResponse({ status: 400, description: 'Falta enterpriseId.' })
   async findAll(
     @Query('enterpriseId') enterpriseId: string,
-    @Query('userId') userId?: string,
+    @Query('userEnterpriseId') userEnterpriseId?: string,
     @Query('page') page: number = 1,
     @Query('pageSize') pageSize: number = 10,
     @Query('sort') sort: string = 'moment',
@@ -84,17 +87,17 @@ export class SigningController {
     const relationsArray = relations ? relations.split(',') : [];
 
     let filterObj: Record<string, unknown> = {
-      'userEnterprises.enterpriseId': enterpriseId,
+      'userEnterprise.enterpriseId': enterpriseId,
     };
-    if (userId) {
-      filterObj.userId = userId;
+    if (userEnterpriseId) {
+      filterObj.userEnterpriseId = userEnterpriseId;
     }
     if (filter) {
       try {
         filterObj = {
           ...JSON.parse(filter),
-          'userEnterprises.enterpriseId': enterpriseId,
-          ...(userId ? { userId } : {}),
+          'userEnterprise.enterpriseId': enterpriseId,
+          ...(userEnterpriseId ? { userEnterpriseId } : {}),
         };
       } catch (error) {
         console.error('Error al parsear filter JSON (signings):', error);
@@ -109,6 +112,32 @@ export class SigningController {
       filterObj,
       relationsArray,
     );
+  }
+
+  /**
+   * Devuelve el histórico de actualizaciones de un fichaje (tabla `signings_updates`).
+   * Ruta concreta: debe declararse **antes** de `GET :id` para no capturar `signing-updates` como id.
+   *
+   * @param id - UUID del fichaje
+   * @param enterpriseId - Empresa
+   * @returns Lista ordenada de más antigua a más reciente
+   */
+  @Get(':id/signing-updates')
+  @ApiOperation({ summary: 'Histórico de actualizaciones de un fichaje' })
+  @ApiResponse({ status: 200, description: 'Listado de cambios (puede ser vacío).' })
+  @ApiResponse({ status: 404, description: 'No encontrado, cancelado o sin acceso a la empresa.' })
+  @ApiResponse({ status: 400, description: 'Falta enterpriseId.' })
+  async getSigningUpdates(
+    @Param('id') id: string,
+    @Query('enterpriseId') enterpriseId: string,
+  ): Promise<SigningUpdate[]> {
+    if (!enterpriseId) {
+      throw new HttpException(
+        'Es obligatorio especificar el ID de la empresa',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return this.signingService.getSigningUpdatesForSigning(id, enterpriseId);
   }
 
   /**
@@ -148,11 +177,17 @@ export class SigningController {
   @ApiOperation({ summary: 'Actualizar un fichaje' })
   @ApiResponse({ status: 200, description: 'Actualización correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrado.' })
-  @ApiResponse({ status: 400, description: 'Falta enterpriseId.' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Falta enterpriseId, datos inválidos o la nueva hora rompe la secuencia entrada/salida del vínculo.',
+  })
+  @ApiResponse({ status: 401, description: 'No se identificó al usuario (middleware Firebase).' })
   async updateById(
     @Param('id') id: string,
     @Query('enterpriseId') enterpriseId: string,
     @Body() dto: UpdateSigningDto,
+    @Req() req: Request,
   ): Promise<Signing> {
     if (!enterpriseId) {
       throw new HttpException(
@@ -160,18 +195,25 @@ export class SigningController {
         HttpStatus.BAD_REQUEST,
       );
     }
-    return this.signingService.updateById(id, enterpriseId, dto);
+    const actorUserId = req.user?.id;
+    if (!actorUserId) {
+      throw new HttpException(
+        'No se pudo identificar al usuario autenticado',
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+    return this.signingService.updateById(id, enterpriseId, dto, actorUserId);
   }
 
   /**
-   * Elimina un fichaje si el usuario pertenece a la empresa.
+   * Anula un fichaje (marca `cancelled`; no borra la fila en base de datos).
    * @param id - UUID
    * @param enterpriseId - Empresa
-   * @returns Resultado del borrado
+   * @returns Resultado de la anulación lógica
    */
   @Delete(':id')
-  @ApiOperation({ summary: 'Eliminar un fichaje' })
-  @ApiResponse({ status: 200, description: 'Eliminación correcta.' })
+  @ApiOperation({ summary: 'Anular un fichaje (borrado lógico)' })
+  @ApiResponse({ status: 200, description: 'Anulación correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrado.' })
   @ApiResponse({ status: 400, description: 'Falta enterpriseId.' })
   async delete(
