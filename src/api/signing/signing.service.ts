@@ -26,6 +26,12 @@ export class SigningService {
   /** Duración mínima aceptada (segundos). */
   private static readonly MIN_DURATION_SECONDS = 0;
 
+  /**
+   * Tolerancia (ms) para evitar falsos positivos por desfases entre cliente/servidor o latencias muy pequeñas.
+   * Por ejemplo, un cliente que envía un `moment` "ahora" puede llegar unos milisegundos por delante del `Date.now()`.
+   */
+  private static readonly FUTURE_MOMENT_TOLERANCE_MS = 1500;
+
   constructor(
     private readonly signingRepository: SigningRepository,
     private readonly signingUpdateRepository: SigningUpdateRepository,
@@ -66,6 +72,52 @@ export class SigningService {
   }
 
   /**
+   * Parsea un momento recibido en DTO a Date y valida que sea un Date válido.
+   *
+   * @param rawMoment - Momento recibido (ISO string habitual en frontend)
+   * @param operationContext - Contexto para logs
+   * @returns Date parseado
+   */
+  private parseMomentOrThrow(rawMoment: string, operationContext: string): Date {
+    const parsed = new Date(rawMoment);
+    if (!Number.isFinite(parsed.getTime())) {
+      this.logger.warn(
+        `Momento inválido recibido (${operationContext}): "${rawMoment}"`,
+      );
+      throw new HttpException(
+        'La fecha y hora indicada no es válida.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return parsed;
+  }
+
+  /**
+   * Valida que un momento no sea posterior a la fecha/hora actual.
+   *
+   * @param moment - Momento a validar
+   * @param operationContext - Contexto para logs
+   */
+  private assertMomentIsNotInFuture(moment: Date, operationContext: string): void {
+    const nowEpochMs = Date.now();
+    const momentEpochMs = moment.getTime();
+    if (
+      Number.isFinite(momentEpochMs) &&
+      momentEpochMs > nowEpochMs + SigningService.FUTURE_MOMENT_TOLERANCE_MS
+    ) {
+      this.logger.warn(
+        `Momento futuro rechazado (${operationContext}): moment=${moment.toISOString()}, now=${new Date(
+          nowEpochMs,
+        ).toISOString()}`,
+      );
+      throw new HttpException(
+        'No se puede crear o editar un fichaje con una fecha y hora posterior a la actual.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  /**
    * Registra un fichaje para un usuario de la empresa.
    * @param enterpriseId - Empresa (query)
    * @param dto - Datos permitidos (sin poder fijar `createdAt` / `updatedAt`)
@@ -89,7 +141,9 @@ export class SigningService {
     };
 
     if (dto.moment !== undefined && dto.moment !== null && dto.moment !== '') {
-      entityData.moment = new Date(dto.moment);
+      const parsedMoment = this.parseMomentOrThrow(dto.moment, 'signing.create');
+      this.assertMomentIsNotInFuture(parsedMoment, 'signing.create');
+      entityData.moment = parsedMoment;
     }
 
     if (dto.durationInSeconds !== undefined) {
@@ -277,11 +331,17 @@ export class SigningService {
 
     const newMoment: Date =
       dto.moment !== undefined && dto.moment !== null && dto.moment !== ''
-        ? new Date(dto.moment)
+        ? this.parseMomentOrThrow(dto.moment, `signing.update:${id}`)
         : new Date(current.moment);
 
     const newAction: SigningAction =
       dto.action !== undefined ? dto.action : current.action;
+
+    /**
+     * Reglas de negocio: no permitir crear o editar fichajes en el futuro.
+     * Se valida tanto si se envía `moment` como si no (defensa en profundidad).
+     */
+    this.assertMomentIsNotInFuture(newMoment, `signing.update:${id}`);
 
     const momentChanged =
       dto.moment !== undefined &&
