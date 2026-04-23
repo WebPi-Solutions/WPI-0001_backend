@@ -403,4 +403,35 @@ export class UserRepository {
         : ({ id: defaultScheduleId } as DefaultSchedule);
     await this.userEnterpriseRepository.save(link);
   }
+
+  /**
+   * Actualiza el rol asociado al par usuario–empresa.
+   *
+   * @param userId - ID del usuario
+   * @param enterpriseId - ID de la empresa
+   * @param role - Nuevo rol a persistir en `user_enterprise.role`
+   */
+  async updateUserEnterpriseRole(
+    userId: string,
+    enterpriseId: string,
+    role: string,
+  ): Promise<void> {
+    this.logger.log(
+      `Actualizando role en user_enterprise para usuario ${userId}, empresa ${enterpriseId}`,
+    );
+    const link = await this.userEnterpriseRepository.findOne({
+      where: { userId, enterpriseId },
+    });
+    if (!link) {
+      this.logger.warn(
+        `No se encontró fila user_enterprise para usuario ${userId} y empresa ${enterpriseId}`,
+      );
+      throw new HttpException(
+        'No existe vínculo usuario–empresa para actualizar el rol.',
+        HttpStatus.NOT_FOUND,
+      );
+    }
+    link.role = role;
+    await this.userEnterpriseRepository.save(link);
+  }
 }

@@ -482,6 +482,9 @@ export class UserService {
 
       const patch: Partial<User> = { ...user };
       delete (patch as { defaultScheduleId?: unknown }).defaultScheduleId;
+      // Evitar que el `save` del usuario intente persistir relaciones `userEnterprises` con payload incompleto.
+      // Las actualizaciones del vínculo usuario–empresa se gestionan explícitamente con métodos dedicados.
+      delete (patch as { userEnterprises?: unknown }).userEnterprises;
 
       if (Object.prototype.hasOwnProperty.call(user as object, 'defaultScheduleId')) {
         if (!enterpriseId) {
@@ -504,6 +507,35 @@ export class UserService {
           id,
           enterpriseId,
           resolvedScheduleId,
+        );
+      }
+
+      // Actualización de rol en el vínculo usuario–empresa (si se envía en el body).
+      // Se acepta el patrón `userEnterprises: [{ role: '...' }]` desde el frontend, pero no se persiste
+      // como relación; se aplica como UPDATE sobre la fila del vínculo para la empresa activa.
+      const userPayloadWithEnterprises = user as Partial<User> & {
+        userEnterprises?: Array<{ role?: string | null }> | null;
+      };
+      const requestedRole = userPayloadWithEnterprises.userEnterprises?.[0]?.role ?? null;
+      const requestedRoleNormalized =
+        typeof requestedRole === 'string' ? requestedRole.trim() : '';
+      const shouldUpdateEnterpriseRole =
+        Object.prototype.hasOwnProperty.call(user as object, 'userEnterprises') &&
+        requestedRoleNormalized !== '';
+      if (shouldUpdateEnterpriseRole) {
+        if (!enterpriseId) {
+          this.logger.warn(
+            `Actualización de rol rechazada: falta enterpriseId en la petición (usuario ${id})`,
+          );
+          throw new HttpException(
+            'Se requiere el parámetro enterpriseId en la URL para modificar el rol del usuario en la empresa.',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        await this.userRepository.updateUserEnterpriseRole(
+          id,
+          enterpriseId,
+          requestedRoleNormalized,
         );
       }
 
