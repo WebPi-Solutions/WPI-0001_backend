@@ -87,6 +87,25 @@ export class WorkScheduleService {
       endsAt: new Date(dto.endsAt),
     };
 
+    if (entityData.startsAt.getTime() >= entityData.endsAt.getTime()) {
+      throw new HttpException(
+        'La hora de fin debe ser posterior a la hora de inicio',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const hasOverlap = await this.workScheduleRepository.existsOverlapForUserEnterprise(
+      dto.userEnterpriseId,
+      entityData.startsAt,
+      entityData.endsAt,
+    );
+    if (hasOverlap) {
+      throw new HttpException(
+        'La franja se solapa con otra franja existente para este usuario',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
     try {
       const created = await this.workScheduleRepository.create(entityData);
       this.logger.log(`Franja creada con id ${created.id}`);
@@ -163,7 +182,7 @@ export class WorkScheduleService {
   ): Promise<WorkSchedule> {
     this.logger.log(`Actualizando franja ${id} para empresa ${enterpriseId}`);
 
-    await this.loadScopedOrThrow(id, enterpriseId);
+    const existing = await this.loadScopedOrThrow(id, enterpriseId);
 
     const entityData: Partial<WorkSchedule> = {};
     if (dto.startsAt !== undefined) {
@@ -179,6 +198,28 @@ export class WorkScheduleService {
         'userEnterprise',
         'userEnterprise.user',
       ]);
+    }
+
+    const resolvedStartsAt = entityData.startsAt ?? existing.startsAt;
+    const resolvedEndsAt = entityData.endsAt ?? existing.endsAt;
+    if (resolvedStartsAt.getTime() >= resolvedEndsAt.getTime()) {
+      throw new HttpException(
+        'La hora de fin debe ser posterior a la hora de inicio',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const hasOverlap = await this.workScheduleRepository.existsOverlapForUserEnterprise(
+      existing.userEnterpriseId,
+      resolvedStartsAt,
+      resolvedEndsAt,
+      existing.id,
+    );
+    if (hasOverlap) {
+      throw new HttpException(
+        'La franja se solapa con otra franja existente para este usuario',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     try {

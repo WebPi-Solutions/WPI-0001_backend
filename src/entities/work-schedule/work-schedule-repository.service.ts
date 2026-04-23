@@ -99,4 +99,35 @@ export class WorkScheduleRepository {
     this.logger.log(`Eliminando work_schedule id: ${id}`);
     return this.workScheduleRepository.delete(id);
   }
+
+  /**
+   * Comprueba si existe algún solape con otra franja del mismo `userEnterpriseId`.
+   *
+   * Regla de solape: dos intervalos \([a,b), [c,d)\) solapan si \(a < d\) y \(b > c\).
+   *
+   * @param userEnterpriseId - Vínculo usuario–empresa
+   * @param startsAt - Inicio candidato
+   * @param endsAt - Fin candidato
+   * @param excludeId - Opcional: id a excluir (para updates)
+   */
+  async existsOverlapForUserEnterprise(
+    userEnterpriseId: string,
+    startsAt: Date,
+    endsAt: Date,
+    excludeId?: string,
+  ): Promise<boolean> {
+    const query = this.workScheduleRepository
+      .createQueryBuilder('schedule')
+      .select('schedule.id')
+      .where('schedule.userEnterpriseId = :userEnterpriseId', { userEnterpriseId })
+      .andWhere('schedule.startsAt < :endsAt', { endsAt })
+      .andWhere('schedule.endsAt > :startsAt', { startsAt });
+
+    if (excludeId && excludeId.trim()) {
+      query.andWhere('schedule.id <> :excludeId', { excludeId: excludeId.trim() });
+    }
+
+    const found = await query.getOne();
+    return !!found?.id;
+  }
 }
