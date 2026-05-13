@@ -4,6 +4,7 @@ import { EntityManager, Repository } from 'typeorm';
 import { QueryBuilderService, QueryFilterOptions } from 'src/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { Signing, SigningAction } from './signing.entity';
+import { SigningUpdate } from './signing-update.entity';
 
 /**
  * Repositorio de fichajes (signings).
@@ -31,8 +32,13 @@ export class SigningRepository {
    * @param entity - Datos del fichaje
    * @returns Registro persistido
    */
-  create(entity: Partial<Signing>): Promise<Signing> {
-    return this.signingRepository.save(entity);
+  async create(entity: Partial<Signing>): Promise<Signing> {
+    const persisted = await this.signingRepository.save(entity);
+    /**
+     * Un fichaje recién creado no tiene filas en `signings_updates`; evitamos una consulta extra.
+     */
+    persisted.updatesCount = 0;
+    return persisted;
   }
 
   /**
@@ -93,7 +99,7 @@ export class SigningRepository {
    * @param relations - Relaciones
    * @returns Página de resultados
    */
-  findAll(
+  async findAll(
     page: number = 1,
     pageSize: number = 10,
     sort: string = 'moment',
@@ -121,7 +127,13 @@ export class SigningRepository {
       })),
     };
 
-    return QueryBuilderService.getPaginatedResults(this.signingRepository, 'signing', options);
+    const pageResult = await QueryBuilderService.getPaginatedResults(
+      this.signingRepository,
+      'signing',
+      options,
+    );
+    await this.attachUpdatesCountsToSignings(pageResult.items);
+    return pageResult;
   }
 
   /**
@@ -130,9 +142,52 @@ export class SigningRepository {
    * @param relations - Relaciones opcionales
    * @returns Signing o null
    */
-  findById(id: string, relations?: string[]): Promise<Signing | null> {
+  async findById(id: string, relations?: string[]): Promise<Signing | null> {
     this.logger.log(`Buscando signing por id: ${id}`);
-    return this.signingRepository.findOne({ where: { id }, relations });
+    const entity = await this.signingRepository.findOne({ where: { id }, relations });
+    if (entity) {
+      await this.attachUpdatesCountsToSignings([entity]);
+    }
+    return entity;
+  }
+
+  /**
+   * Rellena {@link Signing.updatesCount} en memoria con el conteo de filas en `signings_updates`
+   * por cada `signings_id`, en una sola consulta agregada.
+   *
+   * @param items - Fichajes devueltos al cliente (se mutan in-place)
+   */
+  private async attachUpdatesCountsToSignings(items: Signing[]): Promise<void> {
+    if (items.length === 0) {
+      return;
+    }
+    const signingIds = items.map((row) => row.id).filter((idValue): idValue is string => !!idValue);
+    if (signingIds.length === 0) {
+      return;
+    }
+
+    const countRows = await this.signingRepository.manager
+      .createQueryBuilder()
+      .select('su.signings_id', 'signingId')
+      .addSelect('COUNT(su.id)', 'updatesCount')
+      .from(SigningUpdate, 'su')
+      .where('su.signings_id IN (:...signingIds)', { signingIds })
+      .groupBy('su.signings_id')
+      .getRawMany<{ signingId: string; updatesCount: string }>();
+
+    const countBySigningId = new Map<string, number>(
+      countRows.map((row) => [
+        row.signingId,
+        Number.parseInt(String(row.updatesCount), 10) || 0,
+      ]),
+    );
+
+    for (const signing of items) {
+      if (!signing.id) {
+        continue;
+      }
+      signing.updatesCount = countBySigningId.get(signing.id) ?? 0;
+    }
   }
 
   /**

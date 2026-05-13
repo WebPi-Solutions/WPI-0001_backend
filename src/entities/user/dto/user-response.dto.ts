@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
+import { DefaultScheduleResponseDto } from 'src/entities/default-schedule/dto/default-schedule-response.dto';
 import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
 import { UserRoleTypes, UserStatusTypes } from 'src/entities/user/user.entity';
 
@@ -136,6 +137,20 @@ export class UserEnterpriseResponseDto {
   })
   @Expose()
   defaultScheduleId: string | null;
+
+  /**
+   * Plantilla de horario por defecto expandida cuando el cliente solicita la relación `userEnterprises.defaultSchedule`.
+   * Debe exponerse explícitamente: el interceptor global serializa solo propiedades con `@Expose()`.
+   */
+  @ApiProperty({
+    description: 'Plantilla de horario por defecto asociada al vínculo (si se cargó la relación)',
+    type: () => DefaultScheduleResponseDto,
+    required: false,
+    nullable: true,
+  })
+  @Expose()
+  @Type(() => DefaultScheduleResponseDto)
+  defaultSchedule?: DefaultScheduleResponseDto | null;
 
   /**
    * Fecha de creación del vínculo

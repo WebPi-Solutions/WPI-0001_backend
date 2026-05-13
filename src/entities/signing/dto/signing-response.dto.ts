@@ -43,6 +43,18 @@ export class SigningResponseDto {
   @Expose()
   updatedAt: Date;
 
+  /**
+   * Cuántas entradas de histórico existen en `signings_updates` para este fichaje.
+   * Sirve a la UI para marcar «Modificado» sin depender de comparar `createdAt`/`updatedAt`.
+   */
+  @ApiProperty({
+    description: 'Número de registros de corrección en el histórico (tabla signings_updates)',
+    required: false,
+    default: 0,
+  })
+  @Expose()
+  updatesCount?: number;
+
   @ApiProperty({
     description: 'Vínculo usuario–empresa con empresa en vista pública',
     type: () => UserEnterpriseResponseDto,

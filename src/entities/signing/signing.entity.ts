@@ -85,4 +85,10 @@ export class Signing {
   @ManyToOne(() => UserEnterprise, (link) => link.signings, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_enterprise_id' })
   userEnterprise: UserEnterprise;
+
+  /**
+   * Número de filas en `signings_updates` asociadas a este fichaje.
+   * No es columna de base de datos: el repositorio lo calcula en las lecturas que devuelve la API.
+   */
+  updatesCount?: number;
 }
