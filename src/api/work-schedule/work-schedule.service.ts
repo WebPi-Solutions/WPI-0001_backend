@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { EnterpriseAccessService } from 'src/api/common/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { WorkScheduleRepository } from 'src/entities/work-schedule/work-schedule-repository.service';
 import { WorkSchedule } from 'src/entities/work-schedule/work-schedule.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
@@ -142,7 +142,7 @@ export class WorkScheduleService {
       `Listando franjas — página ${page}, orden ${sort} ${order}, filtros: ${JSON.stringify(filter)}, relaciones: ${mergedRelations.join(', ')}`,
     );
 
-    return this.workScheduleRepository.findAll(
+    const pageResult = await this.workScheduleRepository.findAll(
       page,
       pageSize,
       sort,
@@ -150,6 +150,7 @@ export class WorkScheduleService {
       filter,
       mergedRelations,
     );
+    return pageResult;
   }
 
   /**
@@ -165,7 +166,8 @@ export class WorkScheduleService {
     relations?: string[],
   ): Promise<WorkSchedule> {
     this.logger.log(`Buscando franja ${id} para empresa ${enterpriseId}`);
-    return this.loadScopedOrThrow(id, enterpriseId, relations);
+    const entity = await this.loadScopedOrThrow(id, enterpriseId, relations);
+    return entity;
   }
 
   /**

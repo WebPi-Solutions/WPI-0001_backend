@@ -3,7 +3,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApiModule } from './api/api.module';
-import { MappingModule } from './mapping/mapping.module';
 
 //Environment Configuration
 import * as dotenv from 'dotenv';
@@ -26,7 +25,6 @@ import { FirebaseModule } from './middleware/firebase/firebase.module';
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
     }),
     ApiModule.register(),
-    MappingModule,
     
     // Para el middleware de firebase importamos el módulo de firebase y el módulo de usuarios
     FirebaseModule,

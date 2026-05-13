@@ -11,6 +11,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { HolidayResponseDto } from 'src/entities/holiday/dto/holiday-response.dto';
 import { Holiday } from 'src/entities/holiday/holiday.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
@@ -32,6 +34,7 @@ export class HolidayController {
    * @returns Festivo creado
    */
   @Post()
+  @MapResponse(HolidayResponseDto)
   @ApiOperation({ summary: 'Crear un festivo' })
   @ApiResponse({ status: 201, description: 'Festivo creado correctamente.' })
   @ApiResponse({ status: 400, description: 'Petición inválida.' })
@@ -55,6 +58,7 @@ export class HolidayController {
    * @returns Página de festivos
    */
   @Get()
+  @MapResponse(HolidayResponseDto)
   @ApiOperation({ summary: 'Listar festivos por empresa' })
   @ApiResponse({ status: 200, description: 'Listado obtenido correctamente.' })
   @ApiResponse({ status: 400, description: 'Falta enterpriseId.' })
@@ -107,6 +111,7 @@ export class HolidayController {
    * @returns Festivo
    */
   @Get(':id')
+  @MapResponse(HolidayResponseDto)
   @ApiOperation({ summary: 'Obtener un festivo por id' })
   @ApiResponse({ status: 200, description: 'Festivo encontrado.' })
   @ApiResponse({ status: 404, description: 'No encontrado.' })
@@ -134,6 +139,7 @@ export class HolidayController {
    * @returns Festivo actualizado
    */
   @Patch(':id')
+  @MapResponse(HolidayResponseDto)
   @ApiOperation({ summary: 'Actualizar un festivo' })
   @ApiResponse({ status: 200, description: 'Actualización correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrado.' })

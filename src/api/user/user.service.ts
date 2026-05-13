@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { EnterpriseAccessService } from 'src/api/common/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { DefaultScheduleRepository } from 'src/entities/default-schedule/default-schedule-repository.service';
 import { CreateUserEnterpriseDto } from 'src/entities/user/dto/create-user-enterprise.dto';
 import { CreateUserDto } from 'src/entities/user/dto/create-user.dto';
@@ -181,11 +181,12 @@ export class UserService {
             scheduleIdForLink,
           );
         }
-        return this.userRepository.findById(existingUser.id, [
+        const reloadedUser = await this.userRepository.findById(existingUser.id, [
           'userEnterprises',
           'userEnterprises.enterprise',
           'userEnterprises.defaultSchedule',
         ]);
+        return reloadedUser;
       }
 
       const nextCardIdForLink =
@@ -210,11 +211,12 @@ export class UserService {
         `Usuario ${existingUser.email} vinculado exitosamente a la empresa ${enterpriseId}`,
       );
 
-      return this.userRepository.findById(existingUser.id, [
+      const reloadedUserAfterLink = await this.userRepository.findById(existingUser.id, [
         'userEnterprises',
         'userEnterprises.enterprise',
         'userEnterprises.defaultSchedule',
       ]);
+      return reloadedUserAfterLink;
     }
 
     // Usuario nuevo: requiere contraseña para registro en Firebase y base de datos
@@ -360,11 +362,12 @@ export class UserService {
    * @param relations - Las relaciones a incluir
    * @returns El usuario
    */
-  findById(id: string, relations?: string[]): Promise<User> {
+  async findById(id: string, relations?: string[]): Promise<User> {
     this.logger.log(
       `Buscando usuario por ID: ${id}${relations ? ` con relaciones: [${relations.join(', ')}]` : ''}`,
     );
-    return this.userRepository.findById(id, relations);
+    const userFound = await this.userRepository.findById(id, relations);
+    return userFound;
   }
 
   /**
@@ -373,11 +376,15 @@ export class UserService {
    * @param relations - Las relaciones a incluir
    * @returns El usuario
    */
-  findByEmail(email: string, relations?: string[]): Promise<User | null> {
+  async findByEmail(email: string, relations?: string[]): Promise<User | null> {
     this.logger.log(
       `Buscando usuario por email: ${email}${relations ? ` con relaciones: [${relations.join(', ')}]` : ''}`,
     );
-    return this.userRepository.findByEmail(email, relations);
+    const userFound = await this.userRepository.findByEmail(email, relations);
+    if (!userFound) {
+      return null;
+    }
+    return userFound;
   }
 
   /**

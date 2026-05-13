@@ -11,6 +11,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { VacationResponseDto } from 'src/entities/vacation/dto/vacation-response.dto';
 import { Vacation } from 'src/entities/vacation/vacation.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { CreateVacationDto } from './dto/create-vacation.dto';
@@ -32,6 +34,7 @@ export class VacationController {
    * @returns Registro creado
    */
   @Post()
+  @MapResponse(VacationResponseDto)
   @ApiOperation({ summary: 'Crear un registro de vacaciones o permiso' })
   @ApiResponse({ status: 201, description: 'Registro creado correctamente.' })
   @ApiResponse({ status: 400, description: 'Petición inválida.' })
@@ -59,6 +62,7 @@ export class VacationController {
    * @returns Página de registros
    */
   @Get()
+  @MapResponse(VacationResponseDto)
   @ApiOperation({ summary: 'Listar vacaciones y permisos por empresa' })
   @ApiResponse({ status: 200, description: 'Listado obtenido correctamente.' })
   @ApiResponse({ status: 400, description: 'Falta enterpriseId.' })
@@ -118,6 +122,7 @@ export class VacationController {
    * @returns Vacación
    */
   @Get(':id')
+  @MapResponse(VacationResponseDto)
   @ApiOperation({ summary: 'Obtener un registro de vacaciones por id' })
   @ApiResponse({ status: 200, description: 'Registro encontrado.' })
   @ApiResponse({ status: 404, description: 'No encontrado o sin acceso.' })
@@ -145,6 +150,7 @@ export class VacationController {
    * @returns Registro actualizado
    */
   @Patch(':id')
+  @MapResponse(VacationResponseDto)
   @ApiOperation({ summary: 'Actualizar un registro de vacaciones' })
   @ApiResponse({ status: 200, description: 'Actualización correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrado.' })

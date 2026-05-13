@@ -77,7 +77,7 @@ export class DefaultScheduleService {
       `Listando plantillas de horario — página ${page}, orden ${sort} ${order}, filtros: ${JSON.stringify(filter)}`,
     );
 
-    return this.defaultScheduleRepository.findAll(
+    const pageResult = await this.defaultScheduleRepository.findAll(
       page,
       pageSize,
       sort,
@@ -85,6 +85,7 @@ export class DefaultScheduleService {
       filter,
       relations,
     );
+    return pageResult;
   }
 
   /**

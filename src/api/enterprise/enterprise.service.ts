@@ -11,9 +11,39 @@ import { Response } from 'express';
 export class EnterpriseService {
   private readonly logger = new Logger(EnterpriseService.name);
 
-  constructor(private readonly enterpriseRepository: EnterpriseRepository,  
-              private readonly dropboxService: DropboxService
-  ){}
+  constructor(
+    private readonly enterpriseRepository: EnterpriseRepository,
+    private readonly dropboxService: DropboxService,
+  ) {}
+
+  /**
+   * Relaciones de `Enterprise` que no deben persistirse desde el cuerpo HTTP.
+   */
+  private static readonly enterpriseRelationKeysExcludedFromWrite: ReadonlyArray<keyof Enterprise> = [
+    'clients',
+    'suppliers',
+    'userEnterprises',
+    'invoiceSeries',
+    'defaultSchedules',
+    'holidays',
+  ];
+
+  /**
+   * Elimina `stripeId` y relaciones del payload de escritura para evitar que el cliente las fuerce.
+   *
+   * @param enterprise - Objeto recibido del controlador (creación o actualización)
+   * @returns Copia superficial apta para el repositorio
+   */
+  private buildSanitizedEnterpriseWritePayload(
+    enterprise: Partial<Enterprise>,
+  ): Partial<Enterprise> {
+    const sanitized: Record<string, unknown> = { ...(enterprise as Record<string, unknown>) };
+    delete sanitized.stripeId;
+    for (const relationKey of EnterpriseService.enterpriseRelationKeysExcludedFromWrite) {
+      delete sanitized[relationKey as string];
+    }
+    return sanitized as Partial<Enterprise>;
+  }
 
   /**
    * Crea una nueva empresa
@@ -31,7 +61,8 @@ export class EnterpriseService {
     }
     
     try {
-      const newEnterprise = await this.enterpriseRepository.create(enterprise);
+      const payloadForPersistence = this.buildSanitizedEnterpriseWritePayload(enterprise);
+      const newEnterprise = await this.enterpriseRepository.create(payloadForPersistence as Enterprise);
       this.logger.log(`Empresa creada exitosamente con ID: ${newEnterprise.id}`);
       return newEnterprise;
     } catch (error) {
@@ -207,7 +238,11 @@ export class EnterpriseService {
     }
     
     try {
-      const updatedEnterprise = await this.enterpriseRepository.updateById(id, enterprise);
+      const payloadForPersistence = this.buildSanitizedEnterpriseWritePayload(enterprise);
+      const updatedEnterprise = await this.enterpriseRepository.updateById(
+        id,
+        payloadForPersistence as Enterprise,
+      );
       this.logger.log(`Empresa ${id} actualizada exitosamente`);
       return updatedEnterprise;
     } catch (error) {

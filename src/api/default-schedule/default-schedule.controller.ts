@@ -11,6 +11,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { DefaultScheduleResponseDto } from 'src/entities/default-schedule/dto/default-schedule-response.dto';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { DefaultSchedule } from 'src/entities/default-schedule/default-schedule.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { DefaultScheduleService } from './default-schedule.service';
@@ -34,6 +36,7 @@ export class DefaultScheduleController {
    * @returns Plantilla creada
    */
   @Post()
+  @MapResponse(DefaultScheduleResponseDto)
   @ApiOperation({ summary: 'Crear una plantilla de horario por defecto' })
   @ApiResponse({ status: 201, description: 'Plantilla creada correctamente.' })
   @ApiResponse({
@@ -60,6 +63,7 @@ export class DefaultScheduleController {
    * @returns Página de plantillas
    */
   @Get()
+  @MapResponse(DefaultScheduleResponseDto)
   @ApiOperation({ summary: 'Listar plantillas de horario por empresa' })
   @ApiResponse({ status: 200, description: 'Listado obtenido correctamente.' })
   @ApiResponse({ status: 400, description: 'Falta enterpriseId.' })
@@ -116,6 +120,7 @@ export class DefaultScheduleController {
    * @returns Plantilla
    */
   @Get(':id')
+  @MapResponse(DefaultScheduleResponseDto)
   @ApiOperation({ summary: 'Obtener una plantilla de horario por id' })
   @ApiResponse({ status: 200, description: 'Plantilla encontrada.' })
   @ApiResponse({
@@ -150,6 +155,7 @@ export class DefaultScheduleController {
    * @returns Plantilla actualizada
    */
   @Patch(':id')
+  @MapResponse(DefaultScheduleResponseDto)
   @ApiOperation({ summary: 'Actualizar una plantilla de horario' })
   @ApiResponse({ status: 200, description: 'Actualización correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrada.' })

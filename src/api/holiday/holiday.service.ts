@@ -13,7 +13,9 @@ import { UpdateHolidayDto } from './dto/update-holiday.dto';
 export class HolidayService {
   private readonly logger = new Logger(HolidayService.name);
 
-  constructor(private readonly holidayRepository: HolidayRepository) {}
+  constructor(
+    private readonly holidayRepository: HolidayRepository,
+  ) {}
 
   /**
    * Crea un festivo para la empresa indicada.
@@ -67,7 +69,7 @@ export class HolidayService {
     this.logger.log(
       `Listando festivos — página ${page}, orden ${sort} ${order}, filtros: ${JSON.stringify(filter)}`,
     );
-    return this.holidayRepository.findAll(
+    const pageResult = await this.holidayRepository.findAll(
       page,
       pageSize,
       sort,
@@ -75,6 +77,7 @@ export class HolidayService {
       filter,
       relations,
     );
+    return pageResult;
   }
 
   /**

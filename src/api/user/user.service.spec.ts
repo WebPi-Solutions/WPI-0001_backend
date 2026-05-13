@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { EnterpriseAccessService } from 'src/api/common/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { DefaultScheduleRepository } from 'src/entities/default-schedule/default-schedule-repository.service';
 import { UserRepository } from 'src/entities/user/user-repository.service';
 import { FirebaseService } from 'src/services/firebase/firebase.service';

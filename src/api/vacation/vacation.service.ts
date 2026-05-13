@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { EnterpriseAccessService } from 'src/api/common/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { VacationRepository } from 'src/entities/vacation/vacation-repository.service';
 import { Vacation } from 'src/entities/vacation/vacation.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
@@ -118,7 +118,7 @@ export class VacationService {
       `Listando vacaciones — página ${page}, orden ${sort} ${order}, filtros: ${JSON.stringify(filter)}`,
     );
 
-    return this.vacationRepository.findAll(
+    const pageResult = await this.vacationRepository.findAll(
       page,
       pageSize,
       sort,
@@ -126,6 +126,7 @@ export class VacationService {
       filter,
       mergedRelations,
     );
+    return pageResult;
   }
 
   /**
@@ -141,7 +142,8 @@ export class VacationService {
     relations?: string[],
   ): Promise<Vacation> {
     this.logger.log(`Buscando vacación ${id} para empresa ${enterpriseId}`);
-    return this.loadScopedOrThrow(id, enterpriseId, relations);
+    const entity = await this.loadScopedOrThrow(id, enterpriseId, relations);
+    return entity;
   }
 
   /**

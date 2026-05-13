@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
-import { ApiConsumes, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiConsumes, ApiBody, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
@@ -7,6 +7,8 @@ import { MulterFile } from 'multer';
 import { EnterpriseService } from './enterprise.service';
 import { Response } from 'express';
 import { EnterpriseLogoUploadDto } from './dto/enterprise-logo-upload.dto';
+import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
 
 @ApiTags('Empresas')
 @Controller('enterprises')
@@ -20,11 +22,13 @@ export class EnterpriseController {
    * @returns La empresa creada
    */
   @Post()
+  @MapResponse(EnterpriseResponseDto)
   @ApiOperation({ summary: 'Crear una nueva empresa' })
+  @ApiOkResponse({ type: EnterpriseResponseDto, description: 'Empresa creada (vista pública).' })
   @ApiResponse({ status: 201, description: 'La empresa ha sido creada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
-  async create(@Body() enterprise: Enterprise) {
+  async create(@Body() enterprise: Enterprise): Promise<Enterprise> {
     return this.enterpriseService.create(enterprise);
   }
 
@@ -35,6 +39,7 @@ export class EnterpriseController {
    * @returns El archivo del logo de la empresa creado/reemplazado en Dropbox
    */
   @Post('logo')
+  @MapResponse(EnterpriseResponseDto)
   @UseInterceptors(FileInterceptor('file', {
     limits: {
       fileSize: 5 * 1024 * 1024, // 5MB max file size for logo files
@@ -71,7 +76,9 @@ export class EnterpriseController {
    * @returns Las empresas
    */
   @Get()
+  @MapResponse(EnterpriseResponseDto)
   @ApiOperation({ summary: 'Obtener todas las empresas' })
+  @ApiOkResponse({ description: 'Listado paginado de empresas (vista pública por ítem).' })
   @ApiResponse({ status: 200, description: 'Las empresas han sido obtenidas correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -109,11 +116,16 @@ export class EnterpriseController {
    * @returns La empresa
    */
   @Get(':id')
+  @MapResponse(EnterpriseResponseDto)
   @ApiOperation({ summary: 'Obtener una empresa por su id' })
+  @ApiOkResponse({ type: EnterpriseResponseDto, description: 'Empresa encontrada (vista pública).' })
   @ApiResponse({ status: 200, description: 'La empresa ha sido obtenida correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
-  async findById(@Param('id') id: string, @Query('relations') relations?: string) {
+  async findById(
+    @Param('id') id: string,
+    @Query('relations') relations?: string,
+  ): Promise<Enterprise> {
     const relationsArray = relations ? relations.split(',') : [];
     return this.enterpriseService.findById(id, relationsArray);
   }
@@ -141,11 +153,16 @@ export class EnterpriseController {
    * @returns La empresa actualizada
    */
   @Patch(':id')
+  @MapResponse(EnterpriseResponseDto)
   @ApiOperation({ summary: 'Actualizar una empresa por su id' })
+  @ApiOkResponse({ type: EnterpriseResponseDto, description: 'Empresa actualizada (vista pública).' })
   @ApiResponse({ status: 200, description: 'La empresa ha sido actualizada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
-  async updateById(@Param('id') id: string, @Body() enterprise: Enterprise) {
+  async updateById(
+    @Param('id') id: string,
+    @Body() enterprise: Enterprise,
+  ): Promise<Enterprise> {
     return this.enterpriseService.updateById(id, enterprise);
   }
 

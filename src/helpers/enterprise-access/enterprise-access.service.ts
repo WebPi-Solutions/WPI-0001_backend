@@ -19,10 +19,11 @@ export interface AssertUserBelongsToEnterpriseOptions {
 }
 
 /**
- * Servicio compartido de comprobaciones de acceso y vínculos usuario–empresa en la capa API.
+ * Comprobaciones compartidas de acceso multi-empresa vía tabla `user_enterprise`.
+ * Convive con la capa HTTP pero vive bajo `helpers/` para separarlo de controladores y rutas REST.
  *
- * **Extensión:** añadir aquí nuevas funciones de validación (p. ej. roles mínimos, cuotas, flags de empresa)
- * para reutilizarlas desde controladores/servicios sin duplicar consultas a `user_enterprise`.
+ * **Extensión:** añadir aquí nuevas validaciones (p. ej. roles mínimos, cuotas, flags de empresa)
+ * para reutilizarlas desde servicios sin duplicar consultas a `user_enterprise`.
  */
 @Injectable()
 export class EnterpriseAccessService {

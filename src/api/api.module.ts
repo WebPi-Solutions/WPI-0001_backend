@@ -3,7 +3,8 @@ import { Module, DynamicModule, Type } from '@nestjs/common';
 import { glob } from 'glob';
 import { join } from 'path';
 import { EntitiesModule } from 'src/entities/entities.module';
-import { MappingModule } from 'src/mapping/mapping.module';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { StripeService } from 'src/services/stripe/stripe.service';
 import { DropboxModule } from 'src/services/dropbox/dropbox.module';
 import { FirebaseModule } from 'src/services/firebase/firebase.module';
 import { MulterModule } from '@nestjs/platform-express';
@@ -73,11 +74,7 @@ async function loadServices(): Promise<Type<any>[]> {
 }
 
 @Module({
-  imports: [
-    MappingModule
-  ],
-  controllers: [],
-  providers: []
+  imports: [],
 })
 export class ApiModule {
   /**
@@ -87,7 +84,15 @@ export class ApiModule {
   static async register(): Promise<DynamicModule> {
     const controllers = await loadControllers();
     const services = await loadServices();
-    
+    /**
+     * Servicios fuera de `src/api/**` no entran en el glob de descubrimiento;
+     * se registran aquí de forma explícita.
+     */
+    const auxiliaryProviders: Type<any>[] = [
+      EnterpriseAccessService,
+      StripeService,
+    ];
+
     return {
       imports: [
         EntitiesModule.register(),
@@ -108,7 +113,7 @@ export class ApiModule {
       ],
       module: ApiModule,
       controllers,
-      providers: services,
+      providers: [...services, ...auxiliaryProviders],
     };
   }
 }

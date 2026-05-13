@@ -1,11 +1,13 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as express from 'express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { swaggerMiddleware } from './middleware/swagger/swagger.middleware';
+import { MapResponseInterceptor } from './common/interceptors/map-response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.useGlobalInterceptors(new MapResponseInterceptor(app.get(Reflector)));
   app.use(express.json({ limit: '50mb' }))
   app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*')

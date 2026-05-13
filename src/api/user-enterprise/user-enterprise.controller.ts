@@ -1,5 +1,7 @@
 import { Controller, Get, HttpException, HttpStatus, Param, Query } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { UserEnterpriseResponseDto } from 'src/entities/user/dto/user-enterprise-response.dto';
 import { UserEnterprise } from 'src/entities/user/user-enterprise.entity';
 import { UserEnterpriseService } from './user-enterprise.service';
 
@@ -16,6 +18,7 @@ export class UserEnterpriseController {
    * Pensado para la pantalla kiosco: devuelve directamente `userEnterpriseId` (id del vínculo).
    */
   @Get('card/:cardId')
+  @MapResponse(UserEnterpriseResponseDto)
   @ApiOperation({ summary: 'Obtener vínculo user_enterprise por card_id (empresa)' })
   @ApiQuery({
     name: 'enterpriseId',
@@ -25,6 +28,10 @@ export class UserEnterpriseController {
   @ApiResponse({ status: 200, description: 'Vínculo obtenido correctamente.' })
   @ApiResponse({ status: 400, description: 'Falta enterpriseId o cardId inválido.' })
   @ApiResponse({ status: 404, description: 'No existe vínculo con ese card_id.' })
+  @ApiOkResponse({
+    type: UserEnterpriseResponseDto,
+    description: 'Vínculo usuario–empresa (vista API, sin datos internos de empresa).',
+  })
   async findByCardId(
     @Param('cardId') cardId: string,
     @Query('enterpriseId') enterpriseId: string,

@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { EnterpriseAccessService } from 'src/api/common/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { SigningRepository } from 'src/entities/signing/signing-repository.service';
 import { SigningUpdateRepository } from 'src/entities/signing/signing-update-repository.service';
 import { SigningUpdate } from 'src/entities/signing/signing-update.entity';
@@ -256,7 +256,7 @@ export class SigningService {
       `Listando fichajes — página ${page}, orden ${sort} ${order}, filtros: ${JSON.stringify(filter)}`,
     );
 
-    return this.signingRepository.findAll(
+    const pageResult = await this.signingRepository.findAll(
       page,
       pageSize,
       sort,
@@ -264,6 +264,7 @@ export class SigningService {
       filter,
       mergedRelations,
     );
+    return pageResult;
   }
 
   /**
@@ -279,7 +280,10 @@ export class SigningService {
     relations?: string[],
   ): Promise<Signing> {
     this.logger.log(`Buscando fichaje ${id} para empresa ${enterpriseId}`);
-    return this.loadScopedOrThrow(id, enterpriseId, relations, { rejectIfCancelled: true });
+    const entity = await this.loadScopedOrThrow(id, enterpriseId, relations, {
+      rejectIfCancelled: true,
+    });
+    return entity;
   }
 
   /**

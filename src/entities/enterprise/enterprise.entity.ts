@@ -1,3 +1,4 @@
+import { ApiHideProperty } from '@nestjs/swagger';
 import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Client } from '../client/client.entity';
 import { UserEnterprise } from '../user/user-enterprise.entity';
@@ -59,6 +60,13 @@ export class Enterprise {
    */
   @Column({ nullable: true })
   logo: string;
+
+  /**
+   * Identificador del cliente en Stripe (solo uso interno; no exponer al frontend).
+   */
+  @ApiHideProperty()
+  @Column({ name: 'stripe_id', nullable: true })
+  stripeId: string | null;
 
   /**
    * Fecha en que se creó la empresa en el sistema

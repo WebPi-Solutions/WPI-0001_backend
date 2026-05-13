@@ -118,6 +118,39 @@ export class UserRepository {
   }
 
   /**
+   * Cuenta usuarios activos vinculados a una empresa, excluyendo los vínculos con rol "signings"
+   * (terminal de fichajes). Se usa para calcular el consumo de unidades (X/Y) de una suscripción.
+   *
+   * @param enterpriseId - UUID de la empresa
+   * @returns Número de usuarios activos excluyendo terminales de fichajes
+   */
+  async countActiveNonSigningsUsersForEnterprise(enterpriseId: string): Promise<number> {
+    const normalizedEnterpriseId = enterpriseId?.trim();
+    if (!normalizedEnterpriseId) {
+      return 0;
+    }
+
+    try {
+      const count = await this.userRepository
+        .createQueryBuilder('user')
+        .innerJoin('user.userEnterprises', 'userEnterprise', 'userEnterprise.enterpriseId = :enterpriseId', {
+          enterpriseId: normalizedEnterpriseId,
+        })
+        .where('user.status = :activeStatus', { activeStatus: UserStatusTypes.ACTIVE })
+        .andWhere('userEnterprise.role != :signingsRole', { signingsRole: 'signings' })
+        .distinct(true)
+        .getCount();
+
+      return count ?? 0;
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo contar usuarios activos (excluyendo terminales) para la empresa ${normalizedEnterpriseId}: ${error instanceof Error ? error.message : error}`,
+      );
+      return 0;
+    }
+  }
+
+  /**
    * Obtiene todos los usuarios con paginación, filtros y ordenación
    * @param page - Número de página
    * @param pageSize - Tamaño de página

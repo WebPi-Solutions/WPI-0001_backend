@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { Request } from 'express';
-import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { UserResponseDto } from 'src/entities/user/dto/user-response.dto';
 import { User } from 'src/entities/user/user.entity';
 import { UserService } from './user.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
@@ -18,7 +20,9 @@ export class UserController {
    * @returns El usuario creado
    */
   @Post()
+  @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Create un nuevo usuario' })
+  @ApiOkResponse({ type: UserResponseDto, description: 'Usuario creado o vinculado (vista API).' })
   @ApiResponse({ status: 201, description: 'El usuario ha sido creado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -31,7 +35,9 @@ export class UserController {
    * @returns Los usuarios
    */
   @Get()
+  @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Obtener todos los usuarios' })
+  @ApiOkResponse({ description: 'Listado paginado (cada ítem como UserResponseDto).' })
   @ApiResponse({ status: 200, description: 'Los usuarios han sido obtenidos correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -78,7 +84,9 @@ export class UserController {
    * @returns El usuario actual
    */
   @Get('myself')
+  @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Obtener el usuario actual' })
+  @ApiOkResponse({ type: UserResponseDto, description: 'Usuario autenticado (vista API).' })
   @ApiResponse({ status: 200, description: 'El usuario ha sido obtenido correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -95,6 +103,7 @@ export class UserController {
    * @returns Usuario encontrado (si existe vínculo)
    */
   @Get('card/:cardId')
+  @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Obtener un usuario por card_id (empresa)' })
   @ApiQuery({
     name: 'enterpriseId',
@@ -104,6 +113,7 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'Usuario obtenido correctamente.' })
   @ApiResponse({ status: 400, description: 'Falta enterpriseId o cardId inválido.' })
   @ApiResponse({ status: 404, description: 'Usuario no encontrado.' })
+  @ApiOkResponse({ type: UserResponseDto, description: 'Usuario resuelto por tarjeta (vista API).' })
   async findByCardId(
     @Param('cardId') cardId: string,
     @Query('enterpriseId') enterpriseId: string,
@@ -128,27 +138,14 @@ export class UserController {
   }
 
   /**
-   * Obtiene un usuario por su id
-   * @param id - El id del usuario
-   * @returns El usuario
-   */
-  @Get(':id')
-  @ApiOperation({ summary: 'Obtener un usuario por su id' })
-  @ApiResponse({ status: 200, description: 'El usuario ha sido obtenido correctamente.' })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
-  @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
-  async findById(@Param('id') id: string, @Query('relations') relations?: string) {
-    const relationsArray = relations ? relations.split(',') : [];
-    return this.userService.findById(id, relationsArray);
-  }
-
-  /**
    * Obtiene un usuario por su email
    * @param email - El email del usuario
    * @returns El usuario
    */
   @Get('email/:email')
+  @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Obtener un usuario por su email' })
+  @ApiOkResponse({ type: UserResponseDto, description: 'Usuario encontrado (vista API).' })
   @ApiResponse({ status: 200, description: 'El usuario ha sido obtenido correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -158,12 +155,30 @@ export class UserController {
   }
 
   /**
+   * Obtiene un usuario por su id
+   * @param id - El id del usuario
+   * @returns El usuario
+   */
+  @Get(':id')
+  @MapResponse(UserResponseDto)
+  @ApiOperation({ summary: 'Obtener un usuario por su id' })
+  @ApiOkResponse({ type: UserResponseDto, description: 'Usuario encontrado (vista API).' })
+  @ApiResponse({ status: 200, description: 'El usuario ha sido obtenido correctamente.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
+  async findById(@Param('id') id: string, @Query('relations') relations?: string) {
+    const relationsArray = relations ? relations.split(',') : [];
+    return this.userService.findById(id, relationsArray);
+  }
+
+  /**
    * Actualiza un usuario por su id
    * @param id - El id del usuario
    * @param user - El usuario a actualizar
    * @returns El usuario actualizado
    */
   @Patch(':id')
+  @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Actualizar un usuario por su id' })
   @ApiQuery({
     name: 'enterpriseId',
@@ -174,6 +189,7 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'El usuario ha sido actualizado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
+  @ApiOkResponse({ type: UserResponseDto, description: 'Usuario actualizado (vista API).' })
   async updateById(
     @Param('id') id: string,
     @Body() user: User,

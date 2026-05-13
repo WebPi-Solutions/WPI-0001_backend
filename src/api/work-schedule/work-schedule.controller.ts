@@ -11,6 +11,8 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { WorkScheduleResponseDto } from 'src/entities/work-schedule/dto/work-schedule-response.dto';
 import { WorkSchedule } from 'src/entities/work-schedule/work-schedule.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { CreateWorkScheduleDto } from './dto/create-work-schedule.dto';
@@ -32,6 +34,7 @@ export class WorkScheduleController {
    * @returns Franja creada
    */
   @Post()
+  @MapResponse(WorkScheduleResponseDto)
   @ApiOperation({ summary: 'Crear una franja de trabajo' })
   @ApiResponse({ status: 201, description: 'Franja creada correctamente.' })
   @ApiResponse({ status: 400, description: 'Petición inválida.' })
@@ -59,6 +62,7 @@ export class WorkScheduleController {
    * @returns Página de franjas
    */
   @Get()
+  @MapResponse(WorkScheduleResponseDto)
   @ApiOperation({ summary: 'Listar franjas de trabajo por empresa' })
   @ApiResponse({ status: 200, description: 'Listado obtenido correctamente.' })
   @ApiResponse({ status: 400, description: 'Falta enterpriseId.' })
@@ -118,6 +122,7 @@ export class WorkScheduleController {
    * @returns Franja
    */
   @Get(':id')
+  @MapResponse(WorkScheduleResponseDto)
   @ApiOperation({ summary: 'Obtener una franja de trabajo por id' })
   @ApiResponse({ status: 200, description: 'Franja encontrada.' })
   @ApiResponse({ status: 404, description: 'No encontrada o sin acceso.' })
@@ -145,6 +150,7 @@ export class WorkScheduleController {
    * @returns Franja actualizada
    */
   @Patch(':id')
+  @MapResponse(WorkScheduleResponseDto)
   @ApiOperation({ summary: 'Actualizar una franja de trabajo' })
   @ApiResponse({ status: 200, description: 'Actualización correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrada.' })

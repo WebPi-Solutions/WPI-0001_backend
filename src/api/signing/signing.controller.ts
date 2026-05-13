@@ -13,6 +13,9 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { SigningResponseDto } from 'src/entities/signing/dto/signing-response.dto';
+import { SigningUpdateResponseDto } from 'src/entities/signing/dto/signing-update-response.dto';
 import { SigningUpdate } from 'src/entities/signing/signing-update.entity';
 import { Signing } from 'src/entities/signing/signing.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
@@ -35,6 +38,7 @@ export class SigningController {
    * @returns Fichaje creado
    */
   @Post()
+  @MapResponse(SigningResponseDto)
   @ApiOperation({ summary: 'Crear un fichaje' })
   @ApiResponse({ status: 201, description: 'Fichaje creado correctamente.' })
   @ApiResponse({ status: 400, description: 'Petición inválida.' })
@@ -62,6 +66,7 @@ export class SigningController {
    * @returns Página de fichajes
    */
   @Get()
+  @MapResponse(SigningResponseDto)
   @ApiOperation({ summary: 'Listar fichajes por empresa' })
   @ApiResponse({ status: 200, description: 'Listado obtenido correctamente.' })
   @ApiResponse({ status: 400, description: 'Falta enterpriseId.' })
@@ -123,6 +128,7 @@ export class SigningController {
    * @returns Lista ordenada de más antigua a más reciente
    */
   @Get(':id/signing-updates')
+  @MapResponse(SigningUpdateResponseDto)
   @ApiOperation({ summary: 'Histórico de actualizaciones de un fichaje' })
   @ApiResponse({ status: 200, description: 'Listado de cambios (puede ser vacío).' })
   @ApiResponse({ status: 404, description: 'No encontrado, cancelado o sin acceso a la empresa.' })
@@ -147,6 +153,7 @@ export class SigningController {
    * @returns Fichaje
    */
   @Get(':id')
+  @MapResponse(SigningResponseDto)
   @ApiOperation({ summary: 'Obtener un fichaje por id' })
   @ApiResponse({ status: 200, description: 'Fichaje encontrado.' })
   @ApiResponse({ status: 404, description: 'No encontrado o sin acceso.' })
@@ -174,6 +181,7 @@ export class SigningController {
    * @returns Fichaje actualizado
    */
   @Patch(':id')
+  @MapResponse(SigningResponseDto)
   @ApiOperation({ summary: 'Actualizar un fichaje' })
   @ApiResponse({ status: 200, description: 'Actualización correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrado.' })
