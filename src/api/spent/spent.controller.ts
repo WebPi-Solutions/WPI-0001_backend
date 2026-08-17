@@ -7,6 +7,8 @@ import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MulterFile } from 'multer';
 import { SpentFileUploadDto } from './dto/spent-file-upload.dto';
+import { SpentAiFileUploadDto } from './dto/spent-ai-file-upload.dto';
+import { SpentAiFilePreviewResponseDto } from './dto/spent-ai-file-preview-response.dto';
 
 @ApiTags('Gastos')
 @Controller('spents')
@@ -64,6 +66,60 @@ export class SpentController {
       return this.spentService.addFileToSpentById(spentId, file);
     } catch (error) {
       throw new HttpException(`Error al procesar los datos: ${error.message}`, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  /**
+   * Recibe un PDF para la subida de gastos con IA.
+   * Extrae emisor, comprueba si el proveedor existe por CIF, extrae conceptos y devuelve spentData.
+   * @param file Archivo PDF de la factura
+   * @param enterpriseId ID de la empresa
+   * @returns Datos del archivo y spentData listo para crear el gasto
+   */
+  @Post('ai/file')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB, mismo límite que la subida de factura de un gasto
+    }
+  }))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: SpentAiFileUploadDto })
+  @ApiOperation({
+    summary: 'Recibir un PDF de gasto para procesamiento con IA (sin persistir ni subir a Dropbox)',
+    description:
+      'Requiere enterpriseId para buscar el proveedor por el CIF extraído del emisor. Extrae emisor, consulta el proveedor, conceptos, nombre, fecha de emisión y devuelve spentData. Incluye suggestedSupplier con los datos del emisor para crear un proveedor si no existe o si el vinculado no es el correcto.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'El archivo ha sido recibido correctamente y se ha generado spentData.',
+    type: SpentAiFilePreviewResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Solicitud incorrecta o archivo no válido.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
+  async previewAiSpentFile(
+    @UploadedFile() file: MulterFile,
+    @Query('enterpriseId') enterpriseId: string,
+  ): Promise<SpentAiFilePreviewResponseDto> {
+    if (!file) {
+      throw new HttpException('No se ha proporcionado ningún archivo', HttpStatus.BAD_REQUEST);
+    }
+
+    if (!enterpriseId) {
+      throw new HttpException('Es obligatorio especificar el ID de la empresa', HttpStatus.BAD_REQUEST);
+    }
+
+    try {
+      return await this.spentService.previewAiSpentFile(file, enterpriseId);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        `Error al procesar el archivo: ${error.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
 

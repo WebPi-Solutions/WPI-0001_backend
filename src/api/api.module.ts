@@ -7,6 +7,8 @@ import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterpris
 import { StripeService } from 'src/services/stripe/stripe.service';
 import { DropboxModule } from 'src/services/dropbox/dropbox.module';
 import { FirebaseModule } from 'src/services/firebase/firebase.module';
+import { FileModule } from 'src/services/file/file.module';
+import { OpenaiModule } from 'src/services/openai/openai.module';
 import { MulterModule } from '@nestjs/platform-express';
 
 /**
@@ -98,6 +100,8 @@ export class ApiModule {
         EntitiesModule.register(),
         DropboxModule,
         FirebaseModule,
+        FileModule,
+        OpenaiModule,
         MulterModule.register({
           limits: {
             fileSize: parseInt(process.env.MAX_FILE_SIZE, 10) * 1024 * 1024, // 10MB max file size

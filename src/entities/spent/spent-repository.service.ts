@@ -73,6 +73,33 @@ export class SpentRepository {
   }
 
   /**
+   * Obtiene los últimos gastos de un proveedor, ordenados por fecha de emisión y creación.
+   * Se usa para reutilizar la nomenclatura de conceptos en la extracción con IA.
+   * @param supplierId ID del proveedor
+   * @param limit Número máximo de gastos a devolver
+   * @returns Gastos más recientes del proveedor, incluyendo sus conceptos
+   */
+  findLatestBySupplierId(supplierId: string, limit: number = 5): Promise<Spent[]> {
+    if (!supplierId || limit < 1) {
+      return Promise.resolve([]);
+    }
+
+    this.logger.log(
+      `Obteniendo los ${limit} últimos gastos del proveedor ${supplierId} para reutilizar nomenclatura de conceptos`,
+    );
+
+    return this.spentRepository.find({
+      where: { supplierId },
+      order: {
+        issuedDate: 'DESC',
+        createdAt: 'DESC',
+      },
+      take: limit,
+      select: ['id', 'name', 'issuedDate', 'concepts', 'createdAt'],
+    });
+  }
+
+  /**
    * Actualiza un gasto existente por su ID
    * @param id - El ID del gasto a actualizar
    * @param spent - El gasto con datos actualizados

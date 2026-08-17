@@ -16,6 +16,9 @@ export class SupplierRepository {
    * @returns El proveedor creado
    */
   create(supplier: Supplier): Promise<Supplier> {
+    if(supplier.nif) {
+      supplier.nif = this.normalizeSupplierNif(supplier.nif);
+    }
     return this.supplierRepository.save(supplier);
   }
 
@@ -106,6 +109,38 @@ export class SupplierRepository {
    */
   findById(id: string, relations?: string[]): Promise<Supplier> {
     return this.supplierRepository.findOne({ where: { id }, relations });
+  }
+
+  /**
+   * Obtiene un proveedor por su NIF y el ID de la empresa.
+   * Compara el NIF ignorando mayúsculas, espacios, puntos y guiones.
+   * @param nif CIF/NIF del proveedor
+   * @param enterpriseId ID de la empresa a la que pertenece el proveedor
+   * @returns El proveedor si se encuentra, o null si no existe
+   */
+  findByNifAndEnterpriseId(nif: string, enterpriseId: string): Promise<Supplier | null> {
+    const normalizedNif = this.normalizeSupplierNif(nif);
+    if (!normalizedNif || !enterpriseId) {
+      return Promise.resolve(null);
+    }
+
+    return this.supplierRepository
+      .createQueryBuilder('supplier')
+      .where('supplier.enterprise_id = :enterpriseId', { enterpriseId })
+      .andWhere(
+        `REPLACE(REPLACE(REPLACE(UPPER(supplier.nif), '-', ''), ' ', ''), '.', '') = :normalizedNif`,
+        { normalizedNif },
+      )
+      .getOne();
+  }
+
+  /**
+   * Normaliza un CIF/NIF para compararlo con el almacenado en base de datos.
+   * @param nif CIF/NIF a normalizar
+   * @returns NIF en mayúsculas y sin separadores
+   */
+  private normalizeSupplierNif(nif: string): string {
+    return nif?.replace(/[\s.\-]/g, '').toUpperCase() ?? '';
   }
 
   /**

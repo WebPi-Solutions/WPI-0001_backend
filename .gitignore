@@ -8,3 +8,6 @@ dist
 
 # Node modules
 node_modules
+
+# Imágenes temporales de conversión OCR
+output

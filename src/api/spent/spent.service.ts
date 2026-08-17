@@ -6,14 +6,40 @@ import { DeleteResult } from 'typeorm';
 import { DropboxService } from 'src/services/dropbox/dropbox.service';
 import { MulterFile } from 'multer';
 import { Response } from 'express';
+import {
+  SpentAiFilePreviewResponseDto,
+  SpentAiPreviewSpentDataDto,
+  SpentAiSuggestedSupplierDto,
+} from './dto/spent-ai-file-preview-response.dto';
+import { FileService } from 'src/services/file/file.service';
+import { ExtractedSpentConceptsResult, ExtractedSpentIssuerResult, OpenaiService } from 'src/services/openai/openai.service';
+import { SupplierRepository } from 'src/entities/supplier/supplier-repository.service';
+import { Supplier } from 'src/entities/supplier/supplier.entity';
+import { SpentConcept } from 'src/models/Concept';
 
+/**
+ * Servicio de gastos: orquesta repositorio, almacenamiento, archivos y extracción con IA.
+ */
 @Injectable()
 export class SpentService {
   private readonly logger = new Logger(SpentService.name);
 
+  /**
+   * Número de facturas recientes del proveedor usadas como ejemplo de formato de conceptos.
+   */
+  private readonly historicalSpentsForConceptExtractionLimit = 5;
+
+  /**
+   * Estado por defecto de un gasto extraído con IA.
+   */
+  private readonly defaultAiSpentStatus = 'paid';
+
   constructor(
     private readonly spentRepository: SpentRepository,
-    private readonly dropboxService: DropboxService
+    private readonly dropboxService: DropboxService,
+    private readonly fileService: FileService,
+    private readonly openaiService: OpenaiService,
+    private readonly supplierRepository: SupplierRepository,
   ){}
 
   /**
@@ -110,10 +136,7 @@ export class SpentService {
     this.logger.log(`Tipo de archivo: ${file.mimetype}, Tamaño: ${file.size} bytes`);
     
     try {
-      // Validar el tipo de archivo
-      if (file.mimetype !== 'application/pdf') {
-        throw new HttpException('Solo se permiten archivos PDF', HttpStatus.BAD_REQUEST);
-      }
+      this.fileService.validatePdfFile(file);
       
       // Obtener el gasto a partir de su ID
       const spent = await this.spentRepository.findById(spentId, ['supplier']);
@@ -140,6 +163,322 @@ export class SpentService {
       throw error;
     }
    }
+
+  /**
+   * Recibe un PDF de gasto para procesamiento con IA.
+   * Delega OCR, extracción del emisor, búsqueda del proveedor, conceptos históricos y armado de spentData.
+   * @param file Archivo PDF recibido
+   * @param enterpriseId ID de la empresa en la que se busca el proveedor
+   * @returns Datos del archivo y spentData listo para crear el gasto
+   */
+  async previewAiSpentFile(
+    file: MulterFile,
+    enterpriseId: string,
+  ): Promise<SpentAiFilePreviewResponseDto> {
+    this.logger.log('Iniciando recepción de PDF para subida de gastos con IA');
+
+    try {
+      const processedFile = await this.fileService.processAiSpentPdf(file);
+      const extractedIssuer = await this.openaiService.extractSpentIssuerFromText(
+        processedFile.extractedText,
+      );
+      const existingSupplier = await this.findSupplierByIssuerNif(extractedIssuer, enterpriseId);
+      const historicalExtractionContext = existingSupplier
+        ? await this.getHistoricalExtractionContextFromSupplier(existingSupplier.id)
+        : { historicalConcepts: [], historicalSpentNames: [] };
+      const extractedInvoice = await this.openaiService.extractSpentConceptsFromText(
+        processedFile.extractedText,
+        {
+          ...historicalExtractionContext,
+          issuerNifWithCountryPrefix: extractedIssuer.nifWithCountryPrefix,
+        },
+      );
+      const spentData = this.buildAiPreviewSpentData(
+        extractedInvoice,
+        existingSupplier,
+        extractedIssuer,
+        processedFile.originalName,
+      );
+
+      this.logger.log(`spentData generado para el frontend:\n${JSON.stringify(spentData, null, 2)}`);
+
+      return {
+        originalName: processedFile.originalName,
+        sizeInMegabytes: processedFile.sizeInMegabytes,
+        message: processedFile.message,
+        spentData,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        this.logger.warn(`PDF rechazado para subida de gastos con IA: ${error.message}`);
+        throw error;
+      }
+
+      this.logger.error(
+        `Error al recibir el PDF para subida de gastos con IA: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Busca el proveedor por los CIF extraídos (sin prefijo y, si viene, con prefijo).
+   * Primero consulta sin prefijo y después con prefijo.
+   * @param extractedIssuer Datos del emisor extraídos por OpenAI
+   * @param enterpriseId ID de la empresa
+   * @returns El proveedor si existe, o null
+   */
+  private async findSupplierByIssuerNif(
+    extractedIssuer: ExtractedSpentIssuerResult,
+    enterpriseId: string,
+  ): Promise<Supplier | null> {
+    const nifSearchCandidates = this.buildSupplierNifSearchCandidates(extractedIssuer);
+    if (nifSearchCandidates.length === 0) {
+      this.logger.warn(
+        'No se busca el proveedor en base de datos: OpenAI no ha devuelto un CIF/NIF del emisor',
+      );
+      return null;
+    }
+
+    this.logger.debug(
+      `Candidatos de CIF para buscar proveedor: ${nifSearchCandidates.join(', ')}`,
+    );
+
+    for (const nifCandidate of nifSearchCandidates) {
+      const existingSupplier = await this.supplierRepository.findByNifAndEnterpriseId(
+        nifCandidate,
+        enterpriseId,
+      );
+
+      if (existingSupplier) {
+        this.logger.debug(
+          `Proveedor encontrado por CIF ${nifCandidate}: ${existingSupplier.name} (ID: ${existingSupplier.id})`,
+        );
+        return existingSupplier;
+      }
+    }
+
+    this.logger.warn(
+      `No existe un proveedor con el CIF ${nifSearchCandidates.join(' / ')} para la empresa ${enterpriseId}`,
+    );
+    return null;
+  }
+
+  /**
+   * Obtiene conceptos y nombres de las últimas facturas del proveedor.
+   * @param supplierId ID del proveedor encontrado
+   * @returns Conceptos históricos y nombres de factura
+   */
+  private async getHistoricalExtractionContextFromSupplier(supplierId: string): Promise<{
+    historicalConcepts: SpentConcept[];
+    historicalSpentNames: string[];
+  }> {
+    const latestSpents = await this.spentRepository.findLatestBySupplierId(
+      supplierId,
+      this.historicalSpentsForConceptExtractionLimit,
+    );
+    const historicalConcepts = this.collectHistoricalConceptsFromSpents(latestSpents);
+    const historicalSpentNames = this.collectHistoricalSpentNamesFromSpents(latestSpents);
+
+    this.logger.debug(
+      `Historial del proveedor ${supplierId} (${latestSpents.length} facturas): nombres=${JSON.stringify(historicalSpentNames)}, conceptos=${JSON.stringify(historicalConcepts)}`,
+    );
+
+    return {
+      historicalConcepts,
+      historicalSpentNames,
+    };
+  }
+
+  /**
+   * Extrae nombres de factura únicos conservando el orden más reciente primero.
+   * @param spents Gastos de los que extraer nombres
+   * @returns Nombres de factura sin duplicados
+   */
+  private collectHistoricalSpentNamesFromSpents(spents: Spent[]): string[] {
+    const uniqueSpentNames: string[] = [];
+    const seenSpentNames = new Set<string>();
+
+    for (const spent of spents) {
+      const spentName = spent?.name?.trim();
+      if (!spentName) {
+        continue;
+      }
+
+      const spentNameKey = spentName.toLowerCase();
+      if (seenSpentNames.has(spentNameKey)) {
+        continue;
+      }
+
+      seenSpentNames.add(spentNameKey);
+      uniqueSpentNames.push(spentName);
+    }
+
+    return uniqueSpentNames;
+  }
+
+  /**
+   * Completa spentData a partir de la extracción de OpenAI, el proveedor y las fechas.
+   * Incluye siempre los datos del emisor para poder crear un proveedor si el vinculado no es el correcto.
+   * @param extractedInvoice Resultado de OpenAI
+   * @param existingSupplier Proveedor encontrado, si existe
+   * @param extractedIssuer Emisor extraído de la factura
+   * @param originalFileName Nombre original del PDF, por si falta el nombre extraído
+   * @returns Datos listos para crear el gasto
+   */
+  private buildAiPreviewSpentData(
+    extractedInvoice: ExtractedSpentConceptsResult,
+    existingSupplier: Supplier | null,
+    extractedIssuer: ExtractedSpentIssuerResult,
+    originalFileName: string,
+  ): SpentAiPreviewSpentDataDto {
+    const issuedDate = extractedInvoice.issuedDate;
+    const spentName = extractedInvoice.name || this.buildFallbackSpentName(originalFileName);
+
+    return {
+      name: spentName,
+      issuedDate,
+      collectionDate: issuedDate,
+      declarationDate: issuedDate,
+      concepts: extractedInvoice.concepts,
+      status: this.defaultAiSpentStatus,
+      supplierId: existingSupplier?.id ?? null,
+      suggestedSupplier: this.buildSuggestedSupplierFromIssuer(extractedIssuer),
+    };
+  }
+
+  /**
+   * Prepara los datos del emisor extraídos de la factura para crear un proveedor.
+   * Se incluye aunque ya exista un proveedor vinculado, por si el emparejamiento no es el correcto.
+   * @param extractedIssuer Emisor extraído por OpenAI
+   * @returns Datos para el alta, o null si no hay nombre ni CIF
+   */
+  private buildSuggestedSupplierFromIssuer(
+    extractedIssuer: ExtractedSpentIssuerResult,
+  ): SpentAiSuggestedSupplierDto | null {
+    const suggestedNif = this.pickSuggestedSupplierNif(extractedIssuer);
+    const suggestedName = extractedIssuer.name?.trim() ?? '';
+    if (!suggestedName && !suggestedNif) {
+      this.logger.warn('El emisor extraído no tiene nombre ni CIF; no se proponen datos de alta');
+      return null;
+    }
+
+    const suggestedSupplier: SpentAiSuggestedSupplierDto = {
+      name: suggestedName,
+      nif: suggestedNif,
+      type: this.inferSupplierTypeFromNif(suggestedNif),
+    };
+
+    this.logger.log(
+      `Datos del emisor extraídos para posible alta de proveedor: ${JSON.stringify(suggestedSupplier)}`,
+    );
+    return suggestedSupplier;
+  }
+
+  /**
+   * Elige el CIF/NIF a usar en el alta: primero sin prefijo de país y, si no hay, con prefijo.
+   * @param extractedIssuer Emisor extraído por OpenAI
+   * @returns CIF/NIF propuesto, o cadena vacía
+   */
+  private pickSuggestedSupplierNif(extractedIssuer: ExtractedSpentIssuerResult): string {
+    const nifWithoutCountryPrefix = extractedIssuer.nifWithoutCountryPrefix?.trim() ?? '';
+    if (nifWithoutCountryPrefix) {
+      return nifWithoutCountryPrefix;
+    }
+
+    return extractedIssuer.nifWithCountryPrefix?.trim() ?? '';
+  }
+
+  /**
+   * Infiere si el emisor es empresa o particular a partir del CIF/NIF.
+   * Un NIF/NIE español se trata como particular; el resto, como empresa.
+   * @param nif CIF/NIF propuesto
+   * @returns `company` o `individual`
+   */
+  private inferSupplierTypeFromNif(nif: string): 'company' | 'individual' {
+    const normalizedNif = nif.replace(/[\s.\-]/g, '').toUpperCase();
+    const nifWithoutCountryPrefix = normalizedNif.startsWith('ES')
+      ? normalizedNif.slice(2)
+      : normalizedNif;
+
+    const isSpanishIndividualNif = /^\d{8}[A-Z]$/.test(nifWithoutCountryPrefix);
+    const isSpanishNie = /^[XYZ]\d{7}[A-Z]$/.test(nifWithoutCountryPrefix);
+    if (isSpanishIndividualNif || isSpanishNie) {
+      return 'individual';
+    }
+
+    return 'company';
+  }
+
+  /**
+   * Construye un nombre de gasto a partir del nombre del archivo si OpenAI no lo ha devuelto.
+   * @param originalFileName Nombre original del PDF
+   * @returns Nombre sin extensión
+   */
+  private buildFallbackSpentName(originalFileName: string): string {
+    const fileNameWithoutExtension = originalFileName.replace(/\.pdf$/i, '').trim();
+    return fileNameWithoutExtension || 'Gasto';
+  }
+
+  /**
+   * Recorre los gastos y extrae los conceptos completos con nombre.
+   * @param spents Gastos de los que extraer conceptos
+   * @returns Conceptos normalizados en el orden de las facturas
+   */
+  private collectHistoricalConceptsFromSpents(spents: Spent[]): SpentConcept[] {
+    const historicalConcepts: SpentConcept[] = [];
+
+    for (const spent of spents) {
+      for (const concept of spent.concepts ?? []) {
+        const mappedConcept = this.mapToHistoricalSpentConcept(concept);
+        if (!mappedConcept) {
+          continue;
+        }
+
+        historicalConcepts.push(mappedConcept);
+      }
+    }
+
+    return historicalConcepts;
+  }
+
+  /**
+   * Normaliza un concepto histórico a los campos usados por la extracción con IA.
+   * No incluye imputación: OpenAI no la extrae y el frontend la ajusta después.
+   * @param concept Concepto almacenado en un gasto
+   * @returns Concepto listo para el prompt, o null si no tiene nombre
+   */
+  private mapToHistoricalSpentConcept(concept: SpentConcept): SpentConcept | null {
+    const conceptName = concept?.name?.trim();
+    if (!conceptName) {
+      return null;
+    }
+
+    const mappedConcept = new SpentConcept();
+    mappedConcept.name = conceptName;
+    mappedConcept.base_price = Number(concept.base_price) || 0;
+    mappedConcept.vat = Number(concept.vat) || 0;
+    mappedConcept.irpf = Number(concept.irpf) || 0;
+    mappedConcept.quantity = Number(concept.quantity) || 1;
+    mappedConcept.supplied = Boolean(concept.supplied);
+
+    return mappedConcept;
+  }
+
+  /**
+   * Ordena los CIF a consultar: primero sin prefijo de país y después con prefijo.
+   * @param extractedIssuer Datos del emisor extraídos por OpenAI
+   * @returns Lista de CIFs a buscar, sin vacíos ni duplicados
+   */
+  private buildSupplierNifSearchCandidates(
+    extractedIssuer: ExtractedSpentIssuerResult,
+  ): string[] {
+    const nifWithoutCountryPrefix = extractedIssuer.nifWithoutCountryPrefix?.trim() ?? '';
+    const nifWithCountryPrefix = extractedIssuer.nifWithCountryPrefix?.trim() ?? '';
+
+    return [...new Set([nifWithoutCountryPrefix, nifWithCountryPrefix].filter(Boolean))];
+  }
 
    /**
     * Descarga el archivo adjunto de un gasto por su ID
