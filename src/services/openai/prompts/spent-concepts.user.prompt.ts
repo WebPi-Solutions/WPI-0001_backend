@@ -8,7 +8,7 @@ export interface SpentConceptsUserPromptContext {
   extractedText: string;
   /** CIF/NIF del emisor con prefijo de país */
   issuerNifWithCountryPrefix: string;
-  /** Nombres de las últimas facturas del proveedor */
+  /** Nombres de las últimas facturas del proveedor, como referencia de estilo si esta factura es de la misma línea */
   historicalSpentNames: string[];
   /** Conceptos completos de las últimas facturas del proveedor */
   historicalConcepts: SpentConcept[];
@@ -33,7 +33,7 @@ export function buildSpentConceptsUserPrompt(
 
   if (promptContext.historicalSpentNames.length > 0) {
     messageParts.push(
-      'Nombres de las últimas facturas del proveedor. Úsalos como patrón para el campo `name` del gasto (combustibles, dietas, internet, recargas, etc.):',
+      'Nombres de las últimas facturas del proveedor. Son solo referencia de estilo si ESTA factura es de la misma línea o tipo. Si los conceptos no tienen que ver con esas facturas, no copies el nombre: genera uno acorde a los conceptos de este documento:',
       JSON.stringify(promptContext.historicalSpentNames),
     );
   }

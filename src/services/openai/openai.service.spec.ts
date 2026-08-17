@@ -251,7 +251,9 @@ describe('OpenaiService', () => {
       const userMessage = requestPayload.messages[1].content as string;
 
       expect(systemPrompt).toContain('copia EXACTAMENTE el `name` histórico');
-      expect(systemPrompt).toContain('copia el estilo del `name` histórico');
+      expect(systemPrompt).toContain('referencia de estilo');
+      expect(systemPrompt).toContain('IGNORA esos nombres históricos');
+      expect(systemPrompt).toContain('acorde a lo que incluye este documento');
       expect(systemPrompt).toContain('Si el prefijo es ES');
       expect(systemPrompt).toContain('gasto suplido');
       expect(systemPrompt).toContain('No copies el valor de supplied');
@@ -264,6 +266,7 @@ describe('OpenaiService', () => {
       expect(userMessage).toContain('CIF del emisor con prefijo de país: ESB66855701');
       expect(userMessage).toContain('Recarga Tesla');
       expect(userMessage).toContain('Combustible');
+      expect(userMessage).toContain('no copies el nombre');
       expect(userMessage).toContain('58.5360 kWh');
       expect(userMessage).toContain('19.84');
       expect(userMessage).toContain('Texto OCR de la factura:');

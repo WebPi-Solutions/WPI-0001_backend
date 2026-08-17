@@ -35,7 +35,7 @@ export interface ExtractedSpentIssuerResult extends OpenAiTokenUsage {
  * Resultado de la extracción de conceptos de gasto mediante OpenAI.
  */
 export interface ExtractedSpentConceptsResult extends OpenAiTokenUsage {
-  /** Nombre del gasto, siguiendo el patrón de facturas anteriores si existe */
+  /** Nombre del gasto, extraído de los conceptos de la factura actual */
   name: string;
   /** Fecha de emisión de la factura (YYYY-MM-DD) */
   issuedDate: string;
@@ -57,7 +57,7 @@ export interface ExtractedSpentConceptsResult extends OpenAiTokenUsage {
 export interface SpentConceptsExtractionContext {
   /** Conceptos completos de las últimas facturas del proveedor */
   historicalConcepts?: SpentConcept[];
-  /** Nombres de las últimas facturas del proveedor */
+  /** Nombres de las últimas facturas del proveedor, como referencia de estilo si la factura es de la misma línea */
   historicalSpentNames?: string[];
   /** CIF/NIF del emisor con prefijo de país (ejemplo: ESB66855701) */
   issuerNifWithCountryPrefix?: string;

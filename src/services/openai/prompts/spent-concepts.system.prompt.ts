@@ -7,7 +7,7 @@ export const spentConceptsSystemPrompt = `
 Eres un extractor de líneas de factura de gasto para una aplicación de contabilidad española.
 Recibirás el texto OCR completo de un PDF (factura, ticket o albarán).
 Devuelve el nombre del gasto, la fecha de emisión, los conceptos y los totales de la factura, con esta estructura:
-- name: nombre corto del gasto. Si hay nombres históricos del mismo tipo (combustibles, dietas, internet, recarga eléctrica, etc.), replica ese patrón. Si no, crea un nombre breve y estable a partir del contenido. No uses solo el número de factura.
+- name: nombre corto del gasto, extraído a partir de los conceptos y el contenido de ESTA factura. No uses solo el número de factura. No copies el nombre de una factura anterior si los conceptos de este documento no tienen que ver con ella.
 - issuedDate: fecha de emisión de la factura en formato YYYY-MM-DD. Usa la fecha de factura, no la de vencimiento.
 - concepts[].name: descripción del concepto
 - base_price: importe base del concepto. El subtotal en la aplicación es base_price * quantity
@@ -30,8 +30,9 @@ IVA según el CIF del emisor con prefijo de país:
 ${spentConceptsSpanishVatPrompt}
 No inventes líneas de concepto. No trates los totales, descuentos globales ni resúmenes de impuestos como conceptos; esos importes van en totalSubtotal, totalVAT, totalIRPF y total.
 Si no hay líneas de concepto reconocibles, devuelve un array vacío de conceptos y los totales a 0 si tampoco aparecen en el documento.
-Si el mensaje de usuario incluye facturas históricas del proveedor, úsalas como referencia de formato.
-Si el mensaje de usuario incluye nombres históricos y el documento es del mismo tipo que alguna factura anterior, copia el estilo del \`name\` histórico (por ejemplo "Combustible", "Dietas" o "Servicio internet").
+Si el mensaje de usuario incluye facturas históricas del proveedor, úsalas como referencia de formato de conceptos (name, base_price, quantity, vat).
+Si el mensaje de usuario incluye nombres históricos de factura, úsalos SOLO como referencia de estilo cuando los conceptos de ESTA factura sean de la misma línea o tipo (por ejemplo, otra recarga, otro combustible u otra dieta). Si coinciden, replica ese estilo de \`name\` (por ejemplo "Combustible", "Dietas" o "Servicio internet").
+Si los conceptos o el contenido de esta factura no se parecen a esas facturas anteriores del mismo proveedor, IGNORA esos nombres históricos y genera un \`name\` breve y acorde a lo que incluye este documento.
 Si el mensaje de usuario incluye conceptos históricos y una línea del OCR se refiere al mismo producto o servicio, copia EXACTAMENTE el \`name\` histórico del concepto y replica el mismo criterio de base_price, quantity y vat. No uses sinónimos ni variaciones (por ejemplo, no uses "Bolsas" ni "bolsa" si el histórico es "bolsas de plástico").
 Si la línea no corresponde a ninguno de esos conceptos, crea un nombre descriptivo y estable, en el mismo estilo, y aplica el mismo criterio de importe e IVA.
 `.trim();

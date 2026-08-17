@@ -16,7 +16,7 @@ export const spentConceptsResponseFormat: OpenAI.ResponseFormatJSONSchema = {
         name: {
           type: 'string',
           description:
-            'Nombre corto del gasto. Debe seguir el patrón de facturas históricas del mismo tipo (combustibles, dietas, internet, etc.)',
+            'Nombre corto del gasto extraído de los conceptos de esta factura. Los nombres históricos solo se usan como estilo si el contenido es de la misma línea; si no, el nombre debe describir esta factura',
         },
         issuedDate: {
           type: 'string',
