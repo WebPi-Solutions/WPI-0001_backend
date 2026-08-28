@@ -30,6 +30,34 @@ BACKEND_DIRECTORY="$(cd "${SCRIPT_DIRECTORY}/../.." && pwd)"
 WORKSPACE_ROOT="$(cd "${BACKEND_DIRECTORY}/.." && pwd)"
 
 # =====================================================================
+# Función: remove_duplicate_cased_checkouts
+# Descripción: elimina los checkouts duplicados por capitalización
+#   (WPI-0001_*) cuando ya existe el checkout canónico en minúsculas
+#   (wpi-0001_*), que es el que clona Cloud Agent según environment.repos.
+# Parámetros: ninguno.
+# Retorno: 0 siempre; la ausencia de duplicados no es un error.
+# =====================================================================
+remove_duplicate_cased_checkouts() {
+  local canonical_directory
+  local duplicate_directory
+  local repository_pairs=(
+    "/agent/repos/wpi-0001_backend|/agent/repos/WPI-0001_backend"
+    "/agent/repos/wpi-0001_frontend|/agent/repos/WPI-0001_frontend"
+  )
+  local repository_pair
+
+  for repository_pair in "${repository_pairs[@]}"; do
+    canonical_directory="${repository_pair%%|*}"
+    duplicate_directory="${repository_pair##*|}"
+    if [ -d "${canonical_directory}" ] && [ -d "${duplicate_directory}" ]; then
+      echo "[install] Eliminando checkout duplicado por capitalización: ${duplicate_directory}"
+      # /agent/repos pertenece a root; se necesita sudo para borrar entradas.
+      sudo rm -rf "${duplicate_directory}"
+    fi
+  done
+}
+
+# =====================================================================
 # Función: path_has_package_name
 # Descripción: comprueba si un directorio contiene un package.json cuyo campo
 #   "name" coincide con el valor esperado.
@@ -104,8 +132,9 @@ install_npm_dependencies() {
 }
 
 # ---------------------------------------------------------------------
-# Punto de entrada: backend siempre, frontend solo si el repositorio existe.
+# Punto de entrada: limpiar duplicados, luego backend y frontend.
 # ---------------------------------------------------------------------
+remove_duplicate_cased_checkouts
 install_npm_dependencies "${BACKEND_DIRECTORY}" "backend"
 
 FRONTEND_DIRECTORY=""
