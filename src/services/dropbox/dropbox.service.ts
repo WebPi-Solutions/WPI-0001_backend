@@ -16,12 +16,33 @@ export class DropboxService {
   private dbx: Dropbox; // Cliente de dropbox
   
   constructor() {
-    this.initializeDropboxClient(); // Inicializamos el cliente de dropbox
+    // Inicializamos el cliente de Dropbox de forma no bloqueante. La
+    // inicialización es asíncrona (requiere obtener un token de acceso) y no
+    // debe detener el arranque de la aplicación si falla. Si las credenciales
+    // no están disponibles o son inválidas (por ejemplo, en un entorno de
+    // desarrollo sin secretos reales), registramos el error y evitamos que una
+    // promesa rechazada sin gestionar finalice el proceso de Node. El cliente
+    // se (re)inicializará de forma perezosa en la primera operación mediante
+    // "ensureAccessToken()".
+    this.initializeDropboxClient().catch((error: unknown) => {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        'No se pudo inicializar el cliente de Dropbox durante el arranque. ' +
+          'Las operaciones con Dropbox se reintentarán bajo demanda. ' +
+          `Detalle: ${errorMessage}`,
+      );
+    });
   }
 
   token_expiration_time: number = 0; // Tiempo de expiración del token
 
-  private async initializeDropboxClient() { // Inicializamos el cliente de dropbox
+  /**
+   * Inicializa el cliente de Dropbox obteniendo un token de acceso válido.
+   * @returns Promesa que se resuelve cuando el cliente queda inicializado.
+   * @throws Error si no es posible obtener un token de acceso.
+   */
+  private async initializeDropboxClient(): Promise<void> {
     const accessToken = await this.getAccessToken(); // Obtenemos un token de acceso
     this.dbx = new Dropbox({ accessToken, fetch }); // Creamos un cliente de dropbox con el token de acceso
   }
