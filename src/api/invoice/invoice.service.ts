@@ -3,6 +3,7 @@ import { ClientRepository } from 'src/entities/client/client-repository.service'
 import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-series-repository.service';
 import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.service';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
+import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recurrent-earning-repository.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { DeleteResult } from 'typeorm';
 
@@ -12,7 +13,8 @@ export class InvoiceService {
 
   constructor(private readonly invoiceRepository: InvoiceRepository,
               private readonly clientRepository: ClientRepository,
-              private readonly invoiceSeriesRepository: InvoiceSeriesRepository
+              private readonly invoiceSeriesRepository: InvoiceSeriesRepository,
+              private readonly recurrentEarningRepository: RecurrentEarningRepository
   ){}
 
   /**
@@ -26,6 +28,7 @@ export class InvoiceService {
 
     // Se establecen los datos persistentes de cliente y emisor así como el número de serie de la factura siempre que esta se cree con un estado diferente a borrador (representa que ya fue emitida)
     invoice = await this.setInvoicePersistentData(invoice);
+    await this.validateRecurrentEarningLink(invoice);
     
     try {
       const newInvoice = await this.invoiceRepository.create(invoice);
@@ -109,6 +112,7 @@ export class InvoiceService {
       ...invoice
     }
     invoice = await this.setInvoicePersistentData(invoice);
+    await this.validateRecurrentEarningLink(invoice);
     
     try {
       const updatedInvoice = await this.invoiceRepository.updateById(id, invoice);
@@ -156,7 +160,7 @@ export class InvoiceService {
     await this.invoiceRepository.updateById(id, { ...invoiceToUpdate, status });
     
     this.logger.log(`Factura ${id} actualizada exitosamente con estado: ${status} y número de serie: ${invoiceToUpdate.seriesNumber}`);
-    return this.findById(id, ['client', 'series']);
+    return this.findById(id, ['client', 'series', 'recurrentEarning']);
   }
   
   /**
@@ -242,6 +246,36 @@ export class InvoiceService {
     }
 
     return invoice;
+  }
+
+  /**
+   * Valida que el ingreso recurrente, si se informa, exista y pertenezca al mismo cliente de la factura.
+   * @param invoice - La factura cuyo vínculo se comprueba
+   */
+  async validateRecurrentEarningLink(invoice: Invoice): Promise<void> {
+    const recurrentEarningsId = invoice.recurrentEarningsId ?? invoice.recurrentEarning?.id;
+    if (!recurrentEarningsId) {
+      invoice.recurrentEarningsId = null;
+      return;
+    }
+
+    invoice.recurrentEarningsId = recurrentEarningsId;
+    const recurrentEarning = await this.recurrentEarningRepository.findById(recurrentEarningsId);
+    if (!recurrentEarning) {
+      this.logger.error(`Ingreso recurrente no encontrado con ID: ${recurrentEarningsId}`);
+      throw new HttpException('Ingreso recurrente no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    const clientId = invoice.client?.id ?? invoice.clientId;
+    if (clientId && recurrentEarning.clientId !== clientId) {
+      this.logger.error(
+        `El ingreso recurrente ${recurrentEarningsId} no pertenece al cliente ${clientId} de la factura`,
+      );
+      throw new HttpException(
+        'El ingreso recurrente no pertenece al cliente de la factura',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   /**

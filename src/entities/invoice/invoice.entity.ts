@@ -1,8 +1,9 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Client } from '../client/client.entity';
 import { InvoiceSeries } from '../invoice-series/invoice-series.entity';
 import { Concept } from '../../models/Concept';
 import { Quote } from '../quote/quote.entity';
+import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 
 export enum InvoiceStatus {
   DRAFT = 'draft',
@@ -41,6 +42,12 @@ export class Invoice {
    */
   @Column({ name: 'quote_id', nullable: true })
   quoteId: string;
+
+  /**
+   * ID del ingreso recurrente del que procede esta factura (opcional)
+   */
+  @Column({ name: 'recurrent_earnings_id', nullable: true })
+  recurrentEarningsId: string;
 
   /**
    * Número secuencial dentro de la serie
@@ -152,4 +159,11 @@ export class Invoice {
   @ManyToOne(() => Quote, quote => quote.invoices)
   @JoinColumn({ name: 'quote_id' })
   quote: Quote;
+
+  /**
+   * Relación con Ingreso recurrente - La plantilla periódica de la que proviene esta factura
+   */
+  @ManyToOne(() => RecurrentEarning, recurrentEarning => recurrentEarning.invoices)
+  @JoinColumn({ name: 'recurrent_earnings_id' })
+  recurrentEarning: RecurrentEarning;
 }

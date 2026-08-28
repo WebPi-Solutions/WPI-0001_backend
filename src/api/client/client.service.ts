@@ -111,10 +111,19 @@ export class ClientService {
    */
   async deleteById(id: string): Promise<DeleteResult> {
     this.logger.log(`Iniciando eliminación de cliente con ID: ${id}`);
-    
-    if (!await this.verifyClientExistsById(id)) {
+
+    const client = await this.clientRepository.findById(id, ['recurrentEarnings']);
+    if (!client) {
       this.logger.log(`No se encontró ningún cliente con ID: ${id}`);
       throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    if (client.recurrentEarnings && client.recurrentEarnings.length > 0) {
+      this.logger.error(`No se puede eliminar el cliente ${id} porque tiene ingresos recurrentes asociados`);
+      throw new HttpException(
+        'No se puede eliminar el cliente porque tiene ingresos recurrentes asociados',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     
     try {

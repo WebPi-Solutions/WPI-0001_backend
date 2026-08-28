@@ -2,6 +2,7 @@ import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, Pri
 import { Enterprise } from '../enterprise/enterprise.entity';
 import { Invoice } from '../invoice/invoice.entity';
 import { Quote } from '../quote/quote.entity';
+import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 
 /**
  * Entidad Cliente que representa la tabla clients en la base de datos
@@ -105,4 +106,10 @@ export class Client {
    */
   @OneToMany(() => Quote, quote => quote.client)
   quotes: Quote[];
+
+  /**
+   * Relación con Ingresos recurrentes - Todas las plantillas periódicas de este cliente
+   */
+  @OneToMany(() => RecurrentEarning, recurrentEarning => recurrentEarning.client)
+  recurrentEarnings: RecurrentEarning[];
 } 

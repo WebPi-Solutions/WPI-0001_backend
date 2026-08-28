@@ -105,7 +105,7 @@ export class InvoiceRepository {
     await this.invoiceRepository.save({ ...invoiceToUpdate, ...invoice });
 
     // Devuelve la factura actualizada con las relaciones incluidas
-    return this.findById(id, ['client', 'series']);
+    return this.findById(id, ['client', 'series', 'recurrentEarning']);
   }
 
   /**

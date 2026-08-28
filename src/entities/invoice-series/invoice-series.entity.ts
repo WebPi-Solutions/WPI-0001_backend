@@ -1,6 +1,7 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Invoice } from '../invoice/invoice.entity';
 import { Enterprise } from '../enterprise/enterprise.entity';
+import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 
 /**
  * Entidad Serie de Factura que representa la tabla invoice_series en la base de datos
@@ -56,4 +57,10 @@ export class InvoiceSeries {
    */
   @OneToMany(() => Invoice, invoice => invoice.series)
   invoices: Invoice[];
+
+  /**
+   * Relación con Ingresos recurrentes - Plantillas periódicas que usan esta serie
+   */
+  @OneToMany(() => RecurrentEarning, recurrentEarning => recurrentEarning.invoiceSeries)
+  recurrentEarnings: RecurrentEarning[];
 } 

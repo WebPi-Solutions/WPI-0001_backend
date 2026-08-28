@@ -6,6 +6,7 @@ import { Supplier } from '../supplier/supplier.entity';
 import { InvoiceSeries } from '../invoice-series/invoice-series.entity';
 import { DefaultSchedule } from '../default-schedule/default-schedule.entity';
 import { Holiday } from '../holiday/holiday.entity';
+import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 
 /**
  * Entidad Empresa que representa la tabla enterprises en la base de datos
@@ -115,4 +116,10 @@ export class Enterprise {
    */
   @OneToMany(() => Holiday, holiday => holiday.enterprise)
   holidays: Holiday[];
+
+  /**
+   * Relación con Ingresos recurrentes - Plantillas de facturación periódica de la empresa
+   */
+  @OneToMany(() => RecurrentEarning, recurrentEarning => recurrentEarning.enterprise)
+  recurrentEarnings: RecurrentEarning[];
 } 

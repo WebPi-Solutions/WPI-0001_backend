@@ -259,10 +259,18 @@ export class EnterpriseService {
   async deleteById(id: string): Promise<DeleteResult> {
     this.logger.log(`Iniciando eliminación de empresa con ID: ${id}`);
 
-    const enterpriseExists = await this.enterpriseRepository.findById(id);
+    const enterpriseExists = await this.enterpriseRepository.findById(id, ['recurrentEarnings']);
     if (!enterpriseExists) {
       this.logger.log(`No se encontró ninguna empresa con ID: ${id}`);
       throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
+    }
+
+    if (enterpriseExists.recurrentEarnings && enterpriseExists.recurrentEarnings.length > 0) {
+      this.logger.error(`No se puede eliminar la empresa ${id} porque tiene ingresos recurrentes asociados`);
+      throw new HttpException(
+        'No se puede eliminar la empresa porque tiene ingresos recurrentes asociados',
+        HttpStatus.BAD_REQUEST,
+      );
     }
     
     try {

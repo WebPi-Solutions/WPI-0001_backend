@@ -88,7 +88,7 @@ export class InvoiceSeriesService {
     this.logger.log(`Iniciando actualización de serie de facturas con ID: ${id}`);
     this.logger.log(`Datos a actualizar:`, JSON.stringify(invoiceSeries, null, 2));
 
-    const seriesExists = await this.invoiceSeriesRepository.findById(id, ['invoices']);
+    const seriesExists = await this.invoiceSeriesRepository.findById(id, ['invoices', 'recurrentEarnings']);
     if(!seriesExists) {
       this.logger.error(`La serie de facturas ${id} no existe`);
       throw new HttpException(`La serie de facturas ${id} no existe`, HttpStatus.NOT_FOUND);
@@ -118,7 +118,7 @@ export class InvoiceSeriesService {
     this.logger.log(`Iniciando eliminación de serie de facturas con ID: ${id}`);
 
 
-    const seriesExists = await this.invoiceSeriesRepository.findById(id, ['invoices']);
+    const seriesExists = await this.invoiceSeriesRepository.findById(id, ['invoices', 'recurrentEarnings']);
     if(!seriesExists) {
       this.logger.error(`La serie de facturas ${id} no existe`);
       throw new HttpException(`La serie de facturas ${id} no existe`, HttpStatus.NOT_FOUND);
@@ -127,6 +127,11 @@ export class InvoiceSeriesService {
     if(seriesExists.invoices.length > 0) {
       this.logger.error(`No se puede eliminar la serie de facturas porque ya tiene facturas emitidas`);
       throw new HttpException(`No se puede eliminar la serie de facturas porque ya tiene facturas emitidas`, HttpStatus.BAD_REQUEST);
+    }
+
+    if(seriesExists.recurrentEarnings && seriesExists.recurrentEarnings.length > 0) {
+      this.logger.error(`No se puede eliminar la serie de facturas porque tiene ingresos recurrentes asociados`);
+      throw new HttpException(`No se puede eliminar la serie de facturas porque tiene ingresos recurrentes asociados`, HttpStatus.BAD_REQUEST);
     }
     
     try {
