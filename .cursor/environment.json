@@ -1,0 +1,18 @@
+{
+  "name": "WPI-0001 Backend",
+  "install": "bash .cursor/scripts/install.sh",
+  "start": "bash .cursor/scripts/start.sh",
+  "terminals": [
+    {
+      "name": "api-dev-server",
+      "command": "npm run start:dev",
+      "description": "Servidor de desarrollo NestJS en modo watch, escuchando en http://localhost:3000 (documentacion Swagger en /documentation)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "api",
+      "port": 3000
+    }
+  ]
+}
