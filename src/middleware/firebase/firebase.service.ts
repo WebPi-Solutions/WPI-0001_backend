@@ -1,13 +1,22 @@
 import * as admin from 'firebase-admin';
+import { loadBackendDotenv, resolveFirebasePrivateKey } from './firebase-env';
 
-import * as dotenv from 'dotenv';
-dotenv.config();
+/**
+ * Inicializa el SDK de Firebase Admin a partir de las variables de entorno.
+ *
+ * Carga ".env" si existe y exige FIREBASE_PRIVATE_KEY. El secreto puede llegar
+ * como variable de proceso (secreto de runtime de Cloud Agent) o persistido
+ * en ".env" por el script de arranque del entorno.
+ */
+loadBackendDotenv();
+
+const firebasePrivateKey = resolveFirebasePrivateKey(process.env.FIREBASE_PRIVATE_KEY);
 
 const serviceAccount = {
   type: process.env.FIREBASE_TYPE,
   project_id: process.env.FIREBASE_PROJECT_ID,
   private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-  private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Reemplazo para el caso de que la clave la añadamos en un archivo .env
+  private_key: firebasePrivateKey,
   client_email: process.env.FIREBASE_CLIENT_EMAIL,
   client_id: process.env.FIREBASE_CLIENT_ID,
   auth_uri: process.env.FIREBASE_AUTH_URI,

@@ -144,4 +144,14 @@ else
   echo "[install] Repositorio del frontend no encontrado junto a ${WORKSPACE_ROOT}; se omite."
 fi
 
+# Publicamos ng/nest en PATH para shells interactivos del agente.
+if [ -n "${FRONTEND_DIRECTORY}" ] && [ -x "${FRONTEND_DIRECTORY}/node_modules/.bin/ng" ]; then
+  sudo ln -sfn "${FRONTEND_DIRECTORY}/node_modules/.bin/ng" /usr/local/bin/ng
+  echo "[install] Comando ng disponible en /usr/local/bin/ng"
+fi
+if [ -x "${BACKEND_DIRECTORY}/node_modules/.bin/nest" ]; then
+  sudo ln -sfn "${BACKEND_DIRECTORY}/node_modules/.bin/nest" /usr/local/bin/nest
+  echo "[install] Comando nest disponible en /usr/local/bin/nest"
+fi
+
 echo "[install] Instalación de dependencias completada correctamente."
