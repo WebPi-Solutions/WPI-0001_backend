@@ -16,14 +16,41 @@ export class DropboxService {
   private dbx: Dropbox; // Cliente de dropbox
   
   constructor() {
-    this.initializeDropboxClient(); // Inicializamos el cliente de dropbox
+    // Se intenta inicializar el cliente de Dropbox de forma anticipada para
+    // "calentar" el token de acceso. La promesa se marca con `void` y la
+    // inicialización captura sus propios errores: un fallo en el arranque (por
+    // ejemplo, credenciales ausentes o Dropbox inaccesible) no debe generar un
+    // rechazo de promesa no gestionado que derribe todo el proceso. En ese caso
+    // `ensureAccessToken()` reintentará la obtención del token antes de la
+    // primera operación real contra Dropbox.
+    void this.initializeDropboxClient();
   }
 
   token_expiration_time: number = 0; // Tiempo de expiración del token
 
-  private async initializeDropboxClient() { // Inicializamos el cliente de dropbox
-    const accessToken = await this.getAccessToken(); // Obtenemos un token de acceso
-    this.dbx = new Dropbox({ accessToken, fetch }); // Creamos un cliente de dropbox con el token de acceso
+  /**
+   * Inicializa el cliente de Dropbox obteniendo un token de acceso inicial.
+   *
+   * Cualquier error se registra como advertencia y se absorbe deliberadamente
+   * para no interrumpir el arranque de la aplicación: la obtención del token se
+   * reintenta de forma perezosa en {@link ensureAccessToken} antes de cada
+   * operación. De este modo, las funcionalidades que no dependen de Dropbox
+   * siguen estando disponibles aunque la integración no esté configurada.
+   *
+   * @returns Promesa que se resuelve cuando finaliza el intento de inicialización.
+   */
+  private async initializeDropboxClient(): Promise<void> {
+    try {
+      const accessToken = await this.getAccessToken(); // Obtenemos un token de acceso
+      this.dbx = new Dropbox({ accessToken, fetch }); // Creamos un cliente de dropbox con el token de acceso
+    } catch (error) {
+      // Se degrada de forma controlada: se avisa pero no se propaga el error.
+      this.logger.warn(
+        `No se pudo inicializar el cliente de Dropbox durante el arranque; ` +
+          `se reintentará antes de la primera operación. Detalle: ` +
+          `${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
