@@ -214,6 +214,10 @@ describe('SpentService', () => {
           totalTokens: 15,
         }),
       );
+      const issuerCorrelationId = aiRequestService.create.mock.calls[0][1].correlationId;
+      const conceptsCorrelationId = aiRequestService.create.mock.calls[1][1].correlationId;
+      expect(issuerCorrelationId).toEqual(expect.any(String));
+      expect(conceptsCorrelationId).toBe(issuerCorrelationId);
       expect(dropboxService.uploadFile).not.toHaveBeenCalled();
     });
 

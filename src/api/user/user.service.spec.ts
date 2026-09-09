@@ -14,6 +14,7 @@ describe('UserService', () => {
     updateUserEnterpriseRole: jest.Mock;
     updateUserEnterpriseDefaultSchedule: jest.Mock;
     findById: jest.Mock;
+    findByEnterpriseCardId: jest.Mock;
   };
   let enterpriseAccessService: {
     assertUserBelongsToEnterprise: jest.Mock;
@@ -29,6 +30,7 @@ describe('UserService', () => {
       updateUserEnterpriseRole: jest.fn().mockResolvedValue(undefined),
       updateUserEnterpriseDefaultSchedule: jest.fn().mockResolvedValue(undefined),
       findById: jest.fn(),
+      findByEnterpriseCardId: jest.fn(),
     };
     enterpriseAccessService = {
       assertUserBelongsToEnterprise: jest.fn().mockResolvedValue(undefined),
@@ -102,6 +104,50 @@ describe('UserService', () => {
 
       expect(userRepository.updateUserEnterpriseRole).not.toHaveBeenCalled();
       expect(userRepository.updateById).toHaveBeenCalled();
+    });
+  });
+
+  describe('findByEnterpriseCardId', () => {
+    it('exige enterpriseId para la búsqueda por tarjeta', async () => {
+      await expect(service.findByEnterpriseCardId('  ', 12)).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Debe especificar la empresa para buscar por tarjeta.',
+      });
+      expect(userRepository.findByEnterpriseCardId).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un card_id no positivo', async () => {
+      await expect(service.findByEnterpriseCardId(enterpriseId, 0)).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'El identificador de tarjeta debe ser un número positivo.',
+      });
+      await expect(service.findByEnterpriseCardId(enterpriseId, Number.NaN)).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+      });
+      expect(userRepository.findByEnterpriseCardId).not.toHaveBeenCalled();
+    });
+
+    it('lanza 404 genérico si no hay usuario para esa tarjeta en la empresa', async () => {
+      userRepository.findByEnterpriseCardId.mockResolvedValue(null);
+
+      await expect(service.findByEnterpriseCardId(enterpriseId, 42)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Usuario no encontrado',
+      });
+      expect(userRepository.findByEnterpriseCardId).toHaveBeenCalledWith(enterpriseId, 42, undefined);
+    });
+
+    it('devuelve el usuario cuando el card_id existe en la empresa', async () => {
+      userRepository.findByEnterpriseCardId.mockResolvedValue(updatedUser);
+
+      await expect(
+        service.findByEnterpriseCardId(enterpriseId, 42, ['userEnterprises']),
+      ).resolves.toEqual(updatedUser);
+      expect(userRepository.findByEnterpriseCardId).toHaveBeenCalledWith(
+        enterpriseId,
+        42,
+        ['userEnterprises'],
+      );
     });
   });
 });
