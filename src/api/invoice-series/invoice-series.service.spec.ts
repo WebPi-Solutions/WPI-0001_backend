@@ -56,6 +56,32 @@ describe('InvoiceSeriesService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('create', () => {
+    it('rechaza una serie duplicada en la misma empresa', async () => {
+      const invoiceSeries = buildInvoiceSeries();
+      invoiceSeriesRepository.findBySeriesAndEnterpriseId.mockResolvedValue(invoiceSeries);
+
+      await expect(service.create(invoiceSeries)).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: `La serie de facturas ${invoiceSeries.series} ya existe para la empresa ${invoiceSeries.enterpriseId}`,
+      });
+      expect(invoiceSeriesRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('persiste la serie cuando el código es único en la empresa', async () => {
+      const invoiceSeries = buildInvoiceSeries();
+      invoiceSeriesRepository.findBySeriesAndEnterpriseId.mockResolvedValue(null);
+      invoiceSeriesRepository.create.mockResolvedValue(invoiceSeries);
+
+      await expect(service.create(invoiceSeries)).resolves.toEqual(invoiceSeries);
+      expect(invoiceSeriesRepository.findBySeriesAndEnterpriseId).toHaveBeenCalledWith(
+        invoiceSeries.series,
+        invoiceSeries.enterpriseId,
+      );
+      expect(invoiceSeriesRepository.create).toHaveBeenCalledWith(invoiceSeries);
+    });
+  });
+
   describe('updateById', () => {
     it('impide cambiar el código de serie si ya hay facturas emitidas', async () => {
       invoiceSeriesRepository.findById.mockResolvedValue(
