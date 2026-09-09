@@ -30,7 +30,7 @@ describe('InvoiceService', () => {
       id: invoiceId,
       clientId: 'client-uuid',
       status: InvoiceStatus.DRAFT,
-      recurrentEarningsId: null,
+      recurrentEarningId: null,
       ...overrides,
     }) as Invoice;
 
@@ -63,11 +63,11 @@ describe('InvoiceService', () => {
 
   describe('validateRecurrentEarningLink', () => {
     it('deja el vínculo a nulo cuando no se informa ingreso recurrente', async () => {
-      const invoice = buildInvoice({ recurrentEarningsId: undefined });
+      const invoice = buildInvoice({ recurrentEarningId: undefined });
 
       await service.validateRecurrentEarningLink(invoice);
 
-      expect(invoice.recurrentEarningsId).toBeNull();
+      expect(invoice.recurrentEarningId).toBeNull();
       expect(recurrentEarningRepository.findById).not.toHaveBeenCalled();
     });
 
@@ -76,7 +76,7 @@ describe('InvoiceService', () => {
 
       await expect(
         service.validateRecurrentEarningLink(
-          buildInvoice({ recurrentEarningsId: 'recurrent-missing' }),
+          buildInvoice({ recurrentEarningId: 'recurrent-missing' }),
         ),
       ).rejects.toMatchObject({
         status: HttpStatus.NOT_FOUND,
@@ -94,7 +94,7 @@ describe('InvoiceService', () => {
         service.validateRecurrentEarningLink(
           buildInvoice({
             clientId: 'client-uuid',
-            recurrentEarningsId: 'recurrent-uuid',
+            recurrentEarningId: 'recurrent-uuid',
           }),
         ),
       ).rejects.toMatchObject({
@@ -108,10 +108,10 @@ describe('InvoiceService', () => {
         id: 'recurrent-uuid',
         clientId: 'client-uuid',
       });
-      const invoice = buildInvoice({ recurrentEarningsId: 'recurrent-uuid' });
+      const invoice = buildInvoice({ recurrentEarningId: 'recurrent-uuid' });
 
       await expect(service.validateRecurrentEarningLink(invoice)).resolves.toBeUndefined();
-      expect(invoice.recurrentEarningsId).toBe('recurrent-uuid');
+      expect(invoice.recurrentEarningId).toBe('recurrent-uuid');
     });
   });
 
