@@ -17,6 +17,8 @@ describe('BillingService', () => {
     getSubscriptionsByAccountId: jest.Mock;
     getProductNamesByIds: jest.Mock;
     getProductNamesAndMetadataByIds: jest.Mock;
+    updateSubscriptionPrimaryItemPrice: jest.Mock;
+    cancelSubscriptionAtPeriodEnd: jest.Mock;
   };
 
   const authenticatedUserId = 'user-uuid';
@@ -61,6 +63,8 @@ describe('BillingService', () => {
       getSubscriptionsByAccountId: jest.fn(),
       getProductNamesByIds: jest.fn(),
       getProductNamesAndMetadataByIds: jest.fn(),
+      updateSubscriptionPrimaryItemPrice: jest.fn(),
+      cancelSubscriptionAtPeriodEnd: jest.fn(),
     };
 
     const testingModule: TestingModule = await Test.createTestingModule({
@@ -236,6 +240,83 @@ describe('BillingService', () => {
           }),
         }),
       );
+    });
+  });
+
+  describe('updateSubscriptionPriceForAuthenticatedUser', () => {
+    const updateParams = {
+      authenticatedUserId,
+      enterpriseId,
+      subscriptionId: 'sub_1',
+      newPriceId: 'price_2',
+    };
+
+    it('prohíbe modificar si el usuario no está vinculado a la empresa', async () => {
+      stripeService.isStripeConfigured.mockReturnValue(true);
+
+      await expect(
+        service.updateSubscriptionPriceForAuthenticatedUser({
+          ...updateParams,
+          enterpriseId: 'otra-empresa',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(stripeService.updateSubscriptionPrimaryItemPrice).not.toHaveBeenCalled();
+    });
+
+    it('lanza 404 si la suscripción no pertenece al cliente Stripe de la empresa', async () => {
+      stripeService.isStripeConfigured.mockReturnValue(true);
+      stripeService.getSubscriptionsByAccountId.mockResolvedValue([{ id: 'sub_otra' }]);
+
+      await expect(
+        service.updateSubscriptionPriceForAuthenticatedUser(updateParams),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(stripeService.updateSubscriptionPrimaryItemPrice).not.toHaveBeenCalled();
+    });
+
+    it('actualiza el precio cuando la suscripción pertenece al cliente de la empresa', async () => {
+      stripeService.isStripeConfigured.mockReturnValue(true);
+      stripeService.getSubscriptionsByAccountId.mockResolvedValue([{ id: 'sub_1' }]);
+
+      await expect(
+        service.updateSubscriptionPriceForAuthenticatedUser({
+          ...updateParams,
+          quantity: 3,
+        }),
+      ).resolves.toBeUndefined();
+      expect(stripeService.updateSubscriptionPrimaryItemPrice).toHaveBeenCalledWith({
+        subscriptionId: 'sub_1',
+        newPriceId: 'price_2',
+        quantity: 3,
+      });
+    });
+  });
+
+  describe('cancelActiveSubscriptionAtPeriodEndForAuthenticatedUser', () => {
+    it('prohíbe cancelar si el usuario no está vinculado a la empresa', async () => {
+      stripeService.isStripeConfigured.mockReturnValue(true);
+
+      await expect(
+        service.cancelActiveSubscriptionAtPeriodEndForAuthenticatedUser(
+          authenticatedUserId,
+          'sub_1',
+          'otra-empresa',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(stripeService.cancelSubscriptionAtPeriodEnd).not.toHaveBeenCalled();
+    });
+
+    it('lanza 404 si la suscripción no está en clientes Stripe autorizados', async () => {
+      stripeService.isStripeConfigured.mockReturnValue(true);
+      stripeService.getSubscriptionsByAccountId.mockResolvedValue([{ id: 'sub_otra' }]);
+
+      await expect(
+        service.cancelActiveSubscriptionAtPeriodEndForAuthenticatedUser(
+          authenticatedUserId,
+          'sub_1',
+          enterpriseId,
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(stripeService.cancelSubscriptionAtPeriodEnd).not.toHaveBeenCalled();
     });
   });
 });

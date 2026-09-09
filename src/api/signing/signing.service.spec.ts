@@ -1,4 +1,4 @@
-import { HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { SigningRepository } from 'src/entities/signing/signing-repository.service';
@@ -265,6 +265,48 @@ describe('SigningService', () => {
         generatedMaps: [],
       });
       expect(signingRepository.markCancelledEntity).toHaveBeenCalledWith(current);
+    });
+  });
+
+  describe('getSigningUpdatesForSigning', () => {
+    it('lanza 404 si el fichaje está anulado y no consulta el histórico', async () => {
+      signingRepository.findById.mockResolvedValue(buildSigning({ cancelled: true }));
+
+      await expect(service.getSigningUpdatesForSigning(signingId, enterpriseId)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Fichaje no encontrado',
+      });
+      expect(signingUpdateRepository.findBySigningsIdChronological).not.toHaveBeenCalled();
+    });
+
+    it('no expone el histórico si el fichaje no pertenece a la empresa', async () => {
+      signingRepository.findById.mockResolvedValue(buildSigning());
+      const accessGuard = enterpriseAccessService.assertUserEnterpriseBelongsToEnterprise;
+      accessGuard.mockImplementation(() => {
+        throw new HttpException('Fichaje no encontrado', HttpStatus.NOT_FOUND);
+      });
+
+      await expect(service.getSigningUpdatesForSigning(signingId, enterpriseId)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+      });
+      expect(signingUpdateRepository.findBySigningsIdChronological).not.toHaveBeenCalled();
+    });
+
+    it('consulta el histórico cronológico tras validar el ámbito de empresa', async () => {
+      const history = [{ id: 'update-1' }];
+      signingRepository.findById.mockResolvedValue(buildSigning());
+      const historyFinder = signingUpdateRepository.findBySigningsIdChronological;
+      historyFinder.mockImplementation(async () => history);
+
+      await expect(service.getSigningUpdatesForSigning(signingId, enterpriseId)).resolves.toEqual(
+        history,
+      );
+      expect(enterpriseAccessService.assertUserEnterpriseBelongsToEnterprise).toHaveBeenCalledWith(
+        userEnterpriseId,
+        enterpriseId,
+        expect.objectContaining({ operationContext: 'signing' }),
+      );
+      expect(signingUpdateRepository.findBySigningsIdChronological).toHaveBeenCalledWith(signingId);
     });
   });
 

@@ -183,4 +183,41 @@ describe('MetricsController', () => {
       expect(metricsService.getYearlyInvoiceMetrics).toHaveBeenCalledWith(2026, enterpriseId);
     });
   });
+
+  describe('getYearlySpentMetrics', () => {
+    it('exige year y enterpriseId', async () => {
+      await expect(controller.getYearlySpentMetrics('', enterpriseId)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      await expect(controller.getYearlySpentMetrics('2026', '')).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(metricsService.getYearlySpentMetrics).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un año fuera del rango 2000-2100', async () => {
+      await expect(controller.getYearlySpentMetrics('1999', enterpriseId)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      await expect(controller.getYearlySpentMetrics('2101', enterpriseId)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(metricsService.getYearlySpentMetrics).not.toHaveBeenCalled();
+    });
+
+    it('parsea el año y lo reenvía al servicio', async () => {
+      await controller.getYearlySpentMetrics('2026', enterpriseId);
+
+      expect(metricsService.getYearlySpentMetrics).toHaveBeenCalledWith(2026, enterpriseId);
+    });
+
+    it('traduce un error del servicio a 500', async () => {
+      metricsService.getYearlySpentMetrics.mockRejectedValue(new Error('fallo SQL'));
+
+      await expect(controller.getYearlySpentMetrics('2026', enterpriseId)).rejects.toMatchObject({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error obteniendo métricas anuales de gastos: fallo SQL',
+      });
+    });
+  });
 });

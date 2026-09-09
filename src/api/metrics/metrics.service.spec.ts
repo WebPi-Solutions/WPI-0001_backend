@@ -253,4 +253,61 @@ describe('MetricsService', () => {
       });
     });
   });
+
+  describe('getYearlySpentMetrics', () => {
+    it('devuelve doce meses con totales a cero cuando no hay gastos', async () => {
+      const yearlyMetrics = await service.getYearlySpentMetrics(2026, enterpriseId);
+
+      expect(spentRepository.getSpentsForMetrics).toHaveBeenCalledTimes(12);
+      expect(yearlyMetrics.year).toBe(2026);
+      expect(yearlyMetrics.months).toHaveLength(12);
+      expect(yearlyMetrics.totals).toEqual({
+        subtotal: 0,
+        vat: 0,
+        irpf: 0,
+        total: 0,
+        count: 0,
+      });
+    });
+
+    it('aplica el percentage del concepto y acumula solo el mes con gastos', async () => {
+      spentRepository.getSpentsForMetrics.mockImplementation((startDate: Date) => {
+        if (startDate.getFullYear() === 2026 && startDate.getMonth() === 0) {
+          return Promise.resolve([buildSpent()]);
+        }
+        return Promise.resolve([]);
+      });
+
+      const yearlyMetrics = await service.getYearlySpentMetrics(2026, enterpriseId);
+
+      expect(spentRepository.getSpentsForMetrics).toHaveBeenCalledTimes(12);
+      expect(yearlyMetrics.months[0]).toEqual(
+        expect.objectContaining({
+          month: 1,
+          monthName: 'Enero',
+          subtotal: 50,
+          vat: 10.5,
+          irpf: 0,
+          total: 60.5,
+          count: 1,
+        }),
+      );
+      expect(yearlyMetrics.months[1]).toEqual(
+        expect.objectContaining({
+          month: 2,
+          monthName: 'Febrero',
+          subtotal: 0,
+          vat: 0,
+          count: 0,
+        }),
+      );
+      expect(yearlyMetrics.totals).toEqual({
+        subtotal: 50,
+        vat: 10.5,
+        irpf: 0,
+        total: 60.5,
+        count: 1,
+      });
+    });
+  });
 });
