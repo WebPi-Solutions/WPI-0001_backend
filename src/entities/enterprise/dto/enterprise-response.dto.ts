@@ -82,6 +82,16 @@ export class EnterpriseResponseDto {
   logo: string | null;
 
   /**
+   * Acceso a las funciones de IA de la empresa
+   */
+  @ApiProperty({
+    description: 'Si la empresa tiene acceso a las funciones de IA',
+    example: false,
+  })
+  @Expose()
+  aiAccess: boolean;
+
+  /**
    * Fecha de creación del registro
    */
   @ApiProperty({ description: 'Fecha de creación del registro' })

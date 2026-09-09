@@ -1,8 +1,10 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RecurrentEarning } from 'src/entities/recurrent-earning/recurrent-earning.entity';
+import { RecurrentEarningResponseDto } from 'src/entities/recurrent-earning/dto/recurrent-earning-response.dto';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { RecurrentEarningService } from './recurrent-earning.service';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
 
 /**
  * Controlador REST de ingresos recurrentes.
@@ -22,7 +24,9 @@ export class RecurrentEarningController {
    * @returns El ingreso recurrente creado
    */
   @Post()
+  @MapResponse(RecurrentEarningResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo ingreso recurrente' })
+  @ApiOkResponse({ type: RecurrentEarningResponseDto, description: 'Ingreso recurrente creado (vista pública).' })
   @ApiResponse({ status: 201, description: 'El ingreso recurrente ha sido creado correctamente.' })
   @ApiResponse({ status: 400, description: 'Petición inválida.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -51,7 +55,9 @@ export class RecurrentEarningController {
    * @returns Respuesta paginada con los ingresos recurrentes
    */
   @Get()
+  @MapResponse(RecurrentEarningResponseDto)
   @ApiOperation({ summary: 'Obtener todos los ingresos recurrentes' })
+  @ApiOkResponse({ type: RecurrentEarningResponseDto, isArray: true, description: 'Ingresos recurrentes (vista pública).' })
   @ApiResponse({ status: 200, description: 'Los ingresos recurrentes han sido obtenidos correctamente.' })
   @ApiResponse({ status: 400, description: 'Petición inválida.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -111,7 +117,9 @@ export class RecurrentEarningController {
    * @returns El ingreso recurrente
    */
   @Get(':id')
+  @MapResponse(RecurrentEarningResponseDto)
   @ApiOperation({ summary: 'Obtener un ingreso recurrente por su id' })
+  @ApiOkResponse({ type: RecurrentEarningResponseDto, description: 'Ingreso recurrente (vista pública).' })
   @ApiResponse({ status: 200, description: 'El ingreso recurrente ha sido obtenido correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 404, description: 'Ingreso recurrente no encontrado.' })
@@ -128,7 +136,9 @@ export class RecurrentEarningController {
    * @returns El ingreso recurrente actualizado
    */
   @Patch(':id')
+  @MapResponse(RecurrentEarningResponseDto)
   @ApiOperation({ summary: 'Actualizar un ingreso recurrente por su id' })
+  @ApiOkResponse({ type: RecurrentEarningResponseDto, description: 'Ingreso recurrente actualizado (vista pública).' })
   @ApiResponse({ status: 200, description: 'El ingreso recurrente ha sido actualizado correctamente.' })
   @ApiResponse({ status: 400, description: 'Petición inválida.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })

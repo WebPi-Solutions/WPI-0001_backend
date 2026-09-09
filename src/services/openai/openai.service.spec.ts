@@ -86,6 +86,7 @@ describe('OpenaiService', () => {
       expect(result.nifWithoutCountryPrefix).toBe('B12345678');
       expect(result.nifWithCountryPrefix).toBe('ESB12345678');
       expect(result.totalTokens).toBe(100);
+      expect(result.requestMessage).toBe('Factura emitida por Proveedor Ejemplo');
       expect(mockCreateChatCompletion).toHaveBeenCalledTimes(1);
 
       const completionRequest = mockCreateChatCompletion.mock.calls[0][0] as {
@@ -169,6 +170,7 @@ describe('OpenaiService', () => {
       expect(result.promptTokens).toBe(120);
       expect(result.completionTokens).toBe(40);
       expect(result.totalTokens).toBe(160);
+      expect(result.requestMessage).toBe('Factura de hosting 50€ + IVA');
       expect(mockCreateChatCompletion).toHaveBeenCalledTimes(1);
       expect(mockCreateChatCompletion).toHaveBeenCalledWith(
         expect.objectContaining({

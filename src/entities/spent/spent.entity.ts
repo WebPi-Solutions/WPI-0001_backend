@@ -60,7 +60,7 @@ export class Spent {
   /**
    * Flag para indicar si el gasto tiene un archivo adjunto
    */
-  @Column({ nullable: true, name: 'file' })
+  @Column({ name: 'file', default: false })
   file: boolean;
 
   /**

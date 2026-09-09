@@ -1,8 +1,10 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Supplier } from 'src/entities/supplier/supplier.entity';
+import { SupplierResponseDto } from 'src/entities/supplier/dto/supplier-response.dto';
 import { SupplierService } from './supplier.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
 
 @ApiTags('Proveedores')
 @Controller('suppliers')
@@ -16,7 +18,9 @@ export class SupplierController {
    * @returns El proveedor creado
    */
   @Post()
+  @MapResponse(SupplierResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo proveedor' })
+  @ApiOkResponse({ type: SupplierResponseDto, description: 'Proveedor creado (vista pública).' })
   @ApiResponse({ status: 201, description: 'El proveedor ha sido creado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -35,7 +39,9 @@ export class SupplierController {
    * @returns Los proveedores
    */
   @Get()
+  @MapResponse(SupplierResponseDto)
   @ApiOperation({ summary: 'Obtener todos los proveedores' })
+  @ApiOkResponse({ type: SupplierResponseDto, isArray: true, description: 'Proveedores (vista pública).' })
   @ApiResponse({ status: 200, description: 'Los proveedores han sido obtenidos correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -81,7 +87,9 @@ export class SupplierController {
    * @returns El proveedor
    */
   @Get(':id')
+  @MapResponse(SupplierResponseDto)
   @ApiOperation({ summary: 'Obtener un proveedor por su id' })
+  @ApiOkResponse({ type: SupplierResponseDto, description: 'Proveedor (vista pública).' })
   @ApiResponse({ status: 200, description: 'El proveedor ha sido obtenido correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -97,7 +105,9 @@ export class SupplierController {
    * @returns El proveedor actualizado
    */
   @Patch(':id')
+  @MapResponse(SupplierResponseDto)
   @ApiOperation({ summary: 'Actualizar un proveedor por su id' })
+  @ApiOkResponse({ type: SupplierResponseDto, description: 'Proveedor actualizado (vista pública).' })
   @ApiResponse({ status: 200, description: 'El proveedor ha sido actualizado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })

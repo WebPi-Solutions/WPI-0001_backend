@@ -89,21 +89,21 @@ export class RecurrentEarning {
   /**
    * Empresa propietaria de este ingreso recurrente.
    */
-  @ManyToOne(() => Enterprise, enterprise => enterprise.recurrentEarnings)
+  @ManyToOne(() => Enterprise, enterprise => enterprise.recurrentEarnings, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'enterprise_id' })
   enterprise: Enterprise;
 
   /**
    * Serie de factura asociada a este ingreso recurrente.
    */
-  @ManyToOne(() => InvoiceSeries, invoiceSeries => invoiceSeries.recurrentEarnings)
+  @ManyToOne(() => InvoiceSeries, invoiceSeries => invoiceSeries.recurrentEarnings, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'invoice_serie_id' })
   invoiceSeries: InvoiceSeries;
 
   /**
    * Cliente al que se factura de forma recurrente.
    */
-  @ManyToOne(() => Client, client => client.recurrentEarnings)
+  @ManyToOne(() => Client, client => client.recurrentEarnings, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'client_id' })
   client: Client;
 

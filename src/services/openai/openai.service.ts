@@ -29,6 +29,8 @@ export interface ExtractedSpentIssuerResult extends OpenAiTokenUsage {
   nifWithoutCountryPrefix: string;
   /** CIF/NIF del emisor con prefijo de país, o vacío si no aplica */
   nifWithCountryPrefix: string;
+  /** Prompt de usuario enviado al modelo */
+  requestMessage: string;
 }
 
 /**
@@ -49,6 +51,8 @@ export interface ExtractedSpentConceptsResult extends OpenAiTokenUsage {
   totalIRPF: number;
   /** Total de la factura (subtotal - IRPF + IVA) */
   total: number;
+  /** Prompt de usuario enviado al modelo */
+  requestMessage: string;
 }
 
 /**
@@ -188,6 +192,7 @@ export class OpenaiService {
       return {
         ...issuer,
         ...completionResult.tokenUsage,
+        requestMessage: normalizedText,
       };
     } catch (error) {
       this.rethrowOpenAiHttpException(
@@ -220,15 +225,17 @@ export class OpenaiService {
       `Contexto de extracción de conceptos enviado a OpenAI: ${JSON.stringify(normalizedContext)}`,
     );
 
+    const requestMessage = buildSpentConceptsUserPrompt({
+      extractedText: normalizedText,
+      issuerNifWithCountryPrefix: normalizedContext.issuerNifWithCountryPrefix,
+      historicalSpentNames: normalizedContext.historicalSpentNames,
+      historicalConcepts: normalizedContext.historicalConcepts,
+    });
+
     try {
       const completionResult = await this.executeStructuredChatCompletion(
         this.buildStructuredRequestPayload(
-          buildSpentConceptsUserPrompt({
-            extractedText: normalizedText,
-            issuerNifWithCountryPrefix: normalizedContext.issuerNifWithCountryPrefix,
-            historicalSpentNames: normalizedContext.historicalSpentNames,
-            historicalConcepts: normalizedContext.historicalConcepts,
-          }),
+          requestMessage,
           spentConceptsSystemPrompt,
           spentConceptsResponseFormat,
         ),
@@ -247,6 +254,7 @@ export class OpenaiService {
       return {
         ...extractedInvoice,
         ...completionResult.tokenUsage,
+        requestMessage,
       };
     } catch (error) {
       this.rethrowOpenAiHttpException(

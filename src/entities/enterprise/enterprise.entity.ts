@@ -7,6 +7,7 @@ import { InvoiceSeries } from '../invoice-series/invoice-series.entity';
 import { DefaultSchedule } from '../default-schedule/default-schedule.entity';
 import { Holiday } from '../holiday/holiday.entity';
 import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
+import { AiRequest } from '../ai-request/ai-request.entity';
 
 /**
  * Entidad Empresa que representa la tabla enterprises en la base de datos
@@ -66,8 +67,14 @@ export class Enterprise {
    * Identificador del cliente en Stripe (solo uso interno; no exponer al frontend).
    */
   @ApiHideProperty()
-  @Column({ name: 'stripe_id', nullable: true })
-  stripeId: string | null;
+  @Column({ name: 'stripe_id' })
+  stripeId: string;
+
+  /**
+   * Indica si la empresa puede usar las funciones de IA (extracción de gastos, etc.).
+   */
+  @Column({ name: 'ai_access', default: false })
+  aiAccess: boolean;
 
   /**
    * Fecha en que se creó la empresa en el sistema
@@ -122,4 +129,10 @@ export class Enterprise {
    */
   @OneToMany(() => RecurrentEarning, recurrentEarning => recurrentEarning.enterprise)
   recurrentEarnings: RecurrentEarning[];
+
+  /**
+   * Peticiones a la API de IA asociadas a esta empresa
+   */
+  @OneToMany(() => AiRequest, aiRequest => aiRequest.enterprise)
+  aiRequests: AiRequest[];
 } 

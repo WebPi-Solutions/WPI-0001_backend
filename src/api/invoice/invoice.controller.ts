@@ -1,8 +1,10 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
+import { InvoiceResponseDto } from 'src/entities/invoice/dto/invoice-response.dto';
 import { InvoiceService } from './invoice.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
 
 @ApiTags('Facturas')
 @Controller('invoices')
@@ -18,7 +20,9 @@ export class InvoiceController {
    * @returns La factura creada
    */
   @Post()
+  @MapResponse(InvoiceResponseDto)
   @ApiOperation({ summary: 'Crear una nueva factura' })
+  @ApiOkResponse({ type: InvoiceResponseDto, description: 'Factura creada (vista pública).' })
   @ApiResponse({ status: 201, description: 'La factura ha sido creada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -31,7 +35,9 @@ export class InvoiceController {
    * @returns Las facturas
    */
   @Get()
+  @MapResponse(InvoiceResponseDto)
   @ApiOperation({ summary: 'Obtener todas las facturas' })
+  @ApiOkResponse({ type: InvoiceResponseDto, isArray: true, description: 'Facturas (vista pública).' })
   @ApiResponse({ status: 200, description: 'Las facturas han sido obtenidas correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -83,7 +89,9 @@ export class InvoiceController {
    * @returns La factura
    */
   @Get(':id')
+  @MapResponse(InvoiceResponseDto)
   @ApiOperation({ summary: 'Obtener una factura por su id' })
+  @ApiOkResponse({ type: InvoiceResponseDto, description: 'Factura (vista pública).' })
   @ApiResponse({ status: 200, description: 'La factura ha sido obtenida correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -99,7 +107,9 @@ export class InvoiceController {
    * @returns La factura actualizada
    */
   @Patch(':id')
+  @MapResponse(InvoiceResponseDto)
   @ApiOperation({ summary: 'Actualizar una factura por su id' })
+  @ApiOkResponse({ type: InvoiceResponseDto, description: 'Factura actualizada (vista pública).' })
   @ApiResponse({ status: 200, description: 'La factura ha sido actualizada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -114,7 +124,9 @@ export class InvoiceController {
    * @returns La factura actualizada
    */
   @Patch(':id/status')
+  @MapResponse(InvoiceResponseDto)
   @ApiOperation({ summary: 'Actualizar el estado de una factura por su ID a un estado diferente a borrador' })
+  @ApiOkResponse({ type: InvoiceResponseDto, description: 'Factura actualizada (vista pública).' })
   @ApiResponse({ status: 200, description: 'La factura ha sido actualizada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })

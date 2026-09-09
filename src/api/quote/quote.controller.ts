@@ -1,8 +1,10 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { QuoteService } from './quote.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
+import { QuoteResponseDto } from 'src/entities/quote/dto/quote-response.dto';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
 
 @ApiTags('Cotizaciones')
 @Controller('quotes')
@@ -18,7 +20,9 @@ export class QuoteController {
    * @returns La cotización creada
    */
   @Post()
+  @MapResponse(QuoteResponseDto)
   @ApiOperation({ summary: 'Crear una nueva cotización' })
+  @ApiOkResponse({ type: QuoteResponseDto, description: 'Cotización creada (vista pública).' })
   @ApiResponse({ status: 201, description: 'La cotización ha sido creada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -31,7 +35,9 @@ export class QuoteController {
    * @returns Las cotizaciones
    */
   @Get()
+  @MapResponse(QuoteResponseDto)
   @ApiOperation({ summary: 'Obtener todas las cotizaciones' })
+  @ApiOkResponse({ type: QuoteResponseDto, isArray: true, description: 'Cotizaciones (vista pública).' })
   @ApiResponse({ status: 200, description: 'Las cotizaciones han sido obtenidas correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -83,7 +89,9 @@ export class QuoteController {
    * @returns La cotización
    */
   @Get(':id')
+  @MapResponse(QuoteResponseDto)
   @ApiOperation({ summary: 'Obtener una cotización por su id' })
+  @ApiOkResponse({ type: QuoteResponseDto, description: 'Cotización (vista pública).' })
   @ApiResponse({ status: 200, description: 'La cotización ha sido obtenida correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -99,7 +107,9 @@ export class QuoteController {
    * @returns La cotización actualizada
    */
   @Patch(':id')
+  @MapResponse(QuoteResponseDto)
   @ApiOperation({ summary: 'Actualizar una cotización por su id' })
+  @ApiOkResponse({ type: QuoteResponseDto, description: 'Cotización actualizada (vista pública).' })
   @ApiResponse({ status: 200, description: 'La cotización ha sido actualizada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -114,7 +124,9 @@ export class QuoteController {
    * @returns La cotización actualizada
    */
   @Patch(':id/status')
+  @MapResponse(QuoteResponseDto)
   @ApiOperation({ summary: 'Actualizar el estado de una cotización por su ID a un estado diferente a borrador' })
+  @ApiOkResponse({ type: QuoteResponseDto, description: 'Cotización actualizada (vista pública).' })
   @ApiResponse({ status: 200, description: 'La cotización ha sido actualizada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })

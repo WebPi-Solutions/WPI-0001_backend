@@ -32,9 +32,9 @@ export class Invoice {
   clientId: string;
 
   /**
-   * ID de la serie de factura (opcional)
+   * ID de la serie de factura (obligatorio)
    */
-  @Column({ name: 'series_id', nullable: true })
+  @Column({ name: 'series_id' })
   seriesId: string;
 
   /**
@@ -46,8 +46,8 @@ export class Invoice {
   /**
    * ID del ingreso recurrente del que procede esta factura (opcional)
    */
-  @Column({ name: 'recurrent_earnings_id', nullable: true })
-  recurrentEarningsId: string;
+  @Column({ name: 'recurrent_earning_id', nullable: true })
+  recurrentEarningId: string;
 
   /**
    * Número secuencial dentro de la serie
@@ -142,28 +142,31 @@ export class Invoice {
   /**
    * Relación con Cliente - El cliente asociado con esta factura
    */
-  @ManyToOne(() => Client, client => client.invoices)
+  @ManyToOne(() => Client, client => client.invoices, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'client_id' })
   client: Client;
 
   /**
    * Relación con Serie de Factura - La serie a la que pertenece esta factura
    */
-  @ManyToOne(() => InvoiceSeries, series => series.invoices)
+  @ManyToOne(() => InvoiceSeries, series => series.invoices, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'series_id' })
   series: InvoiceSeries;
 
   /**
    * Relación con Cotizaciones - La cotización de la que proviene esta factura
    */
-  @ManyToOne(() => Quote, quote => quote.invoices)
+  @ManyToOne(() => Quote, quote => quote.invoices, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'quote_id' })
   quote: Quote;
 
   /**
    * Relación con Ingreso recurrente - La plantilla periódica de la que proviene esta factura
    */
-  @ManyToOne(() => RecurrentEarning, recurrentEarning => recurrentEarning.invoices)
-  @JoinColumn({ name: 'recurrent_earnings_id' })
+  @ManyToOne(() => RecurrentEarning, recurrentEarning => recurrentEarning.invoices, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'recurrent_earning_id' })
   recurrentEarning: RecurrentEarning;
 }

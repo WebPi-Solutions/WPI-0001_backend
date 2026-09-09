@@ -204,12 +204,14 @@ export class InvoiceService {
       throw new HttpException(`La factura debe tener un cliente`, HttpStatus.BAD_REQUEST);
     }
 
+    const seriesId = invoice.seriesId ?? invoice.series?.id;
+    if (!seriesId) {
+      this.logger.error('La factura debe tener una serie');
+      throw new HttpException('La factura debe tener una serie', HttpStatus.BAD_REQUEST);
+    }
+    invoice.seriesId = seriesId;
+
     if(invoice.status !== InvoiceStatus.DRAFT) {
-      const seriesId = invoice.seriesId;
-      if(!seriesId) {
-        this.logger.error(`La factura debe tener una serie cuando no está en estado borrador`);
-        throw new HttpException(`La factura debe tener una serie cuando no está en estado borrador`, HttpStatus.BAD_REQUEST);
-      }
 
       this.logger.log(`La factura pasa a estado de emitida, se establece el número de serie de la factura`);
       invoice.seriesNumber = await this.setInvoiceSeriesNumber(invoice);
@@ -253,23 +255,23 @@ export class InvoiceService {
    * @param invoice - La factura cuyo vínculo se comprueba
    */
   async validateRecurrentEarningLink(invoice: Invoice): Promise<void> {
-    const recurrentEarningsId = invoice.recurrentEarningsId ?? invoice.recurrentEarning?.id;
-    if (!recurrentEarningsId) {
-      invoice.recurrentEarningsId = null;
+    const recurrentEarningId = invoice.recurrentEarningId ?? invoice.recurrentEarning?.id;
+    if (!recurrentEarningId) {
+      invoice.recurrentEarningId = null;
       return;
     }
 
-    invoice.recurrentEarningsId = recurrentEarningsId;
-    const recurrentEarning = await this.recurrentEarningRepository.findById(recurrentEarningsId);
+    invoice.recurrentEarningId = recurrentEarningId;
+    const recurrentEarning = await this.recurrentEarningRepository.findById(recurrentEarningId);
     if (!recurrentEarning) {
-      this.logger.error(`Ingreso recurrente no encontrado con ID: ${recurrentEarningsId}`);
+      this.logger.error(`Ingreso recurrente no encontrado con ID: ${recurrentEarningId}`);
       throw new HttpException('Ingreso recurrente no encontrado', HttpStatus.NOT_FOUND);
     }
 
     const clientId = invoice.client?.id ?? invoice.clientId;
     if (clientId && recurrentEarning.clientId !== clientId) {
       this.logger.error(
-        `El ingreso recurrente ${recurrentEarningsId} no pertenece al cliente ${clientId} de la factura`,
+        `El ingreso recurrente ${recurrentEarningId} no pertenece al cliente ${clientId} de la factura`,
       );
       throw new HttpException(
         'El ingreso recurrente no pertenece al cliente de la factura',

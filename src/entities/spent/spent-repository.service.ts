@@ -5,12 +5,41 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { SpentSubtotalsByStatusDto, SpentStatusMetricsDto } from 'src/api/metrics/dto/spent-subtotals-by-status.dto';
+import { Enterprise } from '../enterprise/enterprise.entity';
 
 @Injectable()
 export class SpentRepository {
   private readonly logger = new Logger(SpentRepository.name);
 
   constructor(@InjectRepository(Spent) private spentRepository: Repository<Spent>){}
+
+  /**
+   * Indica si la empresa tiene acceso a las funciones de IA.
+   * @param enterpriseId - ID de la empresa a consultar
+   * @returns `true` si la empresa existe y `aiAccess` está activo; `false` en caso contrario
+   */
+  async hasEnterpriseAiAccess(enterpriseId: string): Promise<boolean> {
+    if (!enterpriseId) {
+      this.logger.warn('No se ha indicado empresa al consultar el acceso a IA');
+      return false;
+    }
+
+    const enterprise = await this.spentRepository.manager.findOne(Enterprise, {
+      where: { id: enterpriseId },
+      select: ['id', 'aiAccess'],
+    });
+
+    if (!enterprise) {
+      this.logger.warn(`No se ha encontrado la empresa ${enterpriseId} al consultar el acceso a IA`);
+      return false;
+    }
+
+    const hasAiAccess = Boolean(enterprise.aiAccess);
+    this.logger.log(
+      `Acceso a IA de la empresa ${enterpriseId}: ${hasAiAccess ? 'concedido' : 'denegado'}`,
+    );
+    return hasAiAccess;
+  }
 
   /**
    * Crea un nuevo gasto

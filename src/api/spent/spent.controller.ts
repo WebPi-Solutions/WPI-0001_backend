@@ -1,7 +1,8 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
-import { ApiConsumes, ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiConsumes, ApiBody, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { Spent } from 'src/entities/spent/spent.entity';
+import { SpentResponseDto } from 'src/entities/spent/dto/spent-response.dto';
 import { SpentService } from './spent.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -9,6 +10,7 @@ import { MulterFile } from 'multer';
 import { SpentFileUploadDto } from './dto/spent-file-upload.dto';
 import { SpentAiFileUploadDto } from './dto/spent-ai-file-upload.dto';
 import { SpentAiFilePreviewResponseDto } from './dto/spent-ai-file-preview-response.dto';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
 
 @ApiTags('Gastos')
 @Controller('spents')
@@ -22,7 +24,9 @@ export class SpentController {
    * @returns El gasto creado
    */
   @Post()
+  @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo gasto' })
+  @ApiOkResponse({ type: SpentResponseDto, description: 'Gasto creado (vista pública).' })
   @ApiResponse({ status: 201, description: 'El gasto ha sido creado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -45,7 +49,9 @@ export class SpentController {
   }))
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: SpentFileUploadDto })
+  @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Adjuntar un archivo a un gasto por su ID' })
+  @ApiOkResponse({ type: SpentResponseDto, description: 'Gasto actualizado (vista pública).' })
   @ApiResponse({ status: 200, description: 'El archivo ha sido adjuntado correctamente al gasto.' })
   @ApiResponse({ status: 400, description: 'Solicitud incorrecta.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -141,7 +147,9 @@ export class SpentController {
    * @returns Los gastos
    */
   @Get()
+  @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Obtener todos los gastos' })
+  @ApiOkResponse({ type: SpentResponseDto, isArray: true, description: 'Gastos (vista pública).' })
   @ApiResponse({ status: 200, description: 'Los gastos han sido obtenidos correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -187,7 +195,9 @@ export class SpentController {
    * @returns El gasto
    */
   @Get(':id')
+  @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Obtener un gasto por su id' })
+  @ApiOkResponse({ type: SpentResponseDto, description: 'Gasto (vista pública).' })
   @ApiResponse({ status: 200, description: 'El gasto ha sido obtenido correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -203,7 +213,9 @@ export class SpentController {
    * @returns El gasto actualizado
    */
   @Patch(':id')
+  @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Actualizar un gasto por su id' })
+  @ApiOkResponse({ type: SpentResponseDto, description: 'Gasto actualizado (vista pública).' })
   @ApiResponse({ status: 200, description: 'El gasto ha sido actualizado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -247,7 +259,9 @@ export class SpentController {
    * @returns El gasto actualizado
    */
   @Delete(':id/file')
+  @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Eliminar el archivo adjunto de un gasto por su id' })
+  @ApiOkResponse({ type: SpentResponseDto, description: 'Gasto actualizado (vista pública).' })
   @ApiResponse({ status: 200, description: 'El archivo adjunto ha sido eliminado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })

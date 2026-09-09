@@ -6,6 +6,8 @@ import { DropboxService } from 'src/services/dropbox/dropbox.service';
 import { FileService } from 'src/services/file/file.service';
 import { OpenaiService } from 'src/services/openai/openai.service';
 import { SupplierRepository } from 'src/entities/supplier/supplier-repository.service';
+import { AiRequestService } from 'src/api/ai-request/ai-request.service';
+import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
 import { SpentService } from './spent.service';
 
 describe('SpentService', () => {
@@ -16,8 +18,12 @@ describe('SpentService', () => {
     extractSpentIssuerFromText: jest.Mock;
     extractSpentConceptsFromText: jest.Mock;
   };
-  let spentRepository: { findLatestBySupplierId: jest.Mock };
+  let spentRepository: {
+    findLatestBySupplierId: jest.Mock;
+    hasEnterpriseAiAccess: jest.Mock;
+  };
   let supplierRepository: { findByNifAndEnterpriseId: jest.Mock };
+  let aiRequestService: { create: jest.Mock };
 
   const enterpriseId = 'enterprise-id-de-prueba';
 
@@ -63,6 +69,7 @@ describe('SpentService', () => {
         promptTokens: 8,
         completionTokens: 4,
         totalTokens: 12,
+        requestMessage: 'Texto OCR de prueba',
       }),
       extractSpentConceptsFromText: jest.fn().mockResolvedValue({
         name: 'Hosting mensual',
@@ -85,14 +92,19 @@ describe('SpentService', () => {
         promptTokens: 10,
         completionTokens: 5,
         totalTokens: 15,
+        requestMessage: 'Texto OCR de prueba',
       }),
     };
 
     spentRepository = {
       findLatestBySupplierId: jest.fn().mockResolvedValue([]),
+      hasEnterpriseAiAccess: jest.fn().mockResolvedValue(true),
     };
     supplierRepository = {
       findByNifAndEnterpriseId: jest.fn().mockResolvedValue(null),
+    };
+    aiRequestService = {
+      create: jest.fn().mockResolvedValue({ id: 'ai-request-id' }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -103,6 +115,7 @@ describe('SpentService', () => {
         { provide: FileService, useValue: fileService },
         { provide: OpenaiService, useValue: openaiService },
         { provide: SupplierRepository, useValue: supplierRepository },
+        { provide: AiRequestService, useValue: aiRequestService },
       ],
     }).compile();
 
@@ -114,6 +127,21 @@ describe('SpentService', () => {
   });
 
   describe('previewAiSpentFile', () => {
+    it('debe rechazar el flujo si la empresa no tiene acceso a IA', async () => {
+      const file = createMulterFile();
+      spentRepository.hasEnterpriseAiAccess.mockResolvedValue(false);
+
+      await expect(service.previewAiSpentFile(file, enterpriseId)).rejects.toMatchObject({
+        status: HttpStatus.FORBIDDEN,
+        message: 'La empresa no tiene acceso a las funciones de IA',
+      });
+      expect(spentRepository.hasEnterpriseAiAccess).toHaveBeenCalledWith(enterpriseId);
+      expect(fileService.processAiSpentPdf).not.toHaveBeenCalled();
+      expect(openaiService.extractSpentIssuerFromText).not.toHaveBeenCalled();
+      expect(openaiService.extractSpentConceptsFromText).not.toHaveBeenCalled();
+      expect(aiRequestService.create).not.toHaveBeenCalled();
+    });
+
     it('debe delegar el procesamiento del PDF en FileService sin subir a Dropbox', async () => {
       const file = createMulterFile();
 
@@ -164,6 +192,28 @@ describe('SpentService', () => {
       expect(openaiService.extractSpentIssuerFromText.mock.invocationCallOrder[0]).toBeLessThan(
         openaiService.extractSpentConceptsFromText.mock.invocationCallOrder[0],
       );
+      expect(aiRequestService.create).toHaveBeenCalledTimes(2);
+      expect(aiRequestService.create).toHaveBeenNthCalledWith(
+        1,
+        enterpriseId,
+        expect.objectContaining({
+          type: AiRequestType.GET_SPENT_ISSUER,
+          promptTokens: 8,
+          completionTokens: 4,
+          totalTokens: 12,
+          message: 'Texto OCR de prueba',
+        }),
+      );
+      expect(aiRequestService.create).toHaveBeenNthCalledWith(
+        2,
+        enterpriseId,
+        expect.objectContaining({
+          type: AiRequestType.GET_SPENT_CONCEPTS,
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+        }),
+      );
       expect(dropboxService.uploadFile).not.toHaveBeenCalled();
     });
 
@@ -198,6 +248,7 @@ describe('SpentService', () => {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
       });
       expect(openaiService.extractSpentIssuerFromText).toHaveBeenCalledTimes(1);
+      expect(aiRequestService.create).not.toHaveBeenCalled();
       expect(supplierRepository.findByNifAndEnterpriseId).not.toHaveBeenCalled();
       expect(openaiService.extractSpentConceptsFromText).not.toHaveBeenCalled();
     });
@@ -232,6 +283,7 @@ describe('SpentService', () => {
         promptTokens: 8,
         completionTokens: 4,
         totalTokens: 12,
+        requestMessage: 'Texto OCR de prueba',
       });
       supplierRepository.findByNifAndEnterpriseId.mockResolvedValue(null);
 
@@ -254,6 +306,7 @@ describe('SpentService', () => {
         promptTokens: 8,
         completionTokens: 4,
         totalTokens: 12,
+        requestMessage: 'Texto OCR de prueba',
       });
       supplierRepository.findByNifAndEnterpriseId.mockResolvedValue({
         id: 'supplier-id',
@@ -341,6 +394,7 @@ describe('SpentService', () => {
         promptTokens: 8,
         completionTokens: 4,
         totalTokens: 12,
+        requestMessage: 'Texto OCR de prueba',
       });
       supplierRepository.findByNifAndEnterpriseId.mockResolvedValue(null);
 
@@ -366,6 +420,7 @@ describe('SpentService', () => {
         promptTokens: 8,
         completionTokens: 4,
         totalTokens: 12,
+        requestMessage: 'Texto OCR de prueba',
       });
       supplierRepository.findByNifAndEnterpriseId.mockResolvedValue({
         id: 'supplier-tesla',
@@ -391,6 +446,7 @@ describe('SpentService', () => {
         promptTokens: 8,
         completionTokens: 4,
         totalTokens: 12,
+        requestMessage: 'Texto OCR de prueba',
       });
       supplierRepository.findByNifAndEnterpriseId
         .mockResolvedValueOnce(null)

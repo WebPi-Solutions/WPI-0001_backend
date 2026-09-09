@@ -1,8 +1,10 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { InvoiceSeries } from 'src/entities/invoice-series/invoice-series.entity';
+import { InvoiceSeriesResponseDto } from 'src/entities/invoice-series/dto/invoice-series-response.dto';
 import { InvoiceSeriesService } from './invoice-series.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
 
 @ApiTags('Series de facturas')
 @Controller('invoice-series')
@@ -16,7 +18,9 @@ export class InvoiceSeriesController {
    * @returns La serie de factura creada
    */
   @Post()
+  @MapResponse(InvoiceSeriesResponseDto)
   @ApiOperation({ summary: 'Crear una nueva serie de factura' })
+  @ApiOkResponse({ type: InvoiceSeriesResponseDto, description: 'Serie creada (vista pública).' })
   @ApiResponse({ status: 201, description: 'La serie de factura ha sido creada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -35,7 +39,9 @@ export class InvoiceSeriesController {
    * @returns Las series de facturas
    */
   @Get()
+  @MapResponse(InvoiceSeriesResponseDto)
   @ApiOperation({ summary: 'Obtener todas las series de facturas' })
+  @ApiOkResponse({ type: InvoiceSeriesResponseDto, isArray: true, description: 'Series (vista pública).' })
   @ApiResponse({ status: 200, description: 'Las series de facturas han sido obtenidas correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -81,7 +87,9 @@ export class InvoiceSeriesController {
    * @returns La serie de factura
    */
   @Get(':id')
+  @MapResponse(InvoiceSeriesResponseDto)
   @ApiOperation({ summary: 'Obtener una serie de factura por su id' })
+  @ApiOkResponse({ type: InvoiceSeriesResponseDto, description: 'Serie (vista pública).' })
   @ApiResponse({ status: 200, description: 'La serie de factura ha sido obtenida correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -97,7 +105,9 @@ export class InvoiceSeriesController {
    * @returns La serie de factura actualizada
    */
   @Patch(':id')
+  @MapResponse(InvoiceSeriesResponseDto)
   @ApiOperation({ summary: 'Actualizar una serie de factura por su id' })
+  @ApiOkResponse({ type: InvoiceSeriesResponseDto, description: 'Serie actualizada (vista pública).' })
   @ApiResponse({ status: 200, description: 'La serie de factura ha sido actualizada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })

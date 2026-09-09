@@ -13,6 +13,7 @@ import { WorkSchedule } from '../work-schedule/work-schedule.entity';
  */
 @Entity('user_enterprise')
 @Unique('user_enterprise_enterprise_id_card_id_key', ['enterpriseId', 'cardId'])
+@Unique('user_enterprise_enterprise_id_user_id_key', ['enterpriseId', 'userId'])
 export class UserEnterprise {
   /**
    * Identificador único del vínculo usuario–empresa.

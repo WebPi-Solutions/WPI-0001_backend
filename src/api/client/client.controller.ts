@@ -1,8 +1,10 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Client } from 'src/entities/client/client.entity';
+import { ClientResponseDto } from 'src/entities/client/dto/client-response.dto';
 import { ClientService } from './client.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { MapResponse } from 'src/common/decorators/map-response.decorator';
 
 @ApiTags('Clientes')
 @Controller('clients')
@@ -16,7 +18,9 @@ export class ClientController {
    * @returns El cliente creado
    */
   @Post()
+  @MapResponse(ClientResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo cliente' })
+  @ApiOkResponse({ type: ClientResponseDto, description: 'Cliente creado (vista pública).' })
   @ApiResponse({ status: 201, description: 'El cliente ha sido creado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -35,7 +39,9 @@ export class ClientController {
    * @returns Los clientes
    */
   @Get()
+  @MapResponse(ClientResponseDto)
   @ApiOperation({ summary: 'Obtener todos los clientes' })
+  @ApiOkResponse({ type: ClientResponseDto, isArray: true, description: 'Clientes (vista pública).' })
   @ApiResponse({ status: 200, description: 'Los clientes han sido obtenidos correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -81,7 +87,9 @@ export class ClientController {
    * @returns El cliente
    */
   @Get(':id')
+  @MapResponse(ClientResponseDto)
   @ApiOperation({ summary: 'Obtener un cliente por su id' })
+  @ApiOkResponse({ type: ClientResponseDto, description: 'Cliente (vista pública).' })
   @ApiResponse({ status: 200, description: 'El cliente ha sido obtenido correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -97,7 +105,9 @@ export class ClientController {
    * @returns El cliente actualizado
    */
   @Patch(':id')
+  @MapResponse(ClientResponseDto)
   @ApiOperation({ summary: 'Actualizar un cliente por su id' })
+  @ApiOkResponse({ type: ClientResponseDto, description: 'Cliente actualizado (vista pública).' })
   @ApiResponse({ status: 200, description: 'El cliente ha sido actualizado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })

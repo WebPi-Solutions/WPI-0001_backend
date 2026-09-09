@@ -1,4 +1,5 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { SpentRepository } from 'src/entities/spent/spent-repository.service';
 import { Spent } from 'src/entities/spent/spent.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
@@ -16,6 +17,8 @@ import { ExtractedSpentConceptsResult, ExtractedSpentIssuerResult, OpenaiService
 import { SupplierRepository } from 'src/entities/supplier/supplier-repository.service';
 import { Supplier } from 'src/entities/supplier/supplier.entity';
 import { SpentConcept } from 'src/models/Concept';
+import { AiRequestService } from 'src/api/ai-request/ai-request.service';
+import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
 
 /**
  * Servicio de gastos: orquesta repositorio, almacenamiento, archivos y extracción con IA.
@@ -40,6 +43,7 @@ export class SpentService {
     private readonly fileService: FileService,
     private readonly openaiService: OpenaiService,
     private readonly supplierRepository: SupplierRepository,
+    private readonly aiRequestService: AiRequestService,
   ){}
 
   /**
@@ -178,10 +182,31 @@ export class SpentService {
     this.logger.log('Iniciando recepción de PDF para subida de gastos con IA');
 
     try {
+      const hasEnterpriseAiAccess = await this.spentRepository.hasEnterpriseAiAccess(enterpriseId);
+      if (!hasEnterpriseAiAccess) {
+        this.logger.warn(`La empresa ${enterpriseId} no tiene acceso a las funciones de IA`);
+        throw new HttpException(
+          'La empresa no tiene acceso a las funciones de IA',
+          HttpStatus.FORBIDDEN,
+        );
+      }
+
       const processedFile = await this.fileService.processAiSpentPdf(file);
+      const correlationId = randomUUID();
       const extractedIssuer = await this.openaiService.extractSpentIssuerFromText(
         processedFile.extractedText,
       );
+      await this.persistSpentAiRequest({
+        enterpriseId,
+        correlationId,
+        type: AiRequestType.GET_SPENT_ISSUER,
+        extractedResult: extractedIssuer,
+        response: {
+          name: extractedIssuer.name,
+          nifWithoutCountryPrefix: extractedIssuer.nifWithoutCountryPrefix,
+          nifWithCountryPrefix: extractedIssuer.nifWithCountryPrefix,
+        },
+      });
       const existingSupplier = await this.findSupplierByIssuerNif(extractedIssuer, enterpriseId);
       const historicalExtractionContext = existingSupplier
         ? await this.getHistoricalExtractionContextFromSupplier(existingSupplier.id)
@@ -193,6 +218,21 @@ export class SpentService {
           issuerNifWithCountryPrefix: extractedIssuer.nifWithCountryPrefix,
         },
       );
+      await this.persistSpentAiRequest({
+        enterpriseId,
+        correlationId,
+        type: AiRequestType.GET_SPENT_CONCEPTS,
+        extractedResult: extractedInvoice,
+        response: {
+          name: extractedInvoice.name,
+          issuedDate: extractedInvoice.issuedDate,
+          concepts: extractedInvoice.concepts,
+          totalSubtotal: extractedInvoice.totalSubtotal,
+          totalVAT: extractedInvoice.totalVAT,
+          totalIRPF: extractedInvoice.totalIRPF,
+          total: extractedInvoice.total,
+        },
+      });
       const spentData = this.buildAiPreviewSpentData(
         extractedInvoice,
         existingSupplier,
@@ -220,6 +260,37 @@ export class SpentService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Persiste una petición de extracción de gasto en `ai_requests`.
+   * @param persistContext Empresa, correlación, tipo, tokens y respuesta a guardar
+   */
+  private async persistSpentAiRequest(persistContext: {
+    enterpriseId: string;
+    correlationId: string;
+    type: AiRequestType;
+    extractedResult: {
+      requestMessage: string;
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    };
+    response: Record<string, unknown>;
+  }): Promise<void> {
+    this.logger.log(
+      `Registrando petición de IA ${persistContext.type} para la empresa ${persistContext.enterpriseId} (correlación ${persistContext.correlationId})`,
+    );
+
+    await this.aiRequestService.create(persistContext.enterpriseId, {
+      correlationId: persistContext.correlationId,
+      type: persistContext.type,
+      message: persistContext.extractedResult.requestMessage,
+      promptTokens: persistContext.extractedResult.promptTokens,
+      completionTokens: persistContext.extractedResult.completionTokens,
+      totalTokens: persistContext.extractedResult.totalTokens,
+      response: persistContext.response,
+    });
   }
 
   /**
