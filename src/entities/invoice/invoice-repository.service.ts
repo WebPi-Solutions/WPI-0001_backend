@@ -183,7 +183,7 @@ export class InvoiceRepository {
    * mediante consulta SQL con agregación en base de datos (GROUP BY status).
    * Aplica los mismos filtros que la vista de facturas.
    * @param enterpriseId - ID de la empresa
-   * @param filter - Filtros aplicados (status, series.id, client.id, fechas, búsquedas)
+   * @param filter - Filtros aplicados (status, series.id, client.id, recurrentEarningId, fechas, búsquedas)
    * @returns Subtotales y conteos por estado (total, draft, issued, paid, partially_paid, cancelled)
    */
   async getInvoiceSubtotalsByStatus(
@@ -290,6 +290,16 @@ export class InvoiceRepository {
       if (clientIds.length > 0) {
         parameters.push(...clientIds);
         conditions.push(`i.client_id IN (${clientIds.map(() => `$${paramIndex++}`).join(', ')})`);
+      }
+    }
+
+    if (filter.recurrentEarningId != null) {
+      const recurrentEarningIds = Array.isArray(filter.recurrentEarningId)
+        ? filter.recurrentEarningId
+        : [filter.recurrentEarningId];
+      if (recurrentEarningIds.length > 0) {
+        parameters.push(...recurrentEarningIds);
+        conditions.push(`i.recurrent_earning_id IN (${recurrentEarningIds.map(() => `$${paramIndex++}`).join(', ')})`);
       }
     }
 
