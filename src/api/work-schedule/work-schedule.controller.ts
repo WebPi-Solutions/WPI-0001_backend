@@ -11,6 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { WorkScheduleResponseDto } from 'src/entities/work-schedule/dto/work-schedule-response.dto';
 import { WorkSchedule } from 'src/entities/work-schedule/work-schedule.entity';
@@ -23,6 +24,7 @@ import { WorkScheduleService } from './work-schedule.service';
  * Endpoints REST para franjas de trabajo efectivas (`schedules`).
  */
 @ApiTags('Franjas de horario')
+@RequireEnterpriseId()
 @Controller('work-schedules')
 export class WorkScheduleController {
   constructor(private readonly workScheduleService: WorkScheduleService) {}

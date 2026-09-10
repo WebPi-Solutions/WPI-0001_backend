@@ -10,6 +10,9 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
+    "paths": {
+      "@e2e/*": ["test/e2e/harness/*"]
+    },
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": false,

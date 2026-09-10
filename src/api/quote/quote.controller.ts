@@ -5,6 +5,7 @@ import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
 import { QuoteResponseDto } from 'src/entities/quote/dto/quote-response.dto';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 
 @ApiTags('Cotizaciones')
 @Controller('quotes')
@@ -35,6 +36,7 @@ export class QuoteController {
    * @returns Las cotizaciones
    */
   @Get()
+  @RequireEnterpriseId()
   @MapResponse(QuoteResponseDto)
   @ApiOperation({ summary: 'Obtener todas las cotizaciones' })
   @ApiOkResponse({ type: QuoteResponseDto, isArray: true, description: 'Cotizaciones (vista pública).' })
@@ -57,9 +59,11 @@ export class QuoteController {
     const pageNumber = Number(page);
     const pageSizeNumber = Number(pageSize);
 
-    // Parsear las relaciones si existen
+    // El filtro por tenant usa `client.enterpriseId`; el JOIN es obligatorio aunque el cliente no pida la relación.
     const relationsArray = relations ? relations.split(',') : [];
-
+    if (!relationsArray.includes('client')) {
+      relationsArray.push('client');
+    }
 
     // Parsear el filtro si existe
     let filterObj = {

@@ -11,6 +11,7 @@ import { SpentFileUploadDto } from './dto/spent-file-upload.dto';
 import { SpentAiFileUploadDto } from './dto/spent-ai-file-upload.dto';
 import { SpentAiFilePreviewResponseDto } from './dto/spent-ai-file-preview-response.dto';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 
 @ApiTags('Gastos')
 @Controller('spents')
@@ -83,6 +84,7 @@ export class SpentController {
    * @returns Datos del archivo y spentData listo para crear el gasto
    */
   @Post('ai/file')
+  @RequireEnterpriseId()
   @UseInterceptors(FileInterceptor('file', {
     limits: {
       fileSize: 10 * 1024 * 1024, // 10MB, mismo límite que la subida de factura de un gasto
@@ -147,6 +149,7 @@ export class SpentController {
    * @returns Los gastos
    */
   @Get()
+  @RequireEnterpriseId()
   @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Obtener todos los gastos' })
   @ApiOkResponse({ type: SpentResponseDto, isArray: true, description: 'Gastos (vista pública).' })
@@ -167,8 +170,11 @@ export class SpentController {
     const pageNumber = Number(page);
     const pageSizeNumber = Number(pageSize);
 
-    // Parsear las relaciones si existen
+    // El filtro por tenant usa `supplier.enterpriseId`; el JOIN es obligatorio aunque el cliente no pida la relación.
     const relationsArray = relations ? relations.split(',') : [];
+    if (!relationsArray.includes('supplier')) {
+      relationsArray.push('supplier');
+    }
 
     
     // Parsear el filtro si existe

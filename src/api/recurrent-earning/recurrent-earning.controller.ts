@@ -5,6 +5,7 @@ import { RecurrentEarningResponseDto } from 'src/entities/recurrent-earning/dto/
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { RecurrentEarningService } from './recurrent-earning.service';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 
 /**
  * Controlador REST de ingresos recurrentes.
@@ -24,6 +25,7 @@ export class RecurrentEarningController {
    * @returns El ingreso recurrente creado
    */
   @Post()
+  @RequireEnterpriseId()
   @MapResponse(RecurrentEarningResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo ingreso recurrente' })
   @ApiOkResponse({ type: RecurrentEarningResponseDto, description: 'Ingreso recurrente creado (vista pública).' })
@@ -55,6 +57,7 @@ export class RecurrentEarningController {
    * @returns Respuesta paginada con los ingresos recurrentes
    */
   @Get()
+  @RequireEnterpriseId()
   @MapResponse(RecurrentEarningResponseDto)
   @ApiOperation({ summary: 'Obtener todos los ingresos recurrentes' })
   @ApiOkResponse({ type: RecurrentEarningResponseDto, isArray: true, description: 'Ingresos recurrentes (vista pública).' })

@@ -5,6 +5,7 @@ import { AiRequestRepository } from 'src/entities/ai-request/ai-request-reposito
 import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
 import { AiRequestService } from './ai-request.service';
 import { CreateAiRequestDto } from './dto/create-ai-request.dto';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 
 describe('AiRequestService', () => {
   let service: AiRequestService;
@@ -42,6 +43,10 @@ describe('AiRequestService', () => {
         {
           provide: AiRequestRepository,
           useValue: aiRequestRepository,
+        },
+        {
+          provide: EnterpriseAccessService,
+          useValue: { assertCurrentEntityAccessible: jest.fn() },
         },
       ],
     }).compile();
@@ -191,6 +196,13 @@ describe('AiRequestService', () => {
 
     expect(aiRequestRepository.findByIdOrFail).toHaveBeenCalledWith('ai-request-1', ['enterprise']);
     expect(aiRequest.id).toBe('ai-request-1');
+  });
+
+  it('debe consultar por ID sin relaciones en el mensaje de log', async () => {
+    aiRequestRepository.findByIdOrFail.mockResolvedValue({ id: 'ai-request-1' });
+
+    await expect(service.findById('ai-request-1')).resolves.toEqual({ id: 'ai-request-1' });
+    expect(aiRequestRepository.findByIdOrFail).toHaveBeenCalledWith('ai-request-1', undefined);
   });
 
   afterEach(() => {

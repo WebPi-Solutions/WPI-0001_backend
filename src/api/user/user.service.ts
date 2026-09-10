@@ -140,6 +140,19 @@ export class UserService {
       );
     }
 
+    this.logger.log(
+      `Usuario ${user.email} se vinculará a la empresa ${enterpriseId}`,
+    );
+
+    /**
+     * El Guard puede haber validado otro `enterpriseId` (p. ej. el de query).
+     * Se vuelve a exigir acceso a la empresa del cuerpo para no crear vínculos cruzados.
+     */
+    this.enterpriseAccessService.assertCanAccessEnterprise(
+      this.enterpriseAccessService.getCurrentAccessContextOrThrow(),
+      enterpriseId,
+    );
+
     const role = user.userEnterprises[0].role;
 
     /** FK resuelta para `user_enterprise.default_schedule_id` al vincular con esta empresa. */
@@ -353,7 +366,10 @@ export class UserService {
     this.logger.log(
       `Usuarios obtenidos: ${result.items.length} de ${result.total}`,
     );
-    return result;
+    return {
+      ...result,
+      items: result.items.map((user) => this.redactForeignUserEnterprises(user)),
+    };
   }
 
   /**
@@ -366,8 +382,19 @@ export class UserService {
     this.logger.log(
       `Buscando usuario por ID: ${id}${relations ? ` con relaciones: [${relations.join(', ')}]` : ''}`,
     );
-    const userFound = await this.userRepository.findById(id, relations);
-    return userFound;
+    const relationsWithEnterprises = this.enterpriseAccessService.mergeRelationNames(
+      relations,
+      ['userEnterprises'],
+    );
+    const userFound = await this.userRepository.findById(id, relationsWithEnterprises);
+    if (!userFound) {
+      throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+    }
+    this.enterpriseAccessService.assertCurrentUserRecordAccessible(
+      userFound,
+      'Usuario no encontrado',
+    );
+    return this.redactForeignUserEnterprises(userFound);
   }
 
   /**
@@ -380,11 +407,19 @@ export class UserService {
     this.logger.log(
       `Buscando usuario por email: ${email}${relations ? ` con relaciones: [${relations.join(', ')}]` : ''}`,
     );
-    const userFound = await this.userRepository.findByEmail(email, relations);
+    const relationsWithEnterprises = this.enterpriseAccessService.mergeRelationNames(
+      relations,
+      ['userEnterprises'],
+    );
+    const userFound = await this.userRepository.findByEmail(email, relationsWithEnterprises);
     if (!userFound) {
       return null;
     }
-    return userFound;
+    this.enterpriseAccessService.assertCurrentUserRecordAccessible(
+      userFound,
+      'Usuario no encontrado',
+    );
+    return this.redactForeignUserEnterprises(userFound);
   }
 
   /**
@@ -447,7 +482,7 @@ export class UserService {
       this.logger.log(
         `Búsqueda por tarjeta exitosa: userId=${resolved.id}, card_id=${cardId}, empresa=${enterpriseId} (${elapsedMs} ms)`,
       );
-      return resolved;
+      return this.redactForeignUserEnterprises(resolved);
     } catch (error) {
       const elapsedMs = Date.now() - startedAtMs;
       this.logger.error(
@@ -476,6 +511,15 @@ export class UserService {
     this.logger.log(`Datos a actualizar:`, JSON.stringify(user, null, 2));
 
     try {
+      const targetUser = await this.userRepository.findById(id, ['userEnterprises']);
+      if (!targetUser) {
+        throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+      }
+      this.enterpriseAccessService.assertCurrentUserRecordAccessible(
+        targetUser,
+        'Usuario no encontrado',
+      );
+
       if (enterpriseId) {
         await this.enterpriseAccessService.assertUserBelongsToEnterprise(
           id,
@@ -492,6 +536,12 @@ export class UserService {
       // Evitar que el `save` del usuario intente persistir relaciones `userEnterprises` con payload incompleto.
       // Las actualizaciones del vínculo usuario–empresa se gestionan explícitamente con métodos dedicados.
       delete (patch as { userEnterprises?: unknown }).userEnterprises;
+
+      const accessContext = this.enterpriseAccessService.getCurrentAccessContextOrThrow();
+      // `users.role = administrator` salta el aislamiento multi-empresa. Solo un admin global puede asignarlo.
+      if (!accessContext.isGlobalAdmin) {
+        delete (patch as { role?: unknown }).role;
+      }
 
       if (Object.prototype.hasOwnProperty.call(user as object, 'defaultScheduleId')) {
         if (!enterpriseId) {
@@ -548,7 +598,7 @@ export class UserService {
 
       const updatedUser = await this.userRepository.updateById(id, patch);
       this.logger.log(`Usuario ${id} actualizado exitosamente`);
-      return updatedUser;
+      return this.redactForeignUserEnterprises(updatedUser);
     } catch (error) {
       this.logger.error(`Error al actualizar usuario ${id}:`, error);
       throw error;
@@ -571,11 +621,16 @@ export class UserService {
       `Iniciando desvinculación de usuario ${userId} de empresa ${enterpriseId}`,
     );
 
-    const user = await this.userRepository.findById(userId);
+    const user = await this.userRepository.findById(userId, ['userEnterprises']);
     if (!user) {
       this.logger.warn(`No se encontró ningún usuario con ID: ${userId}`);
       throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
     }
+
+    this.enterpriseAccessService.assertCurrentUserRecordAccessible(
+      user,
+      'Usuario no encontrado',
+    );
 
     await this.enterpriseAccessService.assertUserEnterpriseLinkExists(
       userId,
@@ -697,5 +752,41 @@ export class UserService {
       this.logger.error(`Error al vincular usuario a empresa:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Oculta vínculos `user_enterprise` de empresas a las que el caller no pertenece.
+   * El propio usuario y el administrador global ven todos los vínculos.
+   *
+   * @param user - Usuario cargado (puede incluir `userEnterprises`)
+   * @returns Usuario con la colección recortada si aplica
+   */
+  private redactForeignUserEnterprises(user: User): User {
+    const accessContext = this.enterpriseAccessService.getCurrentAccessContextOrThrow();
+    if (accessContext.isGlobalAdmin || user.id === accessContext.userId) {
+      return user;
+    }
+    if (!user.userEnterprises?.length) {
+      return user;
+    }
+
+    const visibleUserEnterprises = user.userEnterprises.filter((link) => {
+      const linkEnterpriseId = link.enterpriseId ?? link.enterprise?.id;
+      return Boolean(
+        linkEnterpriseId && accessContext.allowedEnterpriseIds.includes(linkEnterpriseId),
+      );
+    });
+
+    if (visibleUserEnterprises.length === user.userEnterprises.length) {
+      return user;
+    }
+
+    this.logger.log(
+      `Se ocultan ${user.userEnterprises.length - visibleUserEnterprises.length} vínculo(s) ajenos del usuario ${user.id}`,
+    );
+    return {
+      ...user,
+      userEnterprises: visibleUserEnterprises,
+    };
   }
 }

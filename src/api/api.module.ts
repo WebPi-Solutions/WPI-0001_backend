@@ -1,5 +1,6 @@
 // src/api/api.module.ts
-import { Module, DynamicModule, Type } from '@nestjs/common';
+import { Module, DynamicModule, Provider, Type } from '@nestjs/common';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { glob } from 'glob';
 import { join } from 'path';
 import { EntitiesModule } from 'src/entities/entities.module';
@@ -10,6 +11,8 @@ import { FirebaseModule } from 'src/services/firebase/firebase.module';
 import { FileModule } from 'src/services/file/file.module';
 import { OpenaiModule } from 'src/services/openai/openai.module';
 import { MulterModule } from '@nestjs/platform-express';
+import { EnterpriseAccessGuard } from 'src/common/guards/enterprise-access.guard';
+import { EnterpriseAccessContextInterceptor } from 'src/common/interceptors/enterprise-access-context.interceptor';
 
 /**
  * Funcion auxiliar para cargar todos los controladores de la carpeta /api/
@@ -90,9 +93,18 @@ export class ApiModule {
      * Servicios fuera de `src/api/**` no entran en el glob de descubrimiento;
      * se registran aquí de forma explícita.
      */
-    const auxiliaryProviders: Type<any>[] = [
+    const auxiliaryProviders: Provider[] = [
       EnterpriseAccessService,
       StripeService,
+      EnterpriseAccessGuard,
+      {
+        provide: APP_GUARD,
+        useClass: EnterpriseAccessGuard,
+      },
+      {
+        provide: APP_INTERCEPTOR,
+        useClass: EnterpriseAccessContextInterceptor,
+      },
     ];
 
     return {

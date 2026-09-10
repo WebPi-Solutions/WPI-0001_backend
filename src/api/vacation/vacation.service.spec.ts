@@ -223,5 +223,68 @@ describe('VacationService', () => {
       });
       expect(vacationRepository.deleteById).toHaveBeenCalledWith(vacationId);
     });
+
+    it('registra 0 filas afectadas si el borrado no informa affected', async () => {
+      vacationRepository.findById.mockResolvedValue(buildVacation());
+      vacationRepository.deleteById.mockResolvedValue({ raw: [] });
+
+      await expect(service.deleteById(vacationId, enterpriseId)).resolves.toEqual({
+        raw: [],
+      });
+    });
+  });
+
+  describe('create con nombre, findAll sin relaciones extra y errores', () => {
+    it('persiste el nombre informado y propaga el error de alta', async () => {
+      vacationRepository.create.mockResolvedValue(buildVacation({ name: 'Asuntos' }));
+
+      await service.create(enterpriseId, {
+        userEnterpriseId,
+        calendarDate: '2026-08-15',
+        name: 'Asuntos',
+      });
+
+      expect(vacationRepository.create).toHaveBeenCalledWith({
+        userEnterpriseId,
+        name: 'Asuntos',
+        calendarDate: '2026-08-15',
+      });
+
+      vacationRepository.create.mockRejectedValue(new Error('fallo crear'));
+      await expect(
+        service.create(enterpriseId, { userEnterpriseId, calendarDate: '2026-08-15' }),
+      ).rejects.toThrow('fallo crear');
+    });
+
+    it('lista vacaciones sin relaciones extra del cliente', async () => {
+      vacationRepository.findAll.mockResolvedValue({
+        items: [],
+        total: 0,
+        currentPage: 1,
+        totalPages: 0,
+      });
+
+      await service.findAll(1, 10, 'calendarDate', 'ASC', {});
+
+      expect(vacationRepository.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'calendarDate',
+        'ASC',
+        {},
+        userEnterpriseRelations,
+      );
+    });
+
+    it('propaga errores de actualización y borrado', async () => {
+      vacationRepository.findById.mockResolvedValue(buildVacation());
+      vacationRepository.updateById.mockRejectedValue(new Error('fallo update'));
+      await expect(
+        service.updateById(vacationId, enterpriseId, { name: 'X' }),
+      ).rejects.toThrow('fallo update');
+
+      vacationRepository.deleteById.mockRejectedValue(new Error('fallo delete'));
+      await expect(service.deleteById(vacationId, enterpriseId)).rejects.toThrow('fallo delete');
+    });
   });
 });

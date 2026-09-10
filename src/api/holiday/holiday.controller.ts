@@ -11,6 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { HolidayResponseDto } from 'src/entities/holiday/dto/holiday-response.dto';
 import { Holiday } from 'src/entities/holiday/holiday.entity';
@@ -23,6 +24,7 @@ import { HolidayService } from './holiday.service';
  * Endpoints REST para festivos (`holidays`).
  */
 @ApiTags('Festivos')
+@RequireEnterpriseId()
 @Controller('holidays')
 export class HolidayController {
   constructor(private readonly holidayService: HolidayService) {}

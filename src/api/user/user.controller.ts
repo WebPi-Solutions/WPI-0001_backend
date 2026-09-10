@@ -2,6 +2,10 @@ import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch,
 import { Request } from 'express';
 import { ApiOkResponse, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import {
+  RequireEnterpriseId,
+  SkipEnterpriseAccess,
+} from 'src/common/decorators/enterprise-access.decorator';
 import { UserResponseDto } from 'src/entities/user/dto/user-response.dto';
 import { User } from 'src/entities/user/user.entity';
 import { UserService } from './user.service';
@@ -20,6 +24,7 @@ export class UserController {
    * @returns El usuario creado
    */
   @Post()
+  @RequireEnterpriseId()
   @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Create un nuevo usuario' })
   @ApiOkResponse({ type: UserResponseDto, description: 'Usuario creado o vinculado (vista API).' })
@@ -35,6 +40,7 @@ export class UserController {
    * @returns Los usuarios
    */
   @Get()
+  @RequireEnterpriseId()
   @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Obtener todos los usuarios' })
   @ApiOkResponse({ description: 'Listado paginado (cada ítem como UserResponseDto).' })
@@ -84,6 +90,7 @@ export class UserController {
    * @returns El usuario actual
    */
   @Get('myself')
+  @SkipEnterpriseAccess()
   @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Obtener el usuario actual' })
   @ApiOkResponse({ type: UserResponseDto, description: 'Usuario autenticado (vista API).' })
@@ -103,6 +110,7 @@ export class UserController {
    * @returns Usuario encontrado (si existe vínculo)
    */
   @Get('card/:cardId')
+  @RequireEnterpriseId()
   @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Obtener un usuario por card_id (empresa)' })
   @ApiQuery({

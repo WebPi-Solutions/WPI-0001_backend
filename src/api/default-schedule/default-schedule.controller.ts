@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { DefaultScheduleResponseDto } from 'src/entities/default-schedule/dto/default-schedule-response.dto';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { DefaultSchedule } from 'src/entities/default-schedule/default-schedule.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
@@ -23,6 +24,7 @@ import { UpdateDefaultScheduleDto } from './dto/update-default-schedule.dto';
  * Endpoints REST para plantillas de horario por defecto (`default_schedules`).
  */
 @ApiTags('Plantillas de horario')
+@RequireEnterpriseId()
 @Controller('default-schedules')
 export class DefaultScheduleController {
   constructor(

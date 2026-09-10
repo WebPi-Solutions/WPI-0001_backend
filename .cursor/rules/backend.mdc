@@ -1,0 +1,131 @@
+---
+description: Auth Firebase + aislamiento por empresa, módulos Nest, DTOs y tests 100%
+globs: src/**,test/**,docs/**
+alwaysApply: false
+---
+
+# Backend NestJS
+
+Detalle de autorización: `docs/enterprise-access.md`. Tests: `docs/tests.md`.
+
+## Autenticación y autorización (obligatorio en toda ruta)
+
+Hay **dos capas**. Firebase dice quién eres. Enterprise-access dice a qué empresas puedes acceder. No sustituyas una por la otra. No inventes `X-Enterprise-Id` ni pongas `enterpriseId` en el token.
+
+### Cómo está configurado hoy
+
+1. **Identidad — `FirebaseMiddleware`** (`src/middleware/firebase/firebase.middleware.ts`), aplicado a `*` salvo `GET /`.
+   - Exige `Authorization: Bearer <JWT Firebase>`.
+   - Verifica el token con Firebase Admin, carga el usuario de Postgres **con** `userEnterprises`, deja `req.user`.
+   - Sin Bearer → **401**. Token válido pero email desconocido en `users` → **401/403**.
+2. **Contexto — `EnterpriseAccessGuard` + interceptor** (`APP_GUARD` / `APP_INTERCEPTOR` en `src/api/api.module.ts`).
+   - Construye `AccessContext` (`userId`, `isGlobalAdmin` si `users.role === administrator`, `allowedEnterpriseIds` de `user_enterprise`).
+   - Extrae `enterpriseId` en este orden: query → `body.enterpriseId` → `body.userEnterprises[0].enterpriseId` → params.
+   - `@RequireEnterpriseId()`: si falta el id → **400**; si no hay vínculo → **403** (admin global no se filtra).
+   - `@SkipEnterpriseAccess()`: no valida el id (health, `/users/myself`, catálogo Stripe). El contexto sí se adjunta.
+   - Sin decorador y sin `enterpriseId` en la petición (p. ej. `GET /invoices/:id`): el Guard **no puede** decidir; lo hace el servicio tras el `findById`.
+3. **IDOR en el servicio** (imprescindible). Tras cargar la entidad:
+   - Tenant en la fila → `assertCurrentEntityAccessible(entity.enterpriseId, '… no encontrado')`.
+   - Factura/presupuesto → cargar `client` con `mergeRelationNames` y comprobar `client.enterpriseId`.
+   - Gasto → igual con `supplier`.
+   - Usuario → `assertCurrentUserRecordAccessible` (él mismo, admin global, o empresa en común).
+   - Recurso ajeno → **404**, nunca 403 (no revelar que el UUID existe).
+4. **Mutaciones.** El Guard no ve un `PATCH` que cambia FKs sobre un recurso **propio**. Tras el merge con el registro:
+   - Revalidar cliente / serie / proveedor (UUID escalar **y** `*.id` anidado). Serie de factura = misma empresa que el cliente.
+   - No persistir `enterpriseId` ni `enterprise` del body (congelar el tenant, como ingresos recurrentes).
+   - No persistir `users.role` salvo admin global (`administrator` salta el aislamiento).
+   - En respuestas de otro usuario, ocultar `userEnterprises` de empresas que el caller no tiene.
+
+### Qué debe seguir una ruta nueva o un cambio
+
+| Tipo de endpoint | Qué poner |
+|---|---|
+| Listado / create con `enterpriseId` en query | `@RequireEnterpriseId()`. En create, **pisar** `body.enterpriseId` con el query. En findAll, el filtro de tenant **gana** al JSON (`{ ...parsed, enterpriseId }`). |
+| GET/PATCH/DELETE/fichero por UUID | Tras `findById`, assert de tenant. Revalidar FKs tras merge en update. |
+| Health, perfil propio, catálogo público autenticado | `@SkipEnterpriseAccess()`. |
+| Alta de empresa | `assertCanCreateEnterprise` (solo admin global). |
+
+Servicios **no** reciben `Request`: usan `assertCurrentEntityAccessible` (ALS). No reimplementes la comprobación a mano.
+
+```typescript
+// Listado / create
+@Post()
+@RequireEnterpriseId()
+@MapResponse(ClientResponseDto)
+async create(@Query('enterpriseId') enterpriseId: string, @Body() client: Client) {
+  client.enterpriseId = enterpriseId;
+  return this.clientService.create(client);
+}
+
+// Por UUID
+const entity = await this.repo.findById(id);
+this.enterpriseAccessService.assertCurrentEntityAccessible(
+  entity.enterpriseId,
+  'Cliente no encontrado',
+);
+```
+
+Códigos HTTP de auth (e2e y contrato):
+
+| Caso | Código |
+|---|---|
+| Sin Bearer | 401 |
+| `enterpriseId` de otra empresa en query/body | 403 |
+| UUID de otra empresa (IDOR) | 404 |
+| Recurso propio / admin global | 200/201 |
+| Crear empresa sin ser admin global | 403 |
+
+## Estructura de módulos
+
+No pongas persistencia en el controller ni HTTP en el repositorio.
+
+```
+src/entities/<recurso>/     # dominio + persistencia
+  <recurso>.entity.ts
+  <recurso>-repository.service.ts
+  <recurso>.module.ts         # TypeOrmModule.forFeature + exporta el repositorio
+  dto/<recurso>-response.dto.ts
+  dto/create-*.dto.ts         # si el alta no es la entidad cruda
+src/api/<recurso>/            # HTTP + reglas
+  <recurso>.controller.ts
+  <recurso>.service.ts
+  <recurso>.*.spec.ts
+```
+
+- `EntitiesModule.register()` y `ApiModule.register()` descubren `*.module.ts` / `*.controller.ts` / `*.service.ts` por glob. Un módulo de entidad nuevo se registra solo con el fichero en `src/entities/<recurso>/`.
+- El **repositorio** habla con TypeORM (`save`, `findOne`, `QueryBuilderService`). El **servicio de API** tiene las reglas (duplicados, estados, tenant, FKs). El **controller** valida query, fuerza `enterpriseId`, documenta Swagger y delega.
+- Integraciones (Stripe, Firebase Admin, Dropbox, OpenAI, OCR) viven en `src/services/`, no en `api/` ni en el repositorio.
+
+## DTOs y Swagger
+
+- Toda respuesta HTTP de API usa `@MapResponse(*ResponseDto)` (class-transformer `@Expose()`, `excludeExtraneousValues`). No devolver la entidad cruda al cliente.
+- El DTO de respuesta **no** expone secretos (`stripeId`, hashes, colecciones internas que el front no usa).
+- Endpoints con `@ApiTags`, `@ApiOperation`, `@ApiResponse` / `@ApiOkResponse` (OpenAPI). Descripciones en español.
+- El `enterpriseId` de create/listado sale del **query**, no del body (el body se pisa). DTOs de create no deben ser la fuente de tenant.
+
+## Tests (obligatorio al generar o cambiar código)
+
+Umbral **100%** statements/branches/functions/lines en unitarios (`npm test` / `npm run test:cov`) y en e2e (`npm run test:e2e`, Docker). Cubrir el código nuevo **y** las casuísticas, no solo el camino feliz.
+
+### Unitarios (`src/**/*.spec.ts`, al lado del fichero)
+
+- Cada controller, servicio y repositorio nuevo tiene spec. Mocks de repos y SDKs; no Postgres real.
+- Incluir `EnterpriseAccessService` en el testing module; `mergeRelationNames` debe ser implementación real si el `findById` fusiona relaciones.
+- Casos: validación, 404, conflicto, freeze de `enterpriseId`, rechazo de FKs ajenas, ignore de `users.role` si no es admin global.
+
+### E2E (`test/e2e/`, Testcontainers)
+
+- Spec de módulo en `test/e2e/modules/<recurso>/`. Casos transversales en `test/e2e/access/`.
+- Semilla A/B + admin global + outsider (`test/e2e/harness/seed.ts`). Bearer = **email**.
+- Matriz mínima por recurso HTTP:
+
+  - 401 sin token
+  - 400 sin `enterpriseId` en listado/create que lo exigen
+  - 403 con `enterpriseId` de Y
+  - 404 IDOR por UUID de Y (GET, PATCH, DELETE, ficheros)
+  - 200/201 sobre el recurso de X
+  - Admin global sí accede a Y
+  - Create/update que cuelgue FKs de Y → 404
+  - PATCH de recurso de X con `enterpriseId` de Y en el body (query de X) → el tenant no se mueve
+
+No bajes el `coverageThreshold`. Si una rama no la pisa el HTTP, el spec unitario del mismo fichero debe cubrirla (el jest e2e también ejecuta `src/**/*.spec.ts`).

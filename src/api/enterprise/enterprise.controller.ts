@@ -9,6 +9,7 @@ import { Response } from 'express';
 import { EnterpriseLogoUploadDto } from './dto/enterprise-logo-upload.dto';
 import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 
 @ApiTags('Empresas')
 @Controller('enterprises')
@@ -39,6 +40,7 @@ export class EnterpriseController {
    * @returns El archivo del logo de la empresa creado/reemplazado en Dropbox
    */
   @Post('logo')
+  @RequireEnterpriseId()
   @MapResponse(EnterpriseResponseDto)
   @UseInterceptors(FileInterceptor('file', {
     limits: {

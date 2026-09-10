@@ -5,6 +5,7 @@ import { InvoiceSeriesResponseDto } from 'src/entities/invoice-series/dto/invoic
 import { InvoiceSeriesService } from './invoice-series.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 
 @ApiTags('Series de facturas')
 @Controller('invoice-series')
@@ -18,6 +19,7 @@ export class InvoiceSeriesController {
    * @returns La serie de factura creada
    */
   @Post()
+  @RequireEnterpriseId()
   @MapResponse(InvoiceSeriesResponseDto)
   @ApiOperation({ summary: 'Crear una nueva serie de factura' })
   @ApiOkResponse({ type: InvoiceSeriesResponseDto, description: 'Serie creada (vista pública).' })
@@ -39,6 +41,7 @@ export class InvoiceSeriesController {
    * @returns Las series de facturas
    */
   @Get()
+  @RequireEnterpriseId()
   @MapResponse(InvoiceSeriesResponseDto)
   @ApiOperation({ summary: 'Obtener todas las series de facturas' })
   @ApiOkResponse({ type: InvoiceSeriesResponseDto, isArray: true, description: 'Series (vista pública).' })

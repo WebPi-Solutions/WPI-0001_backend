@@ -1,14 +1,18 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { SupplierRepository } from 'src/entities/supplier/supplier-repository.service';
 import { Supplier } from 'src/entities/supplier/supplier.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 @Injectable()
 export class SupplierService {
   private readonly logger = new Logger(SupplierService.name);
 
-  constructor(private readonly supplierRepository: SupplierRepository){}
+  constructor(
+    private readonly supplierRepository: SupplierRepository,
+    private readonly enterpriseAccessService: EnterpriseAccessService,
+  ){}
 
   /**
    * Crea un nuevo proveedor
@@ -63,11 +67,16 @@ export class SupplierService {
     
     const supplier = await this.supplierRepository.findById(id, relations);
     
-    if (supplier) {
-      this.logger.log(`Proveedor encontrado: ${supplier.name} (ID: ${supplier.id})`);
-    } else {
+    if (!supplier) {
       this.logger.log(`No se encontró ningún proveedor con ID: ${id}`);
+      throw new HttpException('Proveedor no encontrado', HttpStatus.NOT_FOUND);
     }
+
+    this.logger.log(`Proveedor encontrado: ${supplier.name} (ID: ${supplier.id})`);
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      supplier.enterpriseId,
+      'Proveedor no encontrado',
+    );
     
     return supplier;
   }
@@ -81,9 +90,25 @@ export class SupplierService {
   async updateById(id: string, supplier: Supplier): Promise<Supplier> {
     this.logger.log(`Iniciando actualización de proveedor con ID: ${id}`);
     this.logger.log(`Datos a actualizar:`, JSON.stringify(supplier, null, 2));
+
+    const existingSupplier = await this.supplierRepository.findById(id);
+    if (!existingSupplier) {
+      throw new HttpException('Proveedor no encontrado', HttpStatus.NOT_FOUND);
+    }
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      existingSupplier.enterpriseId,
+      'Proveedor no encontrado',
+    );
+
+    const payloadForPersistence = {
+      ...supplier,
+      enterpriseId: existingSupplier.enterpriseId,
+    } as Supplier;
+    // Impide relocatar el proveedor a otra empresa mediante PATCH del cuerpo.
+    delete (payloadForPersistence as { enterprise?: unknown }).enterprise;
     
     try {
-      const updatedSupplier = await this.supplierRepository.updateById(id, supplier);
+      const updatedSupplier = await this.supplierRepository.updateById(id, payloadForPersistence);
       this.logger.log(`Proveedor ${id} actualizado exitosamente`);
       return updatedSupplier;
     } catch (error) {
@@ -99,6 +124,15 @@ export class SupplierService {
    */
   async deleteById(id: string): Promise<DeleteResult> {
     this.logger.log(`Iniciando eliminación de proveedor con ID: ${id}`);
+
+    const existingSupplier = await this.supplierRepository.findById(id);
+    if (!existingSupplier) {
+      throw new HttpException('Proveedor no encontrado', HttpStatus.NOT_FOUND);
+    }
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      existingSupplier.enterpriseId,
+      'Proveedor no encontrado',
+    );
     
     try {
       const result = await this.supplierRepository.deleteById(id);

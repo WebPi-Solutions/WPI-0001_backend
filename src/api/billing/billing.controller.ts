@@ -24,6 +24,7 @@ import { BillingPerUnitProductWithPricesResponseDto } from './dto/billing-per-un
 import { BillingTieredProductWithPricesResponseDto } from './dto/billing-tiered-product-with-prices-response.dto';
 import { ActiveBillingSubscriptionResponseMapper } from './mappers/active-billing-subscription-response.mapper';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { SkipEnterpriseAccess } from 'src/common/decorators/enterprise-access.decorator';
 
 /**
  * Endpoints REST de facturación (delegación en Stripe desde el backend).
@@ -87,6 +88,7 @@ export class BillingController {
    * Se usa para que el frontend pueda ofrecer un CTA de alta de suscripción cuando no exista una activa.\n+   *
    * @param request - Petición HTTP con usuario autenticado\n+   * @param metadataKey - Clave de metadato (p. ej. `type` o `product_type`)\n+   * @param metadataValue - Valor opcional (p. ej. `signings`, `management`)\n+   */
   @Get('products-by-metadata')
+  @SkipEnterpriseAccess()
   @MapResponse(BillingProductForSubscriptionResponseDto)
   @ApiBearerAuth('auth_token')
   @ApiOperation({
@@ -134,6 +136,7 @@ export class BillingController {
    * @param request - Petición HTTP con usuario autenticado
    */
   @Get('products-signings-with-prices')
+  @SkipEnterpriseAccess()
   @MapResponse(BillingTieredProductWithPricesResponseDto)
   @ApiBearerAuth('auth_token')
   @ApiOperation({
@@ -164,6 +167,7 @@ export class BillingController {
    * @param request - Petición HTTP con usuario autenticado
    */
   @Get('products-management-with-prices')
+  @SkipEnterpriseAccess()
   @MapResponse(BillingPerUnitProductWithPricesResponseDto)
   @ApiBearerAuth('auth_token')
   @ApiOperation({

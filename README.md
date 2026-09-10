@@ -45,16 +45,25 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Documentación
+
+Índice en [docs/](./docs/README.md).
+
+- [Acceso por empresa](./docs/enterprise-access.md) — autenticación Firebase vs autorización multi-empresa (guard, no un segundo middleware).
+- [Tests](./docs/tests.md) — cómo ejecutar la suite, alcance, logs esperados y cómo añadir specs.
+
 ## Run tests
+
+Guía completa: [docs/tests.md](./docs/tests.md).
 
 ```bash
 # unit tests
-$ npm run test
+$ npm test
 
-# e2e tests
+# e2e tests (HTML en coverage-e2e/)
 $ npm run test:e2e
 
-# test coverage
+# cobertura unitaria (HTML en coverage/)
 $ npm run test:cov
 ```
 

@@ -99,6 +99,7 @@ describe('InvoiceSeriesController', () => {
 
       await controller.findAll(enterpriseId, 2, 25, 'createdAt', 'DESC', '{no-es-json');
 
+      expect(console.error).toHaveBeenCalled();
       expect(invoiceSeriesService.findAll).toHaveBeenCalledWith(
         2,
         25,
@@ -107,6 +108,79 @@ describe('InvoiceSeriesController', () => {
         { enterpriseId },
         [],
       );
+    });
+
+    it('parsea las relaciones separadas por coma', async () => {
+      await controller.findAll(enterpriseId, 1, 10, 'series', 'ASC', undefined, 'enterprise');
+
+      expect(invoiceSeriesService.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'series',
+        'ASC',
+        { enterpriseId },
+        ['enterprise'],
+      );
+    });
+
+    it('usa valores por defecto al omitir query opcionales', async () => {
+      await controller.findAll(enterpriseId);
+
+      expect(invoiceSeriesService.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'series',
+        'ASC',
+        { enterpriseId },
+        [],
+      );
+    });
+  });
+
+  describe('findById', () => {
+    it('delega al servicio parseando las relaciones', async () => {
+      invoiceSeriesService.findById.mockResolvedValue({ id: 'series-uuid' });
+
+      await expect(controller.findById('series-uuid', 'enterprise,invoices')).resolves.toEqual({
+        id: 'series-uuid',
+      });
+      expect(invoiceSeriesService.findById).toHaveBeenCalledWith('series-uuid', [
+        'enterprise',
+        'invoices',
+      ]);
+    });
+
+    it('busca sin relaciones cuando no se informan', async () => {
+      invoiceSeriesService.findById.mockResolvedValue({ id: 'series-uuid' });
+
+      await controller.findById('series-uuid');
+
+      expect(invoiceSeriesService.findById).toHaveBeenCalledWith('series-uuid', []);
+    });
+  });
+
+  describe('updateById', () => {
+    it('delega la actualización al servicio', async () => {
+      const payload = { series: 'B' } as InvoiceSeries;
+      invoiceSeriesService.updateById.mockResolvedValue({ id: 'series-uuid', ...payload });
+
+      await expect(controller.updateById('series-uuid', payload)).resolves.toEqual({
+        id: 'series-uuid',
+        series: 'B',
+      });
+      expect(invoiceSeriesService.updateById).toHaveBeenCalledWith('series-uuid', payload);
+    });
+  });
+
+  describe('delete', () => {
+    it('delega la eliminación al servicio', async () => {
+      invoiceSeriesService.deleteById.mockResolvedValue({ affected: 1, raw: [] });
+
+      await expect(controller.delete('series-uuid')).resolves.toEqual({
+        affected: 1,
+        raw: [],
+      });
+      expect(invoiceSeriesService.deleteById).toHaveBeenCalledWith('series-uuid');
     });
   });
 });

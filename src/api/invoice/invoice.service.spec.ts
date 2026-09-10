@@ -1,11 +1,14 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClientRepository } from 'src/entities/client/client-repository.service';
+import { Client } from 'src/entities/client/client.entity';
 import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-series-repository.service';
+import { InvoiceSeries } from 'src/entities/invoice-series/invoice-series.entity';
 import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.service';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
 import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recurrent-earning-repository.service';
 import { InvoiceService } from './invoice.service';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 
 describe('InvoiceService', () => {
   let service: InvoiceService;
@@ -21,6 +24,10 @@ describe('InvoiceService', () => {
   let recurrentEarningRepository: { findById: jest.Mock };
 
   const invoiceId = 'invoice-uuid';
+  const clientId = 'client-uuid';
+  const seriesId = 'series-uuid';
+  const enterpriseId = 'enterprise-uuid';
+  const emptyPaginatedResponse = { items: [], total: 0, currentPage: 1, totalPages: 0 };
 
   /**
    * Construye una factura de prueba.
@@ -30,14 +37,74 @@ describe('InvoiceService', () => {
   const buildInvoice = (overrides: Partial<Invoice> = {}): Invoice =>
     ({
       id: invoiceId,
-      clientId: 'client-uuid',
+      clientId,
+      seriesId,
+      series: { id: seriesId } as Invoice['series'],
+      name: 'Factura Demo',
       status: InvoiceStatus.DRAFT,
       recurrentEarningId: null,
       ...overrides,
     }) as Invoice;
 
+  /**
+   * Construye un cliente de prueba con datos persistibles.
+   * @param overrides - Campos a sobrescribir
+   * @returns Entidad Client simulada
+   */
+  const buildClient = (overrides: Partial<Client> = {}): Client =>
+    ({
+      id: clientId,
+      enterpriseId,
+      name: 'Cliente S.L.',
+      nif: 'B12345678',
+      address: 'Calle 1',
+      ...overrides,
+    }) as Client;
+
+  /**
+   * Construye una serie de factura con empresa emisora.
+   * @param overrides - Campos a sobrescribir
+   * @returns Entidad InvoiceSeries simulada
+   */
+  const buildInvoiceSeries = (overrides: Partial<InvoiceSeries> = {}): InvoiceSeries =>
+    ({
+      id: seriesId,
+      enterpriseId,
+      enterprise: {
+        name: 'Emisor S.L.',
+        nif: 'A11111111',
+        address: 'Calle 2',
+        bankAccount: 'ES1200000000000000000000',
+      },
+      ...overrides,
+    }) as InvoiceSeries;
+
+  /**
+   * Prepara repositorios para numerar y copiar datos persistentes al emitir.
+   * @returns void
+   */
+  const mockIssuedPersistentDataSources = (): void => {
+    invoiceRepository.findAll.mockResolvedValue({
+      items: [{ id: 'invoice-a', seriesNumber: 4 }],
+      total: 1,
+      currentPage: 1,
+      totalPages: 1,
+    });
+    clientRepository.findById.mockResolvedValue(buildClient());
+    invoiceSeriesRepository.findById.mockResolvedValue(buildInvoiceSeries());
+  };
+
+  /**
+   * Prepara cliente y serie de la misma empresa para las comprobaciones de tenant.
+   * @returns void
+   */
+  const mockTenantAccessibleSources = (): void => {
+    clientRepository.findById.mockResolvedValue(buildClient());
+    invoiceSeriesRepository.findById.mockResolvedValue(buildInvoiceSeries());
+  };
+
   beforeEach(async () => {
-      invoiceRepository = {
+    invoiceRepository = {
       create: jest.fn(),
       findAll: jest.fn(),
       findById: jest.fn(),
@@ -55,6 +122,14 @@ describe('InvoiceService', () => {
         { provide: ClientRepository, useValue: clientRepository },
         { provide: InvoiceSeriesRepository, useValue: invoiceSeriesRepository },
         { provide: RecurrentEarningRepository, useValue: recurrentEarningRepository },
+        {
+          provide: EnterpriseAccessService,
+          useValue: {
+            assertCurrentEntityAccessible: jest.fn(),
+            mergeRelationNames: (relations?: string[], required: string[] = []) =>
+              [...new Set([...(relations ?? []), ...required])],
+          },
+        },
       ],
     }).compile();
 
@@ -65,6 +140,291 @@ describe('InvoiceService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('create', () => {
+    it('crea un borrador sin numerar ni copiar datos persistentes', async () => {
+      const draftInvoice = buildInvoice({ status: InvoiceStatus.DRAFT });
+      mockTenantAccessibleSources();
+      invoiceRepository.create.mockResolvedValue(draftInvoice);
+
+      await expect(service.create(draftInvoice)).resolves.toEqual(draftInvoice);
+      expect(clientRepository.findById).toHaveBeenCalledWith(clientId);
+      expect(invoiceSeriesRepository.findById).toHaveBeenCalledWith(seriesId);
+      expect(invoiceRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ seriesNumber: null }),
+      );
+    });
+
+    it('rechaza una serie de otra empresa aunque el cliente sea accesible', async () => {
+      clientRepository.findById.mockResolvedValue(buildClient({ enterpriseId }));
+      invoiceSeriesRepository.findById.mockResolvedValue(
+        buildInvoiceSeries({ enterpriseId: 'otra-empresa' }),
+      );
+
+      await expect(service.create(buildInvoice())).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'La serie de factura no pertenece a la misma empresa que el cliente',
+      });
+      expect(invoiceRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('numera y copia datos persistentes al crear una factura emitida', async () => {
+      mockIssuedPersistentDataSources();
+      invoiceRepository.create.mockImplementation(async (invoice: Invoice) => invoice);
+
+      const createdInvoice = await service.create(
+        buildInvoice({ status: InvoiceStatus.ISSUED }),
+      );
+
+      expect(createdInvoice.seriesNumber).toBe(5);
+      expect(createdInvoice.clientName).toBe('Cliente S.L.');
+      expect(createdInvoice.issuerName).toBe('Emisor S.L.');
+      expect(invoiceRepository.create).toHaveBeenCalled();
+    });
+
+    it('relanza el error del repositorio', async () => {
+      const repositoryError = new Error('fallo al persistir');
+      mockTenantAccessibleSources();
+      invoiceRepository.create.mockRejectedValue(repositoryError);
+
+      await expect(service.create(buildInvoice())).rejects.toBe(repositoryError);
+    });
+  });
+
+  describe('findAll', () => {
+    it('delega la consulta paginada al repositorio', async () => {
+      invoiceRepository.findAll.mockResolvedValue(emptyPaginatedResponse);
+      const filter = { seriesId };
+
+      await expect(
+        service.findAll(1, 10, 'issuedDate', 'DESC', filter),
+      ).resolves.toEqual(emptyPaginatedResponse);
+      expect(invoiceRepository.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'issuedDate',
+        'DESC',
+        filter,
+        undefined,
+      );
+    });
+
+    it('incluye relaciones cuando se informan', async () => {
+      const paginatedWithItems = {
+        items: [buildInvoice()],
+        total: 1,
+        currentPage: 1,
+        totalPages: 1,
+      };
+      invoiceRepository.findAll.mockResolvedValue(paginatedWithItems);
+
+      await expect(
+        service.findAll(2, 20, 'name', 'ASC', {}, ['client', 'series']),
+      ).resolves.toEqual(paginatedWithItems);
+    });
+  });
+
+  describe('findById', () => {
+    it('devuelve la factura cuando existe', async () => {
+      const existingInvoice = buildInvoice();
+      invoiceRepository.findById.mockResolvedValue(existingInvoice);
+
+      await expect(service.findById(invoiceId, ['client'])).resolves.toEqual(existingInvoice);
+      expect(invoiceRepository.findById).toHaveBeenCalledWith(invoiceId, ['client']);
+    });
+
+    it('consulta sin relaciones cuando no se informan', async () => {
+      const existingInvoice = buildInvoice();
+      invoiceRepository.findById.mockResolvedValue(existingInvoice);
+
+      await expect(service.findById(invoiceId)).resolves.toEqual(existingInvoice);
+      expect(invoiceRepository.findById).toHaveBeenCalledWith(invoiceId, ['client']);
+    });
+
+    it('lanza 404 si la factura no existe', async () => {
+      invoiceRepository.findById.mockResolvedValue(null);
+
+      await expect(service.findById(invoiceId)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: `Factura con ID: ${invoiceId} no encontrada`,
+      });
+    });
+  });
+
+  describe('updateById', () => {
+    it('lanza 404 si la factura no existe', async () => {
+      invoiceRepository.findById.mockResolvedValue(null);
+
+      await expect(service.updateById(invoiceId, buildInvoice())).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Factura no encontrada',
+      });
+      expect(invoiceRepository.updateById).not.toHaveBeenCalled();
+    });
+
+    it('impide editar una factura que ya no está en borrador', async () => {
+      invoiceRepository.findById.mockResolvedValue(
+        buildInvoice({ status: InvoiceStatus.ISSUED }),
+      );
+
+      await expect(
+        service.updateById(invoiceId, buildInvoice({ name: 'Nueva' })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: `No se puede actualizar la factura ${invoiceId} porque ya ha sido emitida`,
+      });
+    });
+
+    it('actualiza un borrador mezclando datos persistentes y el payload', async () => {
+      const draftInvoice = buildInvoice({ status: InvoiceStatus.DRAFT, name: 'Antigua' });
+      const updatedInvoice = buildInvoice({ name: 'Actualizada' });
+      invoiceRepository.findById.mockResolvedValue(draftInvoice);
+      mockTenantAccessibleSources();
+      invoiceRepository.updateById.mockResolvedValue(updatedInvoice);
+
+      await expect(
+        service.updateById(invoiceId, { name: 'Actualizada' } as Invoice),
+      ).resolves.toEqual(updatedInvoice);
+      expect(invoiceRepository.updateById).toHaveBeenCalledWith(
+        invoiceId,
+        expect.objectContaining({
+          id: invoiceId,
+          name: 'Actualizada',
+          seriesNumber: null,
+        }),
+      );
+    });
+
+    it('relanza el error del repositorio', async () => {
+      const repositoryError = new Error('fallo al actualizar');
+      invoiceRepository.findById.mockResolvedValue(buildInvoice({ status: InvoiceStatus.DRAFT }));
+      mockTenantAccessibleSources();
+      invoiceRepository.updateById.mockRejectedValue(repositoryError);
+
+      await expect(
+        service.updateById(invoiceId, { name: 'Actualizada' } as Invoice),
+      ).rejects.toBe(repositoryError);
+    });
+  });
+
+  describe('updateStatusById', () => {
+    it('rechaza un estado que no pertenece al enumerado', async () => {
+      await expect(
+        service.updateStatusById(invoiceId, 'unknown' as InvoiceStatus),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'El nuevo estado de la factura no es válido: unknown',
+      });
+      expect(invoiceRepository.findById).not.toHaveBeenCalled();
+    });
+
+    it('lanza 404 si la factura no existe', async () => {
+      invoiceRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.updateStatusById(invoiceId, InvoiceStatus.ISSUED),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: `Factura no encontrada con ID: ${invoiceId}`,
+      });
+    });
+
+    it('rechaza volver a borrador una factura ya emitida', async () => {
+      invoiceRepository.findById.mockResolvedValue(
+        buildInvoice({ status: InvoiceStatus.ISSUED }),
+      );
+
+      await expect(
+        service.updateStatusById(invoiceId, InvoiceStatus.DRAFT),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'No se puede establecer como borrador una factura que ya ha sido emitida',
+      });
+    });
+
+    it('copia datos persistentes al pasar de borrador a emitida', async () => {
+      mockIssuedPersistentDataSources();
+      const draftInvoice = buildInvoice({ status: InvoiceStatus.DRAFT });
+      invoiceRepository.findById
+        .mockResolvedValueOnce(draftInvoice)
+        .mockResolvedValueOnce({ ...draftInvoice, status: InvoiceStatus.ISSUED, seriesNumber: 5 });
+      invoiceRepository.updateById.mockResolvedValue({});
+
+      const result = await service.updateStatusById(invoiceId, InvoiceStatus.ISSUED);
+
+      expect(invoiceRepository.updateById).toHaveBeenCalledWith(
+        invoiceId,
+        expect.objectContaining({
+          status: InvoiceStatus.ISSUED,
+          seriesNumber: 5,
+          clientName: 'Cliente S.L.',
+          issuerName: 'Emisor S.L.',
+        }),
+      );
+      expect(invoiceRepository.findById).toHaveBeenLastCalledWith(invoiceId, [
+        'client',
+        'series',
+        'recurrentEarning',
+      ]);
+      expect(result.status).toBe(InvoiceStatus.ISSUED);
+    });
+
+    it('solo actualiza el estado al pasar de emitida a pagada', async () => {
+      const issuedInvoice = buildInvoice({ status: InvoiceStatus.ISSUED, seriesNumber: 3 });
+      invoiceRepository.findById
+        .mockResolvedValueOnce(issuedInvoice)
+        .mockResolvedValueOnce({ ...issuedInvoice, status: InvoiceStatus.PAID });
+      invoiceRepository.updateById.mockResolvedValue({});
+
+      await expect(
+        service.updateStatusById(invoiceId, InvoiceStatus.PAID),
+      ).resolves.toEqual(expect.objectContaining({ status: InvoiceStatus.PAID }));
+      expect(clientRepository.findById).not.toHaveBeenCalled();
+      expect(invoiceRepository.updateById).toHaveBeenCalledWith(invoiceId, {
+        ...issuedInvoice,
+        status: InvoiceStatus.PAID,
+      });
+    });
+  });
+
+  describe('deleteById', () => {
+    it('lanza 404 si la factura no existe', async () => {
+      invoiceRepository.findById.mockResolvedValue(null);
+
+      await expect(service.deleteById(invoiceId)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: `Factura con ID ${invoiceId} no encontrada`,
+      });
+      expect(invoiceRepository.deleteById).not.toHaveBeenCalled();
+    });
+
+    it('solo permite borrar facturas en borrador', async () => {
+      invoiceRepository.findById.mockResolvedValue(
+        buildInvoice({ status: InvoiceStatus.PAID }),
+      );
+
+      await expect(service.deleteById(invoiceId)).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: `No se puede eliminar la factura ${invoiceId} porque ya ha sido emitida`,
+      });
+      expect(invoiceRepository.deleteById).not.toHaveBeenCalled();
+    });
+
+    it('elimina una factura en borrador', async () => {
+      invoiceRepository.findById.mockResolvedValue(buildInvoice({ status: InvoiceStatus.DRAFT }));
+      invoiceRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });
+
+      await expect(service.deleteById(invoiceId)).resolves.toEqual({ affected: 1, raw: [] });
+    });
+
+    it('relanza el error del repositorio', async () => {
+      const repositoryError = new Error('fallo al borrar');
+      invoiceRepository.findById.mockResolvedValue(buildInvoice({ status: InvoiceStatus.DRAFT }));
+      invoiceRepository.deleteById.mockRejectedValue(repositoryError);
+
+      await expect(service.deleteById(invoiceId)).rejects.toBe(repositoryError);
+    });
+  });
+
   describe('validateRecurrentEarningLink', () => {
     it('deja el vínculo a nulo cuando no se informa ingreso recurrente', async () => {
       const invoice = buildInvoice({ recurrentEarningId: undefined });
@@ -73,6 +433,22 @@ describe('InvoiceService', () => {
 
       expect(invoice.recurrentEarningId).toBeNull();
       expect(recurrentEarningRepository.findById).not.toHaveBeenCalled();
+    });
+
+    it('resuelve el identificador desde la relación anidada', async () => {
+      recurrentEarningRepository.findById.mockResolvedValue({
+        id: 'recurrent-uuid',
+        clientId,
+      });
+      const invoice = buildInvoice({
+        recurrentEarningId: undefined,
+        recurrentEarning: { id: 'recurrent-uuid' } as Invoice['recurrentEarning'],
+      });
+
+      await service.validateRecurrentEarningLink(invoice);
+
+      expect(invoice.recurrentEarningId).toBe('recurrent-uuid');
+      expect(recurrentEarningRepository.findById).toHaveBeenCalledWith('recurrent-uuid');
     });
 
     it('lanza 404 si el ingreso recurrente no existe', async () => {
@@ -97,7 +473,7 @@ describe('InvoiceService', () => {
       await expect(
         service.validateRecurrentEarningLink(
           buildInvoice({
-            clientId: 'client-uuid',
+            clientId,
             recurrentEarningId: 'recurrent-uuid',
           }),
         ),
@@ -107,75 +483,30 @@ describe('InvoiceService', () => {
       });
     });
 
+    it('acepta el vínculo cuando no hay cliente en la factura', async () => {
+      recurrentEarningRepository.findById.mockResolvedValue({
+        id: 'recurrent-uuid',
+        clientId: 'otro-cliente',
+      });
+      const invoice = buildInvoice({
+        clientId: undefined,
+        client: undefined,
+        recurrentEarningId: 'recurrent-uuid',
+      });
+
+      await expect(service.validateRecurrentEarningLink(invoice)).resolves.toBeUndefined();
+      expect(invoice.recurrentEarningId).toBe('recurrent-uuid');
+    });
+
     it('acepta el vínculo cuando el ingreso pertenece al mismo cliente', async () => {
       recurrentEarningRepository.findById.mockResolvedValue({
         id: 'recurrent-uuid',
-        clientId: 'client-uuid',
+        clientId,
       });
       const invoice = buildInvoice({ recurrentEarningId: 'recurrent-uuid' });
 
       await expect(service.validateRecurrentEarningLink(invoice)).resolves.toBeUndefined();
       expect(invoice.recurrentEarningId).toBe('recurrent-uuid');
-    });
-  });
-
-  describe('updateById', () => {
-    it('impide editar una factura que ya no está en borrador', async () => {
-      invoiceRepository.findById.mockResolvedValue(
-        buildInvoice({ status: InvoiceStatus.ISSUED }),
-      );
-
-      await expect(
-        service.updateById(invoiceId, buildInvoice({ name: 'Nueva' })),
-      ).rejects.toMatchObject({
-        status: HttpStatus.BAD_REQUEST,
-        message: `No se puede actualizar la factura ${invoiceId} porque ya ha sido emitida`,
-      });
-    });
-  });
-
-  describe('updateStatusById', () => {
-    it('rechaza volver a borrador una factura ya emitida', async () => {
-      invoiceRepository.findById.mockResolvedValue(
-        buildInvoice({ status: InvoiceStatus.ISSUED }),
-      );
-
-      await expect(
-        service.updateStatusById(invoiceId, InvoiceStatus.DRAFT),
-      ).rejects.toMatchObject({
-        status: HttpStatus.BAD_REQUEST,
-        message: 'No se puede establecer como borrador una factura que ya ha sido emitida',
-      });
-    });
-
-    it('rechaza un estado que no pertenece al enumerado', async () => {
-      await expect(
-        service.updateStatusById(invoiceId, 'unknown' as InvoiceStatus),
-      ).rejects.toMatchObject({
-        status: HttpStatus.BAD_REQUEST,
-      });
-      expect(invoiceRepository.findById).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('deleteById', () => {
-    it('solo permite borrar facturas en borrador', async () => {
-      invoiceRepository.findById.mockResolvedValue(
-        buildInvoice({ status: InvoiceStatus.PAID }),
-      );
-
-      await expect(service.deleteById(invoiceId)).rejects.toMatchObject({
-        status: HttpStatus.BAD_REQUEST,
-        message: `No se puede eliminar la factura ${invoiceId} porque ya ha sido emitida`,
-      });
-      expect(invoiceRepository.deleteById).not.toHaveBeenCalled();
-    });
-
-    it('elimina una factura en borrador', async () => {
-      invoiceRepository.findById.mockResolvedValue(buildInvoice({ status: InvoiceStatus.DRAFT }));
-      invoiceRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });
-
-      await expect(service.deleteById(invoiceId)).resolves.toEqual({ affected: 1, raw: [] });
     });
   });
 
@@ -189,12 +520,10 @@ describe('InvoiceService', () => {
       });
 
       await expect(
-        service.setInvoiceSeriesNumber(
-          buildInvoice({ series: { id: 'series-uuid' } as Invoice['series'] }),
-        ),
+        service.setInvoiceSeriesNumber(buildInvoice()),
       ).resolves.toBe(1);
       expect(invoiceRepository.findAll).toHaveBeenCalledWith(1, null, 'seriesNumber', 'ASC', {
-        seriesId: 'series-uuid',
+        seriesId,
       });
     });
 
@@ -210,17 +539,15 @@ describe('InvoiceService', () => {
         totalPages: 1,
       });
 
-      await expect(
-        service.setInvoiceSeriesNumber(
-          buildInvoice({ series: { id: 'series-uuid' } as Invoice['series'] }),
-        ),
-      ).resolves.toBe(8);
+      await expect(service.setInvoiceSeriesNumber(buildInvoice())).resolves.toBe(8);
     });
   });
 
   describe('setInvoicePersistentData', () => {
     it('exige cliente y serie', async () => {
-      await expect(service.setInvoicePersistentData(buildInvoice({ clientId: undefined }))).rejects.toMatchObject({
+      await expect(
+        service.setInvoicePersistentData(buildInvoice({ clientId: undefined, client: undefined })),
+      ).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
         message: 'La factura debe tener un cliente',
       });
@@ -232,10 +559,24 @@ describe('InvoiceService', () => {
       });
     });
 
+    it('resuelve el cliente y la serie desde las relaciones anidadas', async () => {
+      const invoice = buildInvoice({
+        status: InvoiceStatus.DRAFT,
+        clientId: undefined,
+        seriesId: undefined,
+        client: { id: clientId } as Invoice['client'],
+        series: { id: seriesId } as Invoice['series'],
+      });
+
+      const result = await service.setInvoicePersistentData(invoice);
+
+      expect(result.seriesId).toBe(seriesId);
+      expect(result.seriesNumber).toBeNull();
+    });
+
     it('deja el número de serie nulo en borrador', async () => {
       const invoice = buildInvoice({
         status: InvoiceStatus.DRAFT,
-        seriesId: 'series-uuid',
         seriesNumber: 9,
       });
 
@@ -246,34 +587,62 @@ describe('InvoiceService', () => {
       expect(clientRepository.findById).not.toHaveBeenCalled();
     });
 
-    it('numera y copia datos persistentes al emitir', async () => {
-      invoiceRepository.findAll.mockResolvedValue({
-        items: [{ id: 'invoice-a', seriesNumber: 4 }],
-        total: 1,
-        currentPage: 1,
-        totalPages: 1,
+    it('lanza 404 si el cliente no existe al emitir', async () => {
+      invoiceRepository.findAll.mockResolvedValue({ items: [], total: 0, currentPage: 1, totalPages: 0 });
+      clientRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.setInvoicePersistentData(buildInvoice({ status: InvoiceStatus.ISSUED })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: `Cliente no encontrado con ID: ${clientId}`,
       });
-      clientRepository.findById.mockResolvedValue({
-        name: 'Cliente S.L.',
-        nif: 'B12345678',
-        address: 'Calle 1',
+    });
+
+    it('lanza 404 si la serie no existe al emitir', async () => {
+      invoiceRepository.findAll.mockResolvedValue({ items: [], total: 0, currentPage: 1, totalPages: 0 });
+      clientRepository.findById.mockResolvedValue(buildClient());
+      invoiceSeriesRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.setInvoicePersistentData(buildInvoice({ status: InvoiceStatus.ISSUED })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: `Serie de factura no encontrada con ID: ${seriesId}`,
       });
-      invoiceSeriesRepository.findById.mockResolvedValue({
-        id: 'series-uuid',
-        enterprise: {
-          name: 'Emisor S.L.',
-          nif: 'A11111111',
-          address: 'Calle 2',
-          bankAccount: 'ES1200000000000000000000',
-        },
-      });
+    });
+
+    it('omite dirección y cuenta si el cliente o el emisor no las tienen', async () => {
+      invoiceRepository.findAll.mockResolvedValue({ items: [], total: 0, currentPage: 1, totalPages: 0 });
+      clientRepository.findById.mockResolvedValue(buildClient({ address: undefined }));
+      invoiceSeriesRepository.findById.mockResolvedValue(
+        buildInvoiceSeries({
+          enterprise: {
+            name: 'Emisor S.L.',
+            nif: 'A11111111',
+          },
+        } as Partial<InvoiceSeries>),
+      );
 
       const invoice = buildInvoice({
         status: InvoiceStatus.ISSUED,
-        seriesId: 'series-uuid',
-        series: { id: 'series-uuid' } as Invoice['series'],
+        clientAddress: undefined,
+        issuerAddress: undefined,
+        issuerBankAccount: undefined,
       });
 
+      const result = await service.setInvoicePersistentData(invoice);
+
+      expect(result.clientName).toBe('Cliente S.L.');
+      expect(result.clientAddress).toBeUndefined();
+      expect(result.issuerAddress).toBeUndefined();
+      expect(result.issuerBankAccount).toBeUndefined();
+    });
+
+    it('numera y copia datos persistentes al emitir', async () => {
+      mockIssuedPersistentDataSources();
+
+      const invoice = buildInvoice({ status: InvoiceStatus.ISSUED });
       const result = await service.setInvoicePersistentData(invoice);
 
       expect(result.seriesNumber).toBe(5);
@@ -284,7 +653,7 @@ describe('InvoiceService', () => {
       expect(result.issuerNif).toBe('A11111111');
       expect(result.issuerAddress).toBe('Calle 2');
       expect(result.issuerBankAccount).toBe('ES1200000000000000000000');
-      expect(invoiceSeriesRepository.findById).toHaveBeenCalledWith('series-uuid', ['enterprise']);
+      expect(invoiceSeriesRepository.findById).toHaveBeenCalledWith(seriesId, ['enterprise']);
     });
   });
 });

@@ -82,7 +82,7 @@ export class BillingService {
         const foundValue = String(record[foundKey] ?? '').trim();
         return normalizedValue ? foundValue.toLowerCase() === normalizedValue : true;
       }
-      const coerced = String(rawValue ?? '').trim();
+      const coerced = String(rawValue).trim();
       return normalizedValue ? coerced.toLowerCase() === normalizedValue : true;
     });
 
@@ -210,11 +210,7 @@ export class BillingService {
       priceId: price.id,
       currency: String(price.currency ?? '').toLowerCase(),
       interval: String(price.recurring?.interval ?? ''),
-      intervalCount:
-        Number.isFinite(price.recurring?.interval_count) &&
-        (price.recurring?.interval_count ?? 0) > 0
-          ? (price.recurring?.interval_count as number)
-          : 1,
+      intervalCount: BillingService.resolvePositiveRecurringIntervalCount(price),
       usageType: price.recurring?.usage_type
         ? String(price.recurring.usage_type)
         : null,
@@ -253,11 +249,7 @@ export class BillingService {
       priceId: price.id,
       currency: String(price.currency ?? '').toLowerCase(),
       interval: String(price.recurring?.interval ?? ''),
-      intervalCount:
-        Number.isFinite(price.recurring?.interval_count) &&
-        (price.recurring?.interval_count ?? 0) > 0
-          ? (price.recurring?.interval_count as number)
-          : 1,
+      intervalCount: BillingService.resolvePositiveRecurringIntervalCount(price),
       usageType: price.recurring?.usage_type
         ? String(price.recurring.usage_type)
         : null,
@@ -265,6 +257,24 @@ export class BillingService {
         typeof price.unit_amount === 'number' ? price.unit_amount : null,
       billingScheme: String(price.billing_scheme ?? ''),
     };
+  }
+
+  /**
+   * Normaliza `recurring.interval_count` a un entero positivo (mínimo 1).
+   *
+   * @param price - Precio Stripe posiblemente sin recurrencia
+   * @returns Número de intervalos o `1` si el valor no es usable
+   */
+  private static resolvePositiveRecurringIntervalCount(price: Stripe.Price): number {
+    const recurringIntervalCount = price.recurring?.interval_count;
+    if (
+      typeof recurringIntervalCount === 'number' &&
+      Number.isFinite(recurringIntervalCount) &&
+      recurringIntervalCount > 0
+    ) {
+      return recurringIntervalCount;
+    }
+    return 1;
   }
 
   /**
@@ -659,7 +669,7 @@ export class BillingService {
         subscription,
         productNamesById,
         productMetadataById,
-        subscriptionIdToEnterpriseId.get(subscription.id) ?? null,
+        subscriptionIdToEnterpriseId.get(subscription.id),
         usedUnitsByEnterpriseId,
         subscriptionSchedulesBySubscriptionId.get(subscription.id) ?? null,
       ),
@@ -1221,7 +1231,7 @@ export class BillingService {
     subscription: Stripe.Subscription,
     productNamesById: Map<string, string>,
     productMetadataById: Map<string, Array<{ key: string; value: string }>>,
-    resolvedEnterpriseId: string | null,
+    resolvedEnterpriseId: string | null | undefined,
     usedUnitsByEnterpriseId: Map<string, number>,
     subscriptionSchedule: Stripe.SubscriptionSchedule | null,
   ): BillingSubscriptionPresentation {

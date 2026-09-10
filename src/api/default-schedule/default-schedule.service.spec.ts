@@ -165,5 +165,82 @@ describe('DefaultScheduleService', () => {
       });
       expect(defaultScheduleRepository.deleteById).toHaveBeenCalledWith(scheduleId);
     });
+
+    it('registra 0 filas afectadas si el borrado no informa affected', async () => {
+      defaultScheduleRepository.findById.mockResolvedValue(buildDefaultSchedule());
+      defaultScheduleRepository.deleteById.mockResolvedValue({ raw: [] });
+
+      await expect(service.deleteById(scheduleId, enterpriseId)).resolves.toEqual({
+        raw: [],
+      });
+    });
+  });
+
+  describe('create sin descripción, findAll y errores', () => {
+    it('crea sin descripción y propaga el error de alta', async () => {
+      defaultScheduleRepository.create.mockResolvedValue(buildDefaultSchedule());
+
+      await service.create(enterpriseId, {
+        name: 'Jornada',
+        schedule: scheduleDefinition,
+      });
+
+      expect(defaultScheduleRepository.create).toHaveBeenCalledWith({
+        enterpriseId,
+        name: 'Jornada',
+        schedule: scheduleDefinition,
+      });
+
+      defaultScheduleRepository.create.mockRejectedValue(new Error('fallo crear'));
+      await expect(
+        service.create(enterpriseId, { name: 'Jornada', schedule: scheduleDefinition }),
+      ).rejects.toThrow('fallo crear');
+    });
+
+    it('lista plantillas y actualiza name/schedule', async () => {
+      defaultScheduleRepository.findAll.mockResolvedValue({
+        items: [],
+        total: 0,
+        currentPage: 1,
+        totalPages: 0,
+      });
+      await service.findAll(1, 10, 'name', 'ASC', { enterpriseId });
+      expect(defaultScheduleRepository.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'name',
+        'ASC',
+        { enterpriseId },
+        undefined,
+      );
+
+      defaultScheduleRepository.findById.mockResolvedValue(buildDefaultSchedule());
+      defaultScheduleRepository.updateById.mockResolvedValue(buildDefaultSchedule());
+      await service.updateById(scheduleId, enterpriseId, {
+        name: 'Nueva',
+        schedule: scheduleDefinition,
+        description: 'texto',
+      });
+      expect(defaultScheduleRepository.updateById).toHaveBeenCalledWith(scheduleId, {
+        name: 'Nueva',
+        schedule: scheduleDefinition,
+        description: 'texto',
+      });
+    });
+
+    it('devuelve la plantilla cuando pertenece a la empresa y propaga errores', async () => {
+      defaultScheduleRepository.findById.mockResolvedValue(buildDefaultSchedule());
+      await expect(service.findById(scheduleId, enterpriseId)).resolves.toEqual(
+        buildDefaultSchedule(),
+      );
+
+      defaultScheduleRepository.updateById.mockRejectedValue(new Error('fallo update'));
+      await expect(
+        service.updateById(scheduleId, enterpriseId, { name: 'X' }),
+      ).rejects.toThrow('fallo update');
+
+      defaultScheduleRepository.deleteById.mockRejectedValue(new Error('fallo delete'));
+      await expect(service.deleteById(scheduleId, enterpriseId)).rejects.toThrow('fallo delete');
+    });
   });
 });

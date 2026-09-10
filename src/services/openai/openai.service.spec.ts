@@ -519,5 +519,284 @@ describe('OpenaiService', () => {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
       });
     });
+
+    it('envuelve un error que no es Error al extraer conceptos', async () => {
+      mockCreateChatCompletion.mockRejectedValue('fallo textual');
+
+      await expect(service.extractSpentConceptsFromText('Factura')).rejects.toMatchObject({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
+    });
+
+    it('lanza error si la respuesta de conceptos no incluye un array', async () => {
+      mockCreateChatCompletion.mockResolvedValue({
+        choices: [{ message: { content: JSON.stringify({ name: 'X' }) } }],
+        usage: {},
+      });
+
+      await expect(service.extractSpentConceptsFromText('Factura')).rejects.toMatchObject({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
+    });
+
+    it('lanza error si el contenido de conceptos llega vacío', async () => {
+      mockCreateChatCompletion.mockResolvedValue({
+        choices: [{ message: { content: '' } }],
+        usage: {},
+      });
+
+      await expect(service.extractSpentConceptsFromText('Factura')).rejects.toMatchObject({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
+    });
+
+    it('usa nombre por defecto, fecha actual y tokens a 0 si faltan datos', async () => {
+      mockCreateChatCompletion.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                concepts: [{ vat: 0, irpf: 'x', quantity: 'y', supplied: 1 }],
+                totalSubtotal: 'no',
+                totalVAT: 'no',
+                totalIRPF: 'no',
+                total: 'no',
+              }),
+            },
+          },
+        ],
+      });
+
+      const result = await service.extractSpentConceptsFromText('Factura');
+
+      expect(result.concepts[0].name).toBe('Concepto 1');
+      expect(result.concepts[0].quantity).toBe(1);
+      expect(result.concepts[0].supplied).toBe(true);
+      expect(result.name).toBe('');
+      expect(result.issuedDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(result.totalTokens).toBe(0);
+    });
+
+    it('no refina la base española si hay más de un concepto con IVA', async () => {
+      mockCreateChatCompletion.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                name: 'Varios',
+                issuedDate: 'fecha-invalida',
+                concepts: [
+                  { name: 'A', base_price: 10, vat: 21, irpf: 0, quantity: 1, supplied: false },
+                  { name: 'B', base_price: 5, vat: 10, irpf: 0, quantity: 1, supplied: false },
+                ],
+                totalSubtotal: 15,
+                totalVAT: 2.6,
+                totalIRPF: 0,
+                total: 17.6,
+              }),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1 },
+      });
+
+      const result = await service.extractSpentConceptsFromText('Factura', {
+        issuerNifWithCountryPrefix: 'ESB12345678',
+        historicalConcepts: undefined,
+        historicalSpentNames: undefined,
+      });
+
+      expect(result.concepts[0].base_price).toBe(10);
+      expect(result.totalTokens).toBe(2);
+    });
+  });
+
+  describe('extractSpentIssuerFromText errores y huecos', () => {
+    it('lanza error si el contenido del emisor llega vacío', async () => {
+      mockCreateChatCompletion.mockResolvedValue({
+        choices: [{ message: {} }],
+        usage: {},
+      });
+
+      await expect(service.extractSpentIssuerFromText('Factura')).rejects.toMatchObject({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
+    });
+
+    it('normaliza NIF no string a vacío y repropaga HttpException', async () => {
+      mockCreateChatCompletion.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                name: 123,
+                nifWithoutCountryPrefix: 44,
+                nifWithCountryPrefix: null,
+              }),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      });
+
+      const result = await service.extractSpentIssuerFromText('Factura');
+
+      expect(result.name).toBe('');
+      expect(result.nifWithoutCountryPrefix).toBe('');
+      expect(result.nifWithCountryPrefix).toBe('');
+    });
+
+    it('envuelve un error genérico al extraer el emisor', async () => {
+      mockCreateChatCompletion.mockRejectedValue(new Error('timeout'));
+
+      await expect(service.extractSpentIssuerFromText('Factura')).rejects.toMatchObject({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
+    });
+  });
+
+  describe('ajuste de bases españolas y formato de respuesta', () => {
+    /**
+     * Accede a helpers privados para cubrir ramas de IVA, rangos y schema.
+     */
+    const getPrivateHelpers = () =>
+      service as unknown as {
+        buildSpanishBasePriceThatMatchesPrintedVat: (
+          concept: {
+            quantity?: number;
+            vat: number;
+            irpf?: number;
+            base_price: number;
+          },
+          printedSubtotal: number,
+          printedVat: number,
+          printedTotal: number,
+        ) => number | null;
+        pickLineBaseMatchingPrintedAmounts: (
+          preferredLineBase: number,
+          printedSubtotal: number,
+          printedVat: number,
+          vatRate: number,
+        ) => number;
+        clampAmountToHalfUpTwoDecimalRange: (
+          amount: number,
+          printedTwoDecimals: number,
+        ) => number;
+        getResponseFormatSchemaName: (
+          responseFormat: { type?: string; json_schema?: { name?: string } } | undefined,
+        ) => string | undefined;
+      };
+
+    it('devuelve null si el tipo de IVA no es positivo', () => {
+      const refined = getPrivateHelpers().buildSpanishBasePriceThatMatchesPrintedVat(
+        { quantity: 1, vat: 0, base_price: 10 },
+        10,
+        0,
+        10,
+      );
+      expect(refined).toBeNull();
+      expect(
+        getPrivateHelpers().buildSpanishBasePriceThatMatchesPrintedVat(
+          { quantity: 1, vat: -21, base_price: 10 },
+          10,
+          0,
+          10,
+        ),
+      ).toBeNull();
+    });
+
+    it('devuelve null si la cantidad es 0', () => {
+      const refined = getPrivateHelpers().buildSpanishBasePriceThatMatchesPrintedVat(
+        { quantity: 0, vat: 21, base_price: 10 },
+        10,
+        2.1,
+        12.1,
+      );
+      expect(refined).toBeNull();
+    });
+
+    it('usa cantidad 1 si el valor no es un número finito', () => {
+      const refined = getPrivateHelpers().buildSpanishBasePriceThatMatchesPrintedVat(
+        { quantity: Number.NaN, vat: 0, base_price: 10 },
+        10,
+        0,
+        10,
+      );
+      expect(refined).toBeNull();
+    });
+
+    it('reconstruye la base desde el IVA si el total impreso es 0', () => {
+      const refined = getPrivateHelpers().buildSpanishBasePriceThatMatchesPrintedVat(
+        { quantity: 1, vat: 21, irpf: 0, base_price: 100 },
+        50,
+        10.5,
+        0,
+      );
+      expect(refined).not.toBeNull();
+    });
+
+    it('prioriza el redondeo visual si base e IVA no intersectan', () => {
+      const picked = getPrivateHelpers().pickLineBaseMatchingPrintedAmounts(
+        80,
+        100,
+        1,
+        0.21,
+      );
+      expect(typeof picked).toBe('number');
+    });
+
+    it('usa el máximo permitido si el clamp no redondea al impreso', () => {
+      const clamped = getPrivateHelpers().clampAmountToHalfUpTwoDecimalRange(Number.NaN, 5.88);
+      expect(clamped).toBeCloseTo(5.884999, 5);
+    });
+
+    it('devuelve undefined si el response_format no tiene json_schema', () => {
+      expect(getPrivateHelpers().getResponseFormatSchemaName(undefined)).toBeUndefined();
+      expect(getPrivateHelpers().getResponseFormatSchemaName({ type: 'text' })).toBeUndefined();
+      expect(
+        getPrivateHelpers().getResponseFormatSchemaName({
+          type: 'json_schema',
+          json_schema: { name: 'spent_concepts' },
+        }),
+      ).toBe('spent_concepts');
+    });
+
+    it('registra la petición sin response_format y lee el modelo si la env no existe', async () => {
+      const privateService = service as unknown as {
+        logOpenAiRequestConfiguration: (
+          requestPayload: {
+            model: string;
+            messages: Array<{ role: string; content: string }>;
+            response_format?: unknown;
+          },
+          operationName: string,
+        ) => void;
+        readSpentConceptsModelFromEnvironment: () => string | null;
+        requireNormalizedOcrText: (
+          extractedText: string,
+          emptyLogMessage: string,
+          emptyHttpMessage: string,
+        ) => string;
+      };
+
+      privateService.logOpenAiRequestConfiguration(
+        {
+          model: 'gpt-test',
+          messages: [{ role: 'user', content: 'hola' }],
+        },
+        'sin formato',
+      );
+
+      delete process.env.OPENAI_SPENTS_PROCESSING_MODEL;
+      expect(privateService.readSpentConceptsModelFromEnvironment()).toBeNull();
+
+      expect(() =>
+        privateService.requireNormalizedOcrText(
+          undefined as unknown as string,
+          'texto vacío',
+          'HTTP vacío',
+        ),
+      ).toThrow('HTTP vacío');
+    });
   });
 });

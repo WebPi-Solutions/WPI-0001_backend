@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { SigningResponseDto } from 'src/entities/signing/dto/signing-response.dto';
 import { SigningUpdateResponseDto } from 'src/entities/signing/dto/signing-update-response.dto';
@@ -27,6 +28,7 @@ import { SigningService } from './signing.service';
  * Endpoints REST para fichajes (`signings`).
  */
 @ApiTags('Fichajes')
+@RequireEnterpriseId()
 @Controller('signings')
 export class SigningController {
   constructor(private readonly signingService: SigningService) {}

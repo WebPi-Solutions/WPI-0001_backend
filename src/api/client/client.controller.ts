@@ -5,6 +5,7 @@ import { ClientResponseDto } from 'src/entities/client/dto/client-response.dto';
 import { ClientService } from './client.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 
 @ApiTags('Clientes')
 @Controller('clients')
@@ -18,6 +19,7 @@ export class ClientController {
    * @returns El cliente creado
    */
   @Post()
+  @RequireEnterpriseId()
   @MapResponse(ClientResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo cliente' })
   @ApiOkResponse({ type: ClientResponseDto, description: 'Cliente creado (vista pública).' })
@@ -39,6 +41,7 @@ export class ClientController {
    * @returns Los clientes
    */
   @Get()
+  @RequireEnterpriseId()
   @MapResponse(ClientResponseDto)
   @ApiOperation({ summary: 'Obtener todos los clientes' })
   @ApiOkResponse({ type: ClientResponseDto, isArray: true, description: 'Clientes (vista pública).' })

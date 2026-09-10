@@ -4,6 +4,7 @@ import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-reposit
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
 import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 @Injectable()
@@ -12,7 +13,8 @@ export class QuoteService {
 
   constructor(private readonly quoteRepository: QuoteRepository,
               private readonly clientRepository: ClientRepository,
-              private readonly enterpriseRepository: EnterpriseRepository
+              private readonly enterpriseRepository: EnterpriseRepository,
+              private readonly enterpriseAccessService: EnterpriseAccessService,
   ){}
 
   /**
@@ -24,7 +26,7 @@ export class QuoteService {
     this.logger.log(`Iniciando proceso de creación de cotización`);
     this.logger.log(`Datos de la cotización a crear:`, JSON.stringify(quote, null, 2));
 
-    // Se establecen los datos persistentes de cliente y emisor
+    await this.assertQuoteTenantAccessible(quote);
     quote = await this.setQuotePersistentData(quote);
     
     try {
@@ -69,10 +71,15 @@ export class QuoteService {
   async findById(id: string, relations?: string[]): Promise<Quote> {
     this.logger.log(`Buscando cotización por ID: ${id}${relations ? ` con relaciones: [${relations.join(', ')}]` : ''}`);
     
-    const quote = await this.quoteRepository.findById(id, relations);
+    const relationsWithClient = this.enterpriseAccessService.mergeRelationNames(
+      relations,
+      ['client'],
+    );
+    const quote = await this.quoteRepository.findById(id, relationsWithClient);
     
     if (quote) {
       this.logger.log(`Cotización encontrada con ID: ${quote.id}`);
+      this.assertQuoteAccessible(quote);
     } else {
       this.logger.log(`No se encontró ninguna cotización con ID: ${id}`);
       throw new HttpException(`Cotización con ID: ${id} no encontrada`, HttpStatus.NOT_FOUND);
@@ -91,12 +98,14 @@ export class QuoteService {
     this.logger.log(`Iniciando actualización de cotización con ID: ${id}`);
     this.logger.log(`Datos a actualizar:`, JSON.stringify(quote, null, 2));
 
-    const quoteToUpdate = await this.quoteRepository.findById(id);
+    const quoteToUpdate = await this.quoteRepository.findById(id, ['client']);
 
     if (!quoteToUpdate) {
       this.logger.error(`Cotización no encontrada con ID: ${id}`);
       throw new HttpException('Cotización no encontrada', HttpStatus.NOT_FOUND);
     }
+
+    this.assertQuoteAccessible(quoteToUpdate);
 
     if(quoteToUpdate.status !== QuoteStatus.DRAFT) {
       this.logger.error(`No se puede actualizar la cotización ${id} porque ya ha sido emitida`);
@@ -108,6 +117,8 @@ export class QuoteService {
       ...quoteToUpdate,
       ...quote
     }
+    // Revalida el cliente tras el merge: el cuerpo puede apuntar a un cliente de otra empresa.
+    await this.assertQuoteTenantAccessible(quote);
     quote = await this.setQuotePersistentData(quote);
     
     try {
@@ -135,11 +146,13 @@ export class QuoteService {
       throw new HttpException(`El estado de la cotización no es válido: ${status}`, HttpStatus.BAD_REQUEST);
     }
 
-    let quoteToUpdate = await this.quoteRepository.findById(id);
+    let quoteToUpdate = await this.quoteRepository.findById(id, ['client']);
     if(!quoteToUpdate) {
       this.logger.error(`Cotización no encontrada con ID: ${id}`);
       throw new HttpException(`Cotización no encontrada con ID: ${id}`, HttpStatus.NOT_FOUND);
     }
+
+    this.assertQuoteAccessible(quoteToUpdate);
 
     if(quoteToUpdate.status !== QuoteStatus.DRAFT && status === QuoteStatus.DRAFT) {
       this.logger.error(`No se puede establecer como borrador una cotización que ya ha sido emitida`);
@@ -148,6 +161,7 @@ export class QuoteService {
 
     if(quoteToUpdate.status === QuoteStatus.DRAFT && status !== QuoteStatus.DRAFT) {
       this.logger.log(`La cotización pasa de estado borrador a estado de emitida, se establece el número de serie de la cotización y el resto de datos persistentes`);
+      await this.assertQuoteTenantAccessible(quoteToUpdate);
       // Mandamos la cotización actual reemplazando el status en el objeto para que al setear la información persistente lo tenga en cuenta, ya que para generar el número de cotización es necesario
       // un status !== DRAFT que todavía no ha sido asignado para no interferir con las validaciones if.
       quoteToUpdate = await this.setQuotePersistentData({...quoteToUpdate, status: status});
@@ -164,11 +178,13 @@ export class QuoteService {
   async deleteById(id: string): Promise<DeleteResult> {
     this.logger.log(`Iniciando eliminación de cotización con ID: ${id}`);
 
-    const quote = await this.quoteRepository.findById(id);
+    const quote = await this.quoteRepository.findById(id, ['client']);
     if (!quote) {
       this.logger.error(`Cotización con ID ${id} no encontrada`);
       throw new HttpException(`Cotización con ID ${id} no encontrada`, HttpStatus.NOT_FOUND);
     }
+
+    this.assertQuoteAccessible(quote);
 
     if (quote.status !== QuoteStatus.DRAFT) {
       this.logger.error(`No se puede eliminar la cotización ${id} porque ya ha sido emitida`);
@@ -229,6 +245,69 @@ export class QuoteService {
     }
 
     return quote;
+  }
+
+  /**
+   * Recoge identificadores únicos no vacíos (FK escalar y relación anidada).
+   *
+   * @param identifierCandidates - UUID recibidos en `clientId` y en `client.id`
+   * @returns Lista sin duplicados
+   */
+  private collectUniqueIdentifiers(
+    ...identifierCandidates: Array<string | null | undefined>
+  ): string[] {
+    return [...new Set(
+      identifierCandidates
+        .map((identifier) => identifier?.trim())
+        .filter((identifier): identifier is string => Boolean(identifier)),
+    )];
+  }
+
+  /**
+   * Comprueba que todos los clientes referenciados en el payload son accesibles.
+   * Cubre `clientId` y `client.id` para no omitir un retargeteo cruzado.
+   *
+   * @param quote - Cotización a persistir
+   */
+  private async assertQuoteTenantAccessible(quote: Quote): Promise<void> {
+    const clientIds = this.collectUniqueIdentifiers(quote.clientId, quote.client?.id);
+    if (clientIds.length === 0) {
+      this.logger.error('La cotización debe tener un cliente');
+      throw new HttpException('La cotización debe tener un cliente', HttpStatus.BAD_REQUEST);
+    }
+
+    const clientEnterpriseIds = new Set<string>();
+    for (const clientId of clientIds) {
+      const client = await this.clientRepository.findById(clientId);
+      if (!client) {
+        this.logger.error(`Cliente no encontrado con ID: ${clientId}`);
+        throw new HttpException(`Cliente no encontrado con ID: ${clientId}`, HttpStatus.NOT_FOUND);
+      }
+      this.enterpriseAccessService.assertCurrentEntityAccessible(
+        client.enterpriseId,
+        'Cotización no encontrada',
+      );
+      clientEnterpriseIds.add(client.enterpriseId);
+    }
+
+    if (clientEnterpriseIds.size !== 1) {
+      this.logger.warn(
+        `La cotización referencia clientes de empresas distintas: ${[...clientEnterpriseIds].join(',')}`,
+      );
+      throw new HttpException('Cotización no encontrada', HttpStatus.NOT_FOUND);
+    }
+  }
+
+  /**
+   * Comprueba que la cotización pertenece a una empresa accesible para el caller.
+   *
+   * @param quote - Cotización con relación `client` cargada
+   */
+  private assertQuoteAccessible(quote: Quote): void {
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      quote.client?.enterpriseId,
+      `Cotización con ID: ${quote.id} no encontrada`,
+    );
   }
 }
 

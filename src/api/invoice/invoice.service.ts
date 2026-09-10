@@ -5,6 +5,7 @@ import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.servi
 import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
 import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recurrent-earning-repository.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 @Injectable()
@@ -14,7 +15,8 @@ export class InvoiceService {
   constructor(private readonly invoiceRepository: InvoiceRepository,
               private readonly clientRepository: ClientRepository,
               private readonly invoiceSeriesRepository: InvoiceSeriesRepository,
-              private readonly recurrentEarningRepository: RecurrentEarningRepository
+              private readonly recurrentEarningRepository: RecurrentEarningRepository,
+              private readonly enterpriseAccessService: EnterpriseAccessService,
   ){}
 
   /**
@@ -26,7 +28,7 @@ export class InvoiceService {
     this.logger.log(`Iniciando proceso de creación de factura`);
     this.logger.log(`Datos de la factura a crear:`, JSON.stringify(invoice, null, 2));
 
-    // Se establecen los datos persistentes de cliente y emisor así como el número de serie de la factura siempre que esta se cree con un estado diferente a borrador (representa que ya fue emitida)
+    await this.assertInvoiceTenantAccessible(invoice);
     invoice = await this.setInvoicePersistentData(invoice);
     await this.validateRecurrentEarningLink(invoice);
     
@@ -72,10 +74,15 @@ export class InvoiceService {
   async findById(id: string, relations?: string[]): Promise<Invoice> {
     this.logger.log(`Buscando factura por ID: ${id}${relations ? ` con relaciones: [${relations.join(', ')}]` : ''}`);
     
-    const invoice = await this.invoiceRepository.findById(id, relations);
+    const relationsWithClient = this.enterpriseAccessService.mergeRelationNames(
+      relations,
+      ['client'],
+    );
+    const invoice = await this.invoiceRepository.findById(id, relationsWithClient);
     
     if (invoice) {
       this.logger.log(`Factura encontrada con ID: ${invoice.id}`);
+      this.assertInvoiceAccessible(invoice);
     } else {
       this.logger.log(`No se encontró ninguna factura con ID: ${id}`);
       throw new HttpException(`Factura con ID: ${id} no encontrada`, HttpStatus.NOT_FOUND);
@@ -94,12 +101,14 @@ export class InvoiceService {
     this.logger.log(`Iniciando actualización de factura con ID: ${id}`);
     this.logger.log(`Datos a actualizar:`, JSON.stringify(invoice, null, 2));
 
-    const invoiceToUpdate = await this.invoiceRepository.findById(id);
+    const invoiceToUpdate = await this.invoiceRepository.findById(id, ['client']);
 
     if (!invoiceToUpdate) {
       this.logger.error(`Factura no encontrada con ID: ${id}`);
       throw new HttpException('Factura no encontrada', HttpStatus.NOT_FOUND);
     }
+
+    this.assertInvoiceAccessible(invoiceToUpdate);
 
     if(invoiceToUpdate.status !== InvoiceStatus.DRAFT) {
       this.logger.error(`No se puede actualizar la factura ${id} porque ya ha sido emitida`);
@@ -111,6 +120,8 @@ export class InvoiceService {
       ...invoiceToUpdate,
       ...invoice
     }
+    // Revalida cliente y serie tras el merge: el cuerpo puede retargetear FKs a otra empresa.
+    await this.assertInvoiceTenantAccessible(invoice);
     invoice = await this.setInvoicePersistentData(invoice);
     await this.validateRecurrentEarningLink(invoice);
     
@@ -145,6 +156,8 @@ export class InvoiceService {
       throw new HttpException(`Factura no encontrada con ID: ${id}`, HttpStatus.NOT_FOUND);
     }
 
+    this.assertInvoiceAccessible(invoiceToUpdate);
+
     if(invoiceToUpdate.status !== InvoiceStatus.DRAFT && status === InvoiceStatus.DRAFT) {
       this.logger.error(`No se puede establecer como borrador una factura que ya ha sido emitida`);
       throw new HttpException(`No se puede establecer como borrador una factura que ya ha sido emitida`, HttpStatus.BAD_REQUEST);
@@ -152,6 +165,8 @@ export class InvoiceService {
 
     if(invoiceToUpdate.status === InvoiceStatus.DRAFT && status !== InvoiceStatus.DRAFT) {
       this.logger.log(`La factura pasa de estado borrador a estado de emitida, se establece el número de serie de la factura y el resto de datos persistentes`);
+      // Impide emitir copiando NIF/banco de una serie de otra empresa (dato legado o payload manipulado).
+      await this.assertInvoiceTenantAccessible(invoiceToUpdate);
       // Mandamos la factura actual reemplazando el status en el objeto para que al setear la información persistente lo tenga en cuenta, ya que para generar el número de factura es necesario
       // un status !== DRAFT que todavía no ha sido asignado para no interferir con las validaciones if.
       invoiceToUpdate = await this.setInvoicePersistentData({...invoiceToUpdate, status: status});
@@ -171,11 +186,13 @@ export class InvoiceService {
   async deleteById(id: string): Promise<DeleteResult> {
     this.logger.log(`Iniciando eliminación de factura con ID: ${id}`);
 
-    const invoice = await this.invoiceRepository.findById(id);
+    const invoice = await this.invoiceRepository.findById(id, ['client']);
     if (!invoice) {
       this.logger.error(`Factura con ID ${id} no encontrada`);
       throw new HttpException(`Factura con ID ${id} no encontrada`, HttpStatus.NOT_FOUND);
     }
+
+    this.assertInvoiceAccessible(invoice);
 
     if (invoice.status !== InvoiceStatus.DRAFT) {
       this.logger.error(`No se puede eliminar la factura ${id} porque ya ha sido emitida`);
@@ -198,7 +215,7 @@ export class InvoiceService {
    * @returns La factura con los datos persistentes asignados
    */
   async setInvoicePersistentData(invoice: Invoice): Promise<Invoice> {
-    const clientId = invoice.client?.id ?? invoice.clientId;
+    const clientId = invoice.clientId ?? invoice.client?.id;
     if(!clientId) {
       this.logger.error(`La factura debe tener un cliente`);
       throw new HttpException(`La factura debe tener un cliente`, HttpStatus.BAD_REQUEST);
@@ -303,6 +320,99 @@ export class InvoiceService {
     }
 
     return invoiceSeriesNumber;
+  }
+
+  /**
+   * Recoge identificadores únicos no vacíos (FK escalar y relación anidada del mismo payload).
+   *
+   * @param identifierCandidates - UUID recibidos en `*Id` y en `*.id`
+   * @returns Lista sin duplicados
+   */
+  private collectUniqueIdentifiers(
+    ...identifierCandidates: Array<string | null | undefined>
+  ): string[] {
+    return [...new Set(
+      identifierCandidates
+        .map((identifier) => identifier?.trim())
+        .filter((identifier): identifier is string => Boolean(identifier)),
+    )];
+  }
+
+  /**
+   * Comprueba que el cliente y la serie de la factura pertenecen a la misma empresa
+   * accesible para el caller. Cubre tanto el UUID escalar como la relación anidada
+   * para no omitir un retargeteo (`clientId` vs `client.id`).
+   *
+   * @param invoice - Factura a persistir
+   */
+  private async assertInvoiceTenantAccessible(invoice: Invoice): Promise<void> {
+    const clientIds = this.collectUniqueIdentifiers(invoice.clientId, invoice.client?.id);
+    if (clientIds.length === 0) {
+      this.logger.error('La factura debe tener un cliente');
+      throw new HttpException('La factura debe tener un cliente', HttpStatus.BAD_REQUEST);
+    }
+
+    const clientEnterpriseIds = new Set<string>();
+    for (const clientId of clientIds) {
+      const client = await this.clientRepository.findById(clientId);
+      if (!client) {
+        this.logger.error(`Cliente no encontrado con ID: ${clientId}`);
+        throw new HttpException(`Cliente no encontrado con ID: ${clientId}`, HttpStatus.NOT_FOUND);
+      }
+      this.enterpriseAccessService.assertCurrentEntityAccessible(
+        client.enterpriseId,
+        'Factura no encontrada',
+      );
+      clientEnterpriseIds.add(client.enterpriseId);
+    }
+
+    const seriesIds = this.collectUniqueIdentifiers(invoice.seriesId, invoice.series?.id);
+    if (seriesIds.length === 0) {
+      this.logger.error('La factura debe tener una serie');
+      throw new HttpException('La factura debe tener una serie', HttpStatus.BAD_REQUEST);
+    }
+
+    const seriesEnterpriseIds = new Set<string>();
+    for (const seriesId of seriesIds) {
+      const invoiceSeries = await this.invoiceSeriesRepository.findById(seriesId);
+      if (!invoiceSeries) {
+        this.logger.error(`Serie de factura no encontrada con ID: ${seriesId}`);
+        throw new HttpException('Serie de factura no encontrada', HttpStatus.NOT_FOUND);
+      }
+      this.enterpriseAccessService.assertCurrentEntityAccessible(
+        invoiceSeries.enterpriseId,
+        'Factura no encontrada',
+      );
+      seriesEnterpriseIds.add(invoiceSeries.enterpriseId);
+    }
+
+    const clientEnterpriseId = [...clientEnterpriseIds][0];
+    const seriesEnterpriseId = [...seriesEnterpriseIds][0];
+    if (
+      clientEnterpriseIds.size !== 1
+      || seriesEnterpriseIds.size !== 1
+      || clientEnterpriseId !== seriesEnterpriseId
+    ) {
+      this.logger.warn(
+        `Cliente y serie de la factura no pertenecen a la misma empresa (clientes=${[...clientEnterpriseIds].join(',')}, series=${[...seriesEnterpriseIds].join(',')})`,
+      );
+      throw new HttpException(
+        'La serie de factura no pertenece a la misma empresa que el cliente',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  /**
+   * Comprueba que la factura pertenece a una empresa accesible para el caller.
+   *
+   * @param invoice - Factura con relación `client` cargada
+   */
+  private assertInvoiceAccessible(invoice: Invoice): void {
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      invoice.client?.enterpriseId,
+      `Factura con ID: ${invoice.id} no encontrada`,
+    );
   }
 }
 

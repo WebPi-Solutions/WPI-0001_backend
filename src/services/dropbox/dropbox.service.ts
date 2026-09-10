@@ -6,7 +6,9 @@ import { File as MulterFile } from 'multer';
 import axios from 'axios';
 
 import * as dotenv from 'dotenv';
-dotenv.config();
+if (process.env.E2E_TEST !== 'true') {
+  dotenv.config();
+}
 
 @Injectable()
 export class DropboxService {

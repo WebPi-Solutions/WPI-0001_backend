@@ -608,7 +608,9 @@ export class OpenaiService {
     printedVat: number,
     printedTotal: number,
   ): number | null {
-    const quantity = concept.quantity || 1;
+    // 0 es cantidad válida (no se sustituye por 1); solo se usa 1 si el valor no es numérico.
+    const parsedQuantity = Number(concept.quantity);
+    const quantity = Number.isFinite(parsedQuantity) ? parsedQuantity : 1;
     const vatRate = concept.vat / 100;
     if (quantity === 0 || vatRate <= 0) {
       return null;

@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-series-repository.service';
 import { InvoiceSeries } from 'src/entities/invoice-series/invoice-series.entity';
 import { InvoiceSeriesService } from './invoice-series.service';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 
 describe('InvoiceSeriesService', () => {
   let service: InvoiceSeriesService;
@@ -16,6 +17,7 @@ describe('InvoiceSeriesService', () => {
   };
 
   const seriesId = 'series-uuid';
+  const emptyPaginatedResponse = { items: [], total: 0, currentPage: 1, totalPages: 0 };
 
   /**
    * Construye una serie de facturas de prueba.
@@ -46,6 +48,10 @@ describe('InvoiceSeriesService', () => {
       providers: [
         InvoiceSeriesService,
         { provide: InvoiceSeriesRepository, useValue: invoiceSeriesRepository },
+        {
+          provide: EnterpriseAccessService,
+          useValue: { assertCurrentEntityAccessible: jest.fn() },
+        },
       ],
     }).compile();
 
@@ -80,9 +86,89 @@ describe('InvoiceSeriesService', () => {
       );
       expect(invoiceSeriesRepository.create).toHaveBeenCalledWith(invoiceSeries);
     });
+
+    it('relanza el error del repositorio', async () => {
+      const repositoryError = new Error('fallo al persistir');
+      invoiceSeriesRepository.findBySeriesAndEnterpriseId.mockResolvedValue(null);
+      invoiceSeriesRepository.create.mockRejectedValue(repositoryError);
+
+      await expect(service.create(buildInvoiceSeries())).rejects.toBe(repositoryError);
+    });
+  });
+
+  describe('findAll', () => {
+    it('delega la consulta paginada al repositorio', async () => {
+      invoiceSeriesRepository.findAll.mockResolvedValue(emptyPaginatedResponse);
+      const filter = { enterpriseId: 'enterprise-uuid' };
+
+      await expect(service.findAll(1, 10, 'series', 'ASC', filter)).resolves.toEqual(
+        emptyPaginatedResponse,
+      );
+      expect(invoiceSeriesRepository.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'series',
+        'ASC',
+        filter,
+        undefined,
+      );
+    });
+
+    it('incluye relaciones cuando se informan', async () => {
+      const paginatedWithItems = {
+        items: [buildInvoiceSeries()],
+        total: 1,
+        currentPage: 1,
+        totalPages: 1,
+      };
+      invoiceSeriesRepository.findAll.mockResolvedValue(paginatedWithItems);
+
+      await expect(
+        service.findAll(2, 20, 'series', 'DESC', {}, ['invoices', 'enterprise']),
+      ).resolves.toEqual(paginatedWithItems);
+    });
+  });
+
+  describe('findById', () => {
+    it('devuelve la serie cuando existe', async () => {
+      const existing = buildInvoiceSeries();
+      invoiceSeriesRepository.findById.mockResolvedValue(existing);
+
+      await expect(service.findById(seriesId, ['invoices'])).resolves.toEqual(existing);
+      expect(invoiceSeriesRepository.findById).toHaveBeenCalledWith(seriesId, ['invoices']);
+    });
+
+    it('consulta sin relaciones cuando no se informan', async () => {
+      const existing = buildInvoiceSeries();
+      invoiceSeriesRepository.findById.mockResolvedValue(existing);
+
+      await expect(service.findById(seriesId)).resolves.toEqual(existing);
+      expect(invoiceSeriesRepository.findById).toHaveBeenCalledWith(seriesId, undefined);
+    });
+
+    it('lanza 404 cuando la serie no existe', async () => {
+      invoiceSeriesRepository.findById.mockResolvedValue(null);
+
+      await expect(service.findById(seriesId)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Serie de facturas no encontrada',
+      });
+    });
   });
 
   describe('updateById', () => {
+    it('lanza 404 si la serie no existe', async () => {
+      invoiceSeriesRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.updateById(seriesId, buildInvoiceSeries()),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: `La serie de facturas ${seriesId} no existe`,
+      });
+      expect(invoiceSeriesRepository.updateById).not.toHaveBeenCalled();
+    });
+
     it('impide cambiar el código de serie si ya hay facturas emitidas', async () => {
       invoiceSeriesRepository.findById.mockResolvedValue(
         buildInvoiceSeries({
@@ -100,6 +186,17 @@ describe('InvoiceSeriesService', () => {
       expect(invoiceSeriesRepository.updateById).not.toHaveBeenCalled();
     });
 
+    it('permite actualizar otros datos aunque ya tenga facturas si el código no cambia', async () => {
+      const existing = buildInvoiceSeries({
+        invoices: [{ id: 'invoice-uuid' }] as InvoiceSeries['invoices'],
+      });
+      const updated = buildInvoiceSeries({ series: 'A', description: 'Serie A' });
+      invoiceSeriesRepository.findById.mockResolvedValue(existing);
+      invoiceSeriesRepository.updateById.mockResolvedValue(updated);
+
+      await expect(service.updateById(seriesId, updated)).resolves.toEqual(updated);
+    });
+
     it('permite actualizar otros datos de una serie sin facturas', async () => {
       const existing = buildInvoiceSeries();
       const updated = buildInvoiceSeries({ series: 'B' });
@@ -107,6 +204,16 @@ describe('InvoiceSeriesService', () => {
       invoiceSeriesRepository.updateById.mockResolvedValue(updated);
 
       await expect(service.updateById(seriesId, updated)).resolves.toEqual(updated);
+    });
+
+    it('relanza el error del repositorio', async () => {
+      const repositoryError = new Error('fallo al actualizar');
+      invoiceSeriesRepository.findById.mockResolvedValue(buildInvoiceSeries());
+      invoiceSeriesRepository.updateById.mockRejectedValue(repositoryError);
+
+      await expect(service.updateById(seriesId, buildInvoiceSeries())).rejects.toBe(
+        repositoryError,
+      );
     });
   });
 
@@ -153,6 +260,23 @@ describe('InvoiceSeriesService', () => {
       invoiceSeriesRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });
 
       await expect(service.deleteById(seriesId)).resolves.toEqual({ affected: 1, raw: [] });
+    });
+
+    it('permite el borrado si recurrentEarnings no está cargado', async () => {
+      invoiceSeriesRepository.findById.mockResolvedValue(
+        buildInvoiceSeries({ recurrentEarnings: undefined }),
+      );
+      invoiceSeriesRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });
+
+      await expect(service.deleteById(seriesId)).resolves.toEqual({ affected: 1, raw: [] });
+    });
+
+    it('relanza el error del repositorio', async () => {
+      const repositoryError = new Error('fallo al eliminar');
+      invoiceSeriesRepository.findById.mockResolvedValue(buildInvoiceSeries());
+      invoiceSeriesRepository.deleteById.mockRejectedValue(repositoryError);
+
+      await expect(service.deleteById(seriesId)).rejects.toBe(repositoryError);
     });
   });
 });

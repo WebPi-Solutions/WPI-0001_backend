@@ -1,9 +1,35 @@
 {
   "moduleFileExtensions": ["js", "json", "ts"],
-  "rootDir": ".",
+  "rootDir": "..",
+  "roots": ["<rootDir>/test/e2e", "<rootDir>/src"],
   "testEnvironment": "node",
-  "testRegex": ".e2e-spec.ts$",
+  "testRegex": ".*\\.(e2e-spec|spec)\\.ts$",
+  "testTimeout": 120000,
+  "maxWorkers": 1,
+  "globalSetup": "<rootDir>/test/e2e/harness/global-setup.js",
+  "globalTeardown": "<rootDir>/test/e2e/harness/global-teardown.js",
+  "setupFiles": ["<rootDir>/test/e2e/harness/jest-env.js"],
+  "setupFilesAfterEnv": ["<rootDir>/test/e2e/harness/jest-setup-after-env.js"],
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.ts$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/src/$1",
+    "^@e2e/(.*)$": "<rootDir>/test/e2e/harness/$1"
+  },
+  "collectCoverageFrom": [
+    "<rootDir>/src/**/*.ts",
+    "!<rootDir>/src/**/*.spec.ts",
+    "!<rootDir>/src/test-utils/**"
+  ],
+  "coverageDirectory": "<rootDir>/coverage-e2e",
+  "coverageReporters": ["text", "text-summary", "lcov", "html"],
+  "coverageThreshold": {
+    "global": {
+      "branches": 100,
+      "functions": 100,
+      "lines": 100,
+      "statements": 100
+    }
   }
 }

@@ -11,6 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { VacationResponseDto } from 'src/entities/vacation/dto/vacation-response.dto';
 import { Vacation } from 'src/entities/vacation/vacation.entity';
@@ -23,6 +24,7 @@ import { VacationService } from './vacation.service';
  * Endpoints REST para vacaciones y permisos (`vacations`).
  */
 @ApiTags('Vacaciones')
+@RequireEnterpriseId()
 @Controller('vacations')
 export class VacationController {
   constructor(private readonly vacationService: VacationService) {}

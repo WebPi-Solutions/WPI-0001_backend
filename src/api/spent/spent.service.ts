@@ -17,6 +17,7 @@ import { ExtractedSpentConceptsResult, ExtractedSpentIssuerResult, OpenaiService
 import { SupplierRepository } from 'src/entities/supplier/supplier-repository.service';
 import { Supplier } from 'src/entities/supplier/supplier.entity';
 import { SpentConcept } from 'src/models/Concept';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { AiRequestService } from 'src/api/ai-request/ai-request.service';
 import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
 
@@ -44,6 +45,7 @@ export class SpentService {
     private readonly openaiService: OpenaiService,
     private readonly supplierRepository: SupplierRepository,
     private readonly aiRequestService: AiRequestService,
+    private readonly enterpriseAccessService: EnterpriseAccessService,
   ){}
 
   /**
@@ -54,6 +56,8 @@ export class SpentService {
   async create(spent: Spent): Promise<Spent> {
     this.logger.log(`Iniciando proceso de creación de gasto: ${spent.name}`);
     this.logger.log(`Datos del gasto a crear:`, JSON.stringify(spent, null, 2));
+
+    await this.assertSpentTenantAccessible(spent);
 
     try {
       const newSpent = await this.spentRepository.create(spent);
@@ -97,14 +101,19 @@ export class SpentService {
   async findById(id: string, relations?: string[]): Promise<Spent> {
     this.logger.log(`Buscando gasto por ID: ${id}${relations ? ` con relaciones: [${relations.join(', ')}]` : ''}`);
     
-    const spent = await this.spentRepository.findById(id, relations);
+    const relationsWithSupplier = this.enterpriseAccessService.mergeRelationNames(
+      relations,
+      ['supplier'],
+    );
+    const spent = await this.spentRepository.findById(id, relationsWithSupplier);
     
-    if (spent) {
-      this.logger.log(`Gasto encontrado: ${spent.name} (ID: ${spent.id})`);
-    } else {
+    if (!spent) {
       this.logger.log(`No se encontró ningún gasto con ID: ${id}`);
+      throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
     }
-    
+
+    this.logger.log(`Gasto encontrado: ${spent.name} (ID: ${spent.id})`);
+    this.assertSpentAccessible(spent);
     return spent;
   }
 
@@ -117,6 +126,19 @@ export class SpentService {
   async updateById(id: string, spent: Spent): Promise<Spent> {
     this.logger.log(`Iniciando actualización de gasto con ID: ${id}`);
     this.logger.log(`Datos a actualizar:`, JSON.stringify(spent, null, 2));
+
+    const existingSpent = await this.spentRepository.findById(id, ['supplier']);
+    if (!existingSpent) {
+      throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
+    }
+    this.assertSpentAccessible(existingSpent);
+
+    const mergedSpent = {
+      ...existingSpent,
+      ...spent,
+    } as Spent;
+    // Revalida el proveedor tras el merge: el cuerpo puede apuntar a un proveedor de otra empresa.
+    await this.assertSpentTenantAccessible(mergedSpent);
     
     try {
       const updatedSpent = await this.spentRepository.updateById(id, spent);
@@ -145,6 +167,7 @@ export class SpentService {
       // Obtener el gasto a partir de su ID
       const spent = await this.spentRepository.findById(spentId, ['supplier']);
       if (!spent) throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
+      this.assertSpentAccessible(spent);
       
       // Construir la ruta de Dropbox para el archivo
       const dropboxPath = this.spentRepository.getSpentFilePath(spent.supplier.enterpriseId, spentId);
@@ -564,7 +587,8 @@ export class SpentService {
        // Verificar si el gasto existe y tiene un archivo
        const spent = await this.spentRepository.findById(spentId, ['supplier']);
        if (!spent) throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
-       
+       this.assertSpentAccessible(spent);
+
        if (!spent.file) {
          throw new HttpException('El gasto no tiene ningún archivo adjunto', HttpStatus.NOT_FOUND);
        }
@@ -614,6 +638,7 @@ export class SpentService {
       // Verificar si el gasto tiene un documento asociado
       const spent = await this.spentRepository.findById(spentId, ['supplier']);
       if (!spent) throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
+      this.assertSpentAccessible(spent);
       
       // Si tiene un documento, intentar eliminarlo de Dropbox
       if (spent && spent.file) {
@@ -649,6 +674,7 @@ export class SpentService {
       // Verificar si el gasto tiene un documento asociado
       const spent = await this.spentRepository.findById(spentId, ['supplier']);
       if (!spent) throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
+      this.assertSpentAccessible(spent);
       
       // Si tiene un documento, intentar eliminarlo de Dropbox
       if (spent && spent.file) {
@@ -682,6 +708,7 @@ export class SpentService {
       // Verificar si el gasto existe
       const spent = await this.spentRepository.findById(spentId, ['supplier']);
       if (!spent) throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
+      this.assertSpentAccessible(spent);
       
       // Verificar si la empresa es la misma
       if (spent.supplier.enterpriseId === oldEnterpriseId) {
@@ -697,5 +724,68 @@ export class SpentService {
       this.logger.error(`Error al cambiar la carpeta de Dropbox del gasto ${spentId}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Recoge identificadores únicos no vacíos (FK escalar y relación anidada).
+   *
+   * @param identifierCandidates - UUID recibidos en `supplierId` y en `supplier.id`
+   * @returns Lista sin duplicados
+   */
+  private collectUniqueIdentifiers(
+    ...identifierCandidates: Array<string | null | undefined>
+  ): string[] {
+    return [...new Set(
+      identifierCandidates
+        .map((identifier) => identifier?.trim())
+        .filter((identifier): identifier is string => Boolean(identifier)),
+    )];
+  }
+
+  /**
+   * Comprueba que todos los proveedores referenciados pertenecen a una empresa accesible.
+   * Cubre `supplierId` y `supplier.id` para no omitir un retargeteo cruzado.
+   *
+   * @param spent - Gasto a persistir o ya cargado
+   */
+  private async assertSpentTenantAccessible(spent: Spent): Promise<void> {
+    const supplierIds = this.collectUniqueIdentifiers(spent.supplierId, spent.supplier?.id);
+    if (supplierIds.length === 0) {
+      this.logger.error('El gasto debe tener un proveedor');
+      throw new HttpException('El gasto debe tener un proveedor', HttpStatus.BAD_REQUEST);
+    }
+
+    const supplierEnterpriseIds = new Set<string>();
+    for (const supplierId of supplierIds) {
+      const supplier = await this.supplierRepository.findById(supplierId);
+      if (!supplier) {
+        this.logger.error(`Proveedor no encontrado con ID: ${supplierId}`);
+        throw new HttpException('Proveedor no encontrado', HttpStatus.NOT_FOUND);
+      }
+      this.enterpriseAccessService.assertCurrentEntityAccessible(
+        supplier.enterpriseId,
+        'Gasto no encontrado',
+      );
+      supplierEnterpriseIds.add(supplier.enterpriseId);
+    }
+
+    if (supplierEnterpriseIds.size !== 1) {
+      this.logger.warn(
+        `El gasto referencia proveedores de empresas distintas: ${[...supplierEnterpriseIds].join(',')}`,
+      );
+      throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
+    }
+  }
+
+  /**
+   * Comprueba que el gasto pertenece a una empresa accesible para el caller.
+   *
+   * @param spent - Gasto con relación `supplier` cargada
+   */
+  private assertSpentAccessible(spent: Spent): void {
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      spent.supplier?.enterpriseId,
+      'Gasto no encontrado',
+    );
   }
 }

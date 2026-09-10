@@ -11,3 +11,11 @@ node_modules
 
 # Imágenes temporales de conversión OCR
 output
+
+# Tests coverage
+coverage
+coverage-e2e
+coverage-tmp
+
+# Conexión efímera de Testcontainers (e2e)
+test/e2e/harness/.postgres.json

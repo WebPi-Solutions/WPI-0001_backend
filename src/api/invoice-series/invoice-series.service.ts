@@ -2,13 +2,17 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-series-repository.service';
 import { InvoiceSeries } from 'src/entities/invoice-series/invoice-series.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 @Injectable()
 export class InvoiceSeriesService {
   private readonly logger = new Logger(InvoiceSeriesService.name);
 
-  constructor(private readonly invoiceSeriesRepository: InvoiceSeriesRepository){}
+  constructor(
+    private readonly invoiceSeriesRepository: InvoiceSeriesRepository,
+    private readonly enterpriseAccessService: EnterpriseAccessService,
+  ){}
 
   /**
    * Crea un nuevo serie de facturas
@@ -69,11 +73,16 @@ export class InvoiceSeriesService {
     
     const invoiceSeries = await this.invoiceSeriesRepository.findById(id, relations);
     
-    if (invoiceSeries) {
-      this.logger.log(`Serie de facturas encontrada: ${invoiceSeries.series} (ID: ${invoiceSeries.id})`);
-    } else {
+    if (!invoiceSeries) {
       this.logger.log(`No se encontró ninguna serie de facturas con ID: ${id}`);
+      throw new HttpException('Serie de facturas no encontrada', HttpStatus.NOT_FOUND);
     }
+
+    this.logger.log(`Serie de facturas encontrada: ${invoiceSeries.series} (ID: ${invoiceSeries.id})`);
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      invoiceSeries.enterpriseId,
+      'Serie de facturas no encontrada',
+    );
     
     return invoiceSeries;
   }
@@ -94,13 +103,25 @@ export class InvoiceSeriesService {
       throw new HttpException(`La serie de facturas ${id} no existe`, HttpStatus.NOT_FOUND);
     }
 
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      seriesExists.enterpriseId,
+      `La serie de facturas ${id} no existe`,
+    );
+
     if(seriesExists.invoices.length > 0 && seriesExists.series !== invoiceSeries.series) {
       this.logger.error(`No se puede modificar la identificación de la serie de facturas porque ya tiene facturas emitidas`);
       throw new HttpException(`No se puede modificar la identificación de la serie de facturas porque ya tiene facturas emitidas`, HttpStatus.BAD_REQUEST);
     }
+
+    const payloadForPersistence = {
+      ...invoiceSeries,
+      enterpriseId: seriesExists.enterpriseId,
+    } as InvoiceSeries;
+    // Impide relocatar la serie a otra empresa mediante PATCH del cuerpo.
+    delete (payloadForPersistence as { enterprise?: unknown }).enterprise;
     
     try {
-      const updatedInvoiceSeries = await this.invoiceSeriesRepository.updateById(id, invoiceSeries);
+      const updatedInvoiceSeries = await this.invoiceSeriesRepository.updateById(id, payloadForPersistence);
       this.logger.log(`Serie de facturas ${id} actualizada exitosamente`);
       return updatedInvoiceSeries;
     } catch (error) {
@@ -123,6 +144,11 @@ export class InvoiceSeriesService {
       this.logger.error(`La serie de facturas ${id} no existe`);
       throw new HttpException(`La serie de facturas ${id} no existe`, HttpStatus.NOT_FOUND);
     }
+
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      seriesExists.enterpriseId,
+      `La serie de facturas ${id} no existe`,
+    );
 
     if(seriesExists.invoices.length > 0) {
       this.logger.error(`No se puede eliminar la serie de facturas porque ya tiene facturas emitidas`);

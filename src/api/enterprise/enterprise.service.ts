@@ -6,6 +6,7 @@ import { DeleteResult } from 'typeorm';
 import { MulterFile } from 'multer';
 import { DropboxService } from 'src/services/dropbox/dropbox.service';
 import { Response } from 'express';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 
 @Injectable()
 export class EnterpriseService {
@@ -14,6 +15,7 @@ export class EnterpriseService {
   constructor(
     private readonly enterpriseRepository: EnterpriseRepository,
     private readonly dropboxService: DropboxService,
+    private readonly enterpriseAccessService: EnterpriseAccessService,
   ) {}
 
   /**
@@ -54,6 +56,9 @@ export class EnterpriseService {
     this.logger.log(`Iniciando proceso de creación de empresa: ${enterprise.name}`);
     this.logger.log(`Datos de la empresa a crear:`, JSON.stringify(enterprise, null, 2));
 
+    const accessContext = this.enterpriseAccessService.getCurrentAccessContextOrThrow();
+    this.enterpriseAccessService.assertCanCreateEnterprise(accessContext);
+
     const enterpriseExists = await this.enterpriseRepository.findByNif(enterprise.nif);
     if (enterpriseExists) {
       this.logger.log(`Ya existe una empresa con el NIF: ${enterprise.nif}`);
@@ -83,6 +88,10 @@ export class EnterpriseService {
       
     const enterprise = await this.enterpriseRepository.findById(enterpriseId);
     if (!enterprise) throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      enterprise.id,
+      'Empresa no encontrada',
+    );
     
 
     try {
@@ -125,6 +134,10 @@ export class EnterpriseService {
         // Verificar si la empresa existe y tiene un archivo del logo
         const enterprise = await this.enterpriseRepository.findById(enterpriseId);
         if (!enterprise) throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
+        this.enterpriseAccessService.assertCurrentEntityAccessible(
+          enterprise.id,
+          'Empresa no encontrada',
+        );
         
         if (!enterprise.logo) {
           throw new HttpException('La empresa no tiene ningún archivo del logo', HttpStatus.NOT_FOUND);
@@ -190,12 +203,22 @@ export class EnterpriseService {
   async findAll(page: number, pageSize: number, sort: string, order: 'ASC' | 'DESC', filter: Record<string, any>, relations?: string[]): Promise<PaginatedResponse<Enterprise>> {
     this.logger.log(`Obteniendo empresas paginadas - Página: ${page}, Tamaño: ${pageSize}, Ordenación: ${sort} ${order}`);
     this.logger.log(`Filtros aplicados:`, JSON.stringify(filter, null, 2));
+
+    const scopedFilter = this.buildEnterpriseListFilter(filter);
+    if (!scopedFilter) {
+      return {
+        items: [],
+        total: 0,
+        currentPage: page,
+        totalPages: 0,
+      };
+    }
     
     if (relations && relations.length > 0) {
       this.logger.log(`Incluyendo relaciones: ${relations.join(', ')}`);
     }
     
-    const result = await this.enterpriseRepository.findAll(page, pageSize, sort, order, filter, relations);
+    const result = await this.enterpriseRepository.findAll(page, pageSize, sort, order, scopedFilter, relations);
     this.logger.log(`Empresas obtenidas: ${result.items.length} de ${result.total}`);
     return result;
   }
@@ -213,6 +236,10 @@ export class EnterpriseService {
     
     if (enterprise) {
       this.logger.log(`Empresa encontrada: ${enterprise.name} (ID: ${enterprise.id})`);
+      this.enterpriseAccessService.assertCurrentEntityAccessible(
+        enterprise.id,
+        'Empresa no encontrada',
+      );
     } else {
       this.logger.log(`No se encontró ninguna empresa con ID: ${id}`);
       throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
@@ -236,6 +263,11 @@ export class EnterpriseService {
       this.logger.log(`No se encontró ninguna empresa con ID: ${id}`);
       throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
     }
+
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      enterpriseExists.id,
+      'Empresa no encontrada',
+    );
     
     try {
       const payloadForPersistence = this.buildSanitizedEnterpriseWritePayload(enterprise);
@@ -264,6 +296,11 @@ export class EnterpriseService {
       this.logger.log(`No se encontró ninguna empresa con ID: ${id}`);
       throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
     }
+
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      enterpriseExists.id,
+      'Empresa no encontrada',
+    );
 
     if (enterpriseExists.recurrentEarnings && enterpriseExists.recurrentEarnings.length > 0) {
       this.logger.error(`No se puede eliminar la empresa ${id} porque tiene ingresos recurrentes asociados`);
@@ -294,5 +331,40 @@ export class EnterpriseService {
       this.logger.error(`Error al eliminar empresa ${id}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Restringe el filtro de listado a las empresas permitidas para el caller.
+   * Los administradores globales no se filtran. Si no hay empresas vinculadas, devuelve `null`
+   * para que el caller responda una página vacía sin consultar la base de datos.
+   *
+   * @param filter - Filtros recibidos del controlador
+   * @returns Filtro combinado o `null` si no hay empresas visibles
+   */
+  private buildEnterpriseListFilter(
+    filter: Record<string, unknown>,
+  ): Record<string, unknown> | null {
+    const accessContext = this.enterpriseAccessService.getCurrentAccessContextOrThrow();
+    if (accessContext.isGlobalAdmin) {
+      return filter;
+    }
+
+    let allowedEnterpriseIds = [...accessContext.allowedEnterpriseIds];
+    const requestedId = filter.id;
+    if (requestedId !== undefined && requestedId !== null) {
+      const requestedIds = Array.isArray(requestedId) ? requestedId : [requestedId];
+      allowedEnterpriseIds = allowedEnterpriseIds.filter((enterpriseId) =>
+        requestedIds.includes(enterpriseId),
+      );
+    }
+
+    if (allowedEnterpriseIds.length === 0) {
+      return null;
+    }
+
+    return {
+      ...filter,
+      id: allowedEnterpriseIds,
+    };
   }
 }

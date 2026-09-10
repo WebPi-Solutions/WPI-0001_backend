@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { AiRequestRepository } from 'src/entities/ai-request/ai-request-repository.service';
 import { AiRequest, AiRequestType } from 'src/entities/ai-request/ai-request.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { CreateAiRequestDto } from './dto/create-ai-request.dto';
 
 /**
@@ -13,7 +14,10 @@ import { CreateAiRequestDto } from './dto/create-ai-request.dto';
 export class AiRequestService {
   private readonly logger = new Logger(AiRequestService.name);
 
-  constructor(private readonly aiRequestRepository: AiRequestRepository) {}
+  constructor(
+    private readonly aiRequestRepository: AiRequestRepository,
+    private readonly enterpriseAccessService: EnterpriseAccessService,
+  ) {}
 
   /**
    * Crea una petición de IA para la empresa indicada.
@@ -99,7 +103,12 @@ export class AiRequestService {
     this.logger.log(
       `Buscando petición de IA por ID: ${id}${relations?.length ? ` con relaciones: [${relations.join(', ')}]` : ''}`,
     );
-    return this.aiRequestRepository.findByIdOrFail(id, relations);
+    const aiRequest = await this.aiRequestRepository.findByIdOrFail(id, relations);
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      aiRequest.enterpriseId,
+      'Petición de IA no encontrada',
+    );
+    return aiRequest;
   }
 
   /**

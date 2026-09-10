@@ -2,13 +2,17 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ClientRepository } from 'src/entities/client/client-repository.service';
 import { Client } from 'src/entities/client/client.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 @Injectable()
 export class ClientService {
   private readonly logger = new Logger(ClientService.name);
 
-  constructor(private readonly clientRepository: ClientRepository){}
+  constructor(
+    private readonly clientRepository: ClientRepository,
+    private readonly enterpriseAccessService: EnterpriseAccessService,
+  ){}
 
   /**
    * Crea un nuevo cliente
@@ -71,6 +75,10 @@ export class ClientService {
     
     if (client) {
       this.logger.log(`Cliente encontrado: ${client.name} (ID: ${client.id})`);
+      this.enterpriseAccessService.assertCurrentEntityAccessible(
+        client.enterpriseId,
+        'Cliente no encontrado',
+      );
     } else {
       this.logger.log(`No se encontró ningún cliente con ID: ${id}`);
       throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
@@ -89,13 +97,26 @@ export class ClientService {
     this.logger.log(`Iniciando actualización de cliente con ID: ${id}`);
     this.logger.log(`Datos a actualizar:`, JSON.stringify(client, null, 2));
     
-    if (!await this.verifyClientExistsById(id)) {
+    const existingClient = await this.verifyClientExistsById(id);
+    if (!existingClient) {
       this.logger.log(`No se encontró ningún cliente con ID: ${id}`);
       throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
     }
+
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      existingClient.enterpriseId,
+      'Cliente no encontrado',
+    );
+
+    const payloadForPersistence = {
+      ...client,
+      enterpriseId: existingClient.enterpriseId,
+    } as Client;
+    // Impide relocatar el cliente a otra empresa mediante PATCH del cuerpo.
+    delete (payloadForPersistence as { enterprise?: unknown }).enterprise;
     
     try {
-      const updatedClient = await this.clientRepository.updateById(id, client);
+      const updatedClient = await this.clientRepository.updateById(id, payloadForPersistence);
       this.logger.log(`Cliente ${id} actualizado exitosamente`);
       return updatedClient;
     } catch (error) {
@@ -117,6 +138,11 @@ export class ClientService {
       this.logger.log(`No se encontró ningún cliente con ID: ${id}`);
       throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
     }
+
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      client.enterpriseId,
+      'Cliente no encontrado',
+    );
 
     if (client.recurrentEarnings && client.recurrentEarnings.length > 0) {
       this.logger.error(`No se puede eliminar el cliente ${id} porque tiene ingresos recurrentes asociados`);

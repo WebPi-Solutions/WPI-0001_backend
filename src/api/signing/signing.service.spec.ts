@@ -221,6 +221,24 @@ describe('SigningService', () => {
         }),
       ).resolves.toEqual(createdEnd);
     });
+
+    it('no propaga un rechazo no-Error al calcular la duración tras un END', async () => {
+      const createdEnd = buildSigning({
+        id: 'end-uuid',
+        action: SigningAction.END,
+        moment: new Date('2026-04-13T16:00:00.000Z'),
+      });
+      signingRepository.create.mockResolvedValue(createdEnd);
+      signingRepository.findLatestOpenStartSigningForUser.mockRejectedValue('fallo textual');
+
+      await expect(
+        service.create(enterpriseId, {
+          userEnterpriseId,
+          action: SigningAction.END,
+          moment: '2026-04-13T16:00:00.000Z',
+        }),
+      ).resolves.toEqual(createdEnd);
+    });
   });
 
   describe('findById', () => {
@@ -385,6 +403,320 @@ describe('SigningService', () => {
         { durationInSeconds: 25200 },
       );
       expect(signingUpdateRepository.createRecord).toHaveBeenCalled();
+    });
+
+    it('no recalcula secuencia si la acción coincide con la actual', async () => {
+      const current = buildSigning({ action: SigningAction.START });
+      signingRepository.findById.mockResolvedValue(current);
+
+      await expect(
+        service.updateById(
+          signingId,
+          enterpriseId,
+          { action: SigningAction.START },
+          'actor-uuid',
+        ),
+      ).resolves.toEqual(current);
+      expect(signingRepository.findByUserEnterpriseIdOrderedByMoment).not.toHaveBeenCalled();
+    });
+
+    it('devuelve el registro actual si no hay campos editables', async () => {
+      const current = buildSigning();
+      signingRepository.findById.mockResolvedValue(current);
+
+      await expect(
+        service.updateById(signingId, enterpriseId, {}, 'actor-uuid'),
+      ).resolves.toEqual(current);
+      expect(signingRepository.updateById).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un momento inválido al actualizar', async () => {
+      signingRepository.findById.mockResolvedValue(buildSigning());
+
+      await expect(
+        service.updateById(signingId, enterpriseId, { moment: 'no-es-fecha' }, 'actor-uuid'),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+      });
+    });
+
+    it('propaga el error si falla la actualización de solo duración', async () => {
+      signingRepository.findById.mockResolvedValue(buildSigning());
+      signingRepository.updateById.mockRejectedValue(new Error('fallo al guardar'));
+
+      await expect(
+        service.updateById(signingId, enterpriseId, { durationInSeconds: 10 }, 'actor-uuid'),
+      ).rejects.toThrow('fallo al guardar');
+    });
+
+    it('rechaza una entrada cuyo vecino previo no es salida', async () => {
+      const firstStart = buildSigning({
+        id: 'start-1',
+        action: SigningAction.START,
+        moment: new Date('2026-04-13T08:00:00.000Z'),
+      });
+      const secondStart = buildSigning({
+        id: 'start-2',
+        action: SigningAction.START,
+        moment: new Date('2026-04-13T10:00:00.000Z'),
+      });
+      signingRepository.findById.mockResolvedValue(secondStart);
+      signingRepository.findByUserEnterpriseIdOrderedByMoment.mockResolvedValue([
+        firstStart,
+        secondStart,
+      ]);
+
+      await expect(
+        service.updateById(
+          'start-2',
+          enterpriseId,
+          { moment: '2026-04-13T09:00:00.000Z' },
+          'actor-uuid',
+        ),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: expect.stringContaining('entrada'),
+      });
+    });
+
+    it('propaga el error de la transacción al recalcular secuencia', async () => {
+      const startSigning = buildSigning({
+        id: 'start-uuid',
+        action: SigningAction.START,
+        moment: new Date('2026-04-13T08:00:00.000Z'),
+      });
+      const endSigning = buildSigning({
+        id: 'end-uuid',
+        action: SigningAction.END,
+        moment: new Date('2026-04-13T16:00:00.000Z'),
+      });
+      signingRepository.findById.mockResolvedValue(startSigning);
+      signingRepository.findByUserEnterpriseIdOrderedByMoment.mockResolvedValue([
+        startSigning,
+        endSigning,
+      ]);
+      signingRepository.getEntityManager.mockReturnValue({
+        transaction: jest.fn().mockRejectedValue(new Error('tx fallida')),
+      });
+
+      await expect(
+        service.updateById(
+          'start-uuid',
+          enterpriseId,
+          { moment: '2026-04-13T09:00:00.000Z' },
+          'actor-uuid',
+        ),
+      ).rejects.toThrow('tx fallida');
+    });
+  });
+
+  describe('create sin momento y findAll', () => {
+    it('crea un fichaje sin momento ni duración', async () => {
+      const created = buildSigning();
+      signingRepository.create.mockResolvedValue(created);
+
+      await expect(
+        service.create(enterpriseId, {
+          userEnterpriseId,
+          action: SigningAction.START,
+        }),
+      ).resolves.toEqual(created);
+    });
+
+    it('persiste duración al crear y propaga el error de alta', async () => {
+      signingRepository.create.mockRejectedValue(new Error('duplicado'));
+
+      await expect(
+        service.create(enterpriseId, {
+          userEnterpriseId,
+          action: SigningAction.START,
+          durationInSeconds: 60,
+        }),
+      ).rejects.toThrow('duplicado');
+    });
+
+    it('lista fichajes fusionando relaciones por defecto', async () => {
+      signingRepository.findAll.mockResolvedValue({
+        items: [],
+        total: 0,
+        currentPage: 1,
+        totalPages: 0,
+      });
+
+      await service.findAll(1, 10, 'moment', 'DESC', {});
+
+      expect(signingRepository.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'moment',
+        'DESC',
+        {},
+        expect.arrayContaining(['userEnterprise', 'userEnterprise.user', 'userEnterprise.enterprise']),
+      );
+    });
+  });
+
+  describe('getSigningUpdatesForSigning y deleteById error', () => {
+    it('devuelve el histórico tras validar el fichaje', async () => {
+      signingRepository.findById.mockResolvedValue(buildSigning());
+      signingUpdateRepository.findBySigningsIdChronological.mockResolvedValue([{ id: 'upd-1' }]);
+
+      await expect(
+        service.getSigningUpdatesForSigning(signingId, enterpriseId),
+      ).resolves.toEqual([{ id: 'upd-1' }]);
+    });
+
+    it('propaga el error al anular el fichaje', async () => {
+      signingRepository.findById.mockResolvedValue(buildSigning({ cancelled: false }));
+      signingRepository.markCancelledEntity.mockRejectedValue(new Error('fallo anular'));
+
+      await expect(service.deleteById(signingId, enterpriseId)).rejects.toThrow('fallo anular');
+    });
+  });
+
+  describe('secuencia, ordenación y duraciones internas', () => {
+    /**
+     * Accede a helpers privados del servicio para cubrir ramas no alcanzables
+     * de forma aislada desde la API pública.
+     */
+    const getPrivateHelpers = () =>
+      service as unknown as {
+        sortSigningsChronologically: (rows: Signing[]) => Signing[];
+        assertValidSigningSequence: (ordered: Signing[], editedId: string) => void;
+        buildDurationUpdatesForStartSignings: (
+          ordered: Signing[],
+        ) => { id: string; durationInSeconds: number | null }[];
+      };
+
+    it('ordena por momento, luego START antes de END y por id', () => {
+      const sameMoment = new Date('2026-04-13T10:00:00.000Z');
+      const endB = buildSigning({
+        id: 'end-b',
+        action: SigningAction.END,
+        moment: sameMoment,
+      });
+      const startZ = buildSigning({
+        id: 'start-z',
+        action: SigningAction.START,
+        moment: sameMoment,
+      });
+      const startA = buildSigning({
+        id: 'start-a',
+        action: SigningAction.START,
+        moment: sameMoment,
+      });
+      const later = buildSigning({
+        id: 'later',
+        action: SigningAction.END,
+        moment: new Date('2026-04-13T11:00:00.000Z'),
+      });
+
+      const ordered = getPrivateHelpers().sortSigningsChronologically([
+        later,
+        endB,
+        startZ,
+        startA,
+      ]);
+
+      expect(ordered.map((row) => row.id)).toEqual(['start-a', 'start-z', 'end-b', 'later']);
+    });
+
+    it('rechaza una entrada cuyo vecino previo no es salida', () => {
+      const firstStart = buildSigning({
+        id: 'first-start',
+        action: SigningAction.START,
+        moment: new Date('2026-04-13T08:00:00.000Z'),
+      });
+      let actionReadCount = 0;
+      const chameleonNext = {
+        ...buildSigning({
+          id: 'chameleon',
+          moment: new Date('2026-04-13T09:00:00.000Z'),
+        }),
+      };
+      Object.defineProperty(chameleonNext, 'action', {
+        configurable: true,
+        get: () => {
+          actionReadCount += 1;
+          // La primera lectura es el `next` de la entrada previa: fingimos END para no fallar antes.
+          return actionReadCount === 1 ? SigningAction.END : SigningAction.START;
+        },
+      });
+
+      expect(() =>
+        getPrivateHelpers().assertValidSigningSequence(
+          [firstStart, chameleonNext as Signing],
+          'chameleon',
+        ),
+      ).toThrow(/debe ir tras una salida/);
+    });
+
+    it('rechaza una salida seguida de otra salida', async () => {
+      const startSigning = buildSigning({
+        id: 'start-uuid',
+        action: SigningAction.START,
+        moment: new Date('2026-04-13T08:00:00.000Z'),
+      });
+      const firstEnd = buildSigning({
+        id: 'end-1',
+        action: SigningAction.END,
+        moment: new Date('2026-04-13T16:00:00.000Z'),
+      });
+      const secondEnd = buildSigning({
+        id: 'end-2',
+        action: SigningAction.END,
+        moment: new Date('2026-04-13T17:00:00.000Z'),
+      });
+      signingRepository.findById.mockResolvedValue(secondEnd);
+      signingRepository.findByUserEnterpriseIdOrderedByMoment.mockResolvedValue([
+        startSigning,
+        firstEnd,
+        secondEnd,
+      ]);
+
+      await expect(
+        service.updateById(
+          'end-2',
+          enterpriseId,
+          { moment: '2026-04-13T12:00:00.000Z' },
+          'actor-uuid',
+        ),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: expect.stringContaining('salida'),
+      });
+    });
+
+    it('calcula duración nula si la entrada no tiene siguiente o el siguiente no es salida', () => {
+      const openStart = buildSigning({
+        id: 'open-start',
+        action: SigningAction.START,
+        moment: new Date('2026-04-13T08:00:00.000Z'),
+      });
+      const orphanStart = buildSigning({
+        id: 'orphan-start',
+        action: SigningAction.START,
+        moment: new Date('2026-04-13T09:00:00.000Z'),
+      });
+      const trailingEnd = buildSigning({
+        id: 'trailing-end',
+        action: SigningAction.END,
+        moment: new Date('2026-04-13T16:00:00.000Z'),
+      });
+
+      expect(
+        getPrivateHelpers().buildDurationUpdatesForStartSignings([openStart]),
+      ).toEqual([{ id: 'open-start', durationInSeconds: null }]);
+      expect(
+        getPrivateHelpers().buildDurationUpdatesForStartSignings([
+          orphanStart,
+          openStart,
+          trailingEnd,
+        ]),
+      ).toEqual([
+        { id: 'orphan-start', durationInSeconds: null },
+        { id: 'open-start', durationInSeconds: 28800 },
+      ]);
     });
   });
 });

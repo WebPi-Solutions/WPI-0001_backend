@@ -151,6 +151,15 @@ describe('HolidayService', () => {
       expect(holidayRepository.deleteById).toHaveBeenCalledWith(holidayId);
     });
 
+    it('registra 0 filas afectadas si el borrado no informa affected', async () => {
+      holidayRepository.findById.mockResolvedValue(buildHoliday());
+      holidayRepository.deleteById.mockResolvedValue({ raw: [] });
+
+      await expect(service.deleteById(holidayId, enterpriseId)).resolves.toEqual({
+        raw: [],
+      });
+    });
+
     it('no elimina un festivo de otra empresa', async () => {
       holidayRepository.findById.mockResolvedValue(buildHoliday({ enterpriseId: 'otra-empresa' }));
 
@@ -158,6 +167,52 @@ describe('HolidayService', () => {
         status: HttpStatus.NOT_FOUND,
       });
       expect(holidayRepository.deleteById).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('create error, findAll, update y delete errores', () => {
+    it('propaga el error al crear', async () => {
+      holidayRepository.create.mockRejectedValue(new Error('fallo crear'));
+
+      await expect(
+        service.create(enterpriseId, { calendarDate: '2026-12-25', name: 'Navidad' }),
+      ).rejects.toThrow('fallo crear');
+    });
+
+    it('lista festivos delegando relaciones opcionales', async () => {
+      holidayRepository.findAll.mockResolvedValue({
+        items: [],
+        total: 0,
+        currentPage: 1,
+        totalPages: 0,
+      });
+
+      await service.findAll(1, 10, 'calendarDate', 'ASC', { enterpriseId });
+
+      expect(holidayRepository.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'calendarDate',
+        'ASC',
+        { enterpriseId },
+        undefined,
+      );
+    });
+
+    it('actualiza calendarDate y propaga el error de persistencia', async () => {
+      holidayRepository.findById.mockResolvedValue(buildHoliday());
+      holidayRepository.updateById.mockRejectedValue(new Error('fallo update'));
+
+      await expect(
+        service.updateById(holidayId, enterpriseId, { calendarDate: '2026-12-26' }),
+      ).rejects.toThrow('fallo update');
+    });
+
+    it('propaga el error al eliminar', async () => {
+      holidayRepository.findById.mockResolvedValue(buildHoliday());
+      holidayRepository.deleteById.mockRejectedValue(new Error('fallo delete'));
+
+      await expect(service.deleteById(holidayId, enterpriseId)).rejects.toThrow('fallo delete');
     });
   });
 });

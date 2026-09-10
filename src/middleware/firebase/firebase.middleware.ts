@@ -4,12 +4,17 @@ import { Request, Response, NextFunction } from 'express';
 import { firebaseAdmin } from './firebase.service';
 import { User } from 'src/entities/user/user.entity';
 import { UserRepository } from 'src/entities/user/user-repository.service';
+import { AccessContext } from 'src/helpers/enterprise-access/access-context';
 
 //Creamos esta interfaz para poder acceder al dato 'user' que será el correo obtenido de firebase en los siguientes controllers.
 declare global {
-  namespace Express {
+    namespace Express {
     interface Request {
       user?: User; // Define la propiedad user en el tipo Request
+      /**
+       * Contexto de autorización multi-empresa adjunto por {@link EnterpriseAccessGuard}.
+       */
+      accessContext?: AccessContext;
     }
   }
 }
@@ -35,7 +40,9 @@ export class FirebaseMiddleware implements NestMiddleware {
       const decodedToken = await firebaseAdmin.auth().verifyIdToken(token);
 
       // Busca el usuario en la base de datos
-      const user: User = await this.userRepository.findByEmail(decodedToken.email);
+      const user: User = await this.userRepository.findByEmail(decodedToken.email, [
+        'userEnterprises',
+      ]);
       if(user){
         req.user = user
         next()

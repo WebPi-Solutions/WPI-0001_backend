@@ -1,29 +1,192 @@
+jest.mock('src/helpers/query-builder/query-builder.service', () => ({
+  QueryBuilderService: {
+    getCount: jest.fn().mockResolvedValue(0),
+    getPaginatedResults: jest.fn().mockResolvedValue({
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 0,
+    }),
+  },
+}));
+
+import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { QueryBuilderService } from 'src/helpers/query-builder/query-builder.service';
+import { AiRequest, AiRequestType } from './ai-request.entity';
 import { AiRequestRepository } from './ai-request-repository.service';
-import { AiRequest } from './ai-request.entity';
+
+/**
+ * Extrae la HttpException lanzada por una promesa rechazada.
+ * @param rejectedPromise - Promesa que debe fallar
+ * @returns La excepción HTTP capturada
+ */
+async function expectHttpException(
+  rejectedPromise: Promise<unknown>,
+): Promise<HttpException> {
+  try {
+    await rejectedPromise;
+  } catch (error: unknown) {
+    expect(error).toBeInstanceOf(HttpException);
+    return error as HttpException;
+  }
+  throw new Error('Se esperaba una HttpException');
+}
 
 describe('AiRequestRepository', () => {
-  let repository: AiRequestRepository;
+  let aiRequestRepositoryService: AiRequestRepository;
+  let typeOrmRepositoryMock: {
+    save: jest.Mock;
+    findOne: jest.Mock;
+  };
 
+  /**
+   * Crea el módulo de pruebas con repositorio TypeORM simulado.
+   */
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    jest.clearAllMocks();
+    (QueryBuilderService.getPaginatedResults as jest.Mock).mockResolvedValue({
+      items: [],
+      total: 0,
+      currentPage: 1,
+      totalPages: 0,
+    });
+
+    typeOrmRepositoryMock = {
+      save: jest.fn(),
+      findOne: jest.fn(),
+    };
+
+    const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
         AiRequestRepository,
         {
           provide: getRepositoryToken(AiRequest),
-          useValue: {
-            save: jest.fn(),
-            findOne: jest.fn(),
-          },
+          useValue: typeOrmRepositoryMock,
         },
       ],
     }).compile();
 
-    repository = module.get<AiRequestRepository>(AiRequestRepository);
+    aiRequestRepositoryService = testingModule.get(AiRequestRepository);
   });
 
-  it('should be defined', () => {
-    expect(repository).toBeDefined();
+  it('debería estar definido', () => {
+    expect(aiRequestRepositoryService).toBeDefined();
+  });
+
+  describe('create', () => {
+    it('persiste la petición de IA', async () => {
+      const requestToCreate = {
+        type: AiRequestType.GET_SPENT_ISSUER,
+        enterpriseId: 'enterprise-uuid',
+      } as Partial<AiRequest>;
+      typeOrmRepositoryMock.save.mockResolvedValue({
+        id: 'ai-request-uuid',
+        ...requestToCreate,
+      });
+
+      const result = await aiRequestRepositoryService.create(requestToCreate);
+
+      expect(typeOrmRepositoryMock.save).toHaveBeenCalledWith(requestToCreate);
+      expect(result.id).toBe('ai-request-uuid');
+    });
+  });
+
+  describe('findAll', () => {
+    it('lista peticiones paginadas usando QueryBuilderService', async () => {
+      const result = await aiRequestRepositoryService.findAll(
+        1,
+        10,
+        'createdAt',
+        'DESC',
+        { enterpriseId: 'enterprise-uuid' },
+        ['enterprise'],
+      );
+
+      expect(QueryBuilderService.getPaginatedResults).toHaveBeenCalledWith(
+        typeOrmRepositoryMock,
+        'aiRequest',
+        expect.objectContaining({
+          page: 1,
+          pageSize: 10,
+          sort: 'createdAt',
+          order: 'DESC',
+          filter: { enterpriseId: 'enterprise-uuid' },
+          relations: [
+            {
+              property: 'enterprise',
+              alias: 'enterprise',
+              isLeftJoinAndSelect: true,
+            },
+          ],
+        }),
+      );
+      expect(result.total).toBe(0);
+    });
+
+    it('lista peticiones con valores por defecto y sin relaciones', async () => {
+      await aiRequestRepositoryService.findAll();
+
+      expect(QueryBuilderService.getPaginatedResults).toHaveBeenCalledWith(
+        typeOrmRepositoryMock,
+        'aiRequest',
+        expect.objectContaining({
+          page: 1,
+          pageSize: 10,
+          sort: 'createdAt',
+          order: 'DESC',
+          filter: {},
+          relations: [],
+        }),
+      );
+    });
+  });
+
+  describe('findById', () => {
+    it('busca una petición por identificador', async () => {
+      const foundRequest = { id: 'ai-request-uuid' } as AiRequest;
+      typeOrmRepositoryMock.findOne.mockResolvedValue(foundRequest);
+
+      const result = await aiRequestRepositoryService.findById('ai-request-uuid', [
+        'enterprise',
+      ]);
+
+      expect(typeOrmRepositoryMock.findOne).toHaveBeenCalledWith({
+        where: { id: 'ai-request-uuid' },
+        relations: ['enterprise'],
+      });
+      expect(result).toEqual(foundRequest);
+    });
+
+    it('busca una petición sin relaciones opcionales', async () => {
+      await aiRequestRepositoryService.findById('ai-request-uuid');
+
+      expect(typeOrmRepositoryMock.findOne).toHaveBeenCalledWith({
+        where: { id: 'ai-request-uuid' },
+        relations: undefined,
+      });
+    });
+  });
+
+  describe('findByIdOrFail', () => {
+    it('lanza 404 si la petición no existe', async () => {
+      typeOrmRepositoryMock.findOne.mockResolvedValue(null);
+
+      const thrownError = await expectHttpException(
+        aiRequestRepositoryService.findByIdOrFail('missing-id'),
+      );
+
+      expect(thrownError.getStatus()).toBe(HttpStatus.NOT_FOUND);
+    });
+
+    it('devuelve la petición cuando existe', async () => {
+      const foundRequest = { id: 'ai-request-uuid' } as AiRequest;
+      typeOrmRepositoryMock.findOne.mockResolvedValue(foundRequest);
+
+      const result = await aiRequestRepositoryService.findByIdOrFail('ai-request-uuid');
+
+      expect(result).toEqual(foundRequest);
+    });
   });
 });

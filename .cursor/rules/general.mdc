@@ -1,0 +1,29 @@
+---
+description: Convenciones transversales del backend (idioma, calidad, git, documentación)
+alwaysApply: true
+---
+
+# General
+
+Este repositorio es **solo el API NestJS**. Estas convenciones aplican a todo el proyecto.
+
+## Idioma
+
+- Identificadores (clases, métodos, variables, ficheros, ramas): **inglés**, nombres descriptivos. Nada de `tmp`, `data`, `aux`.
+- Comentarios, JSDoc/`/** */`, logs, mensajes de error y textos de Swagger: **español**. El JSDoc debe decir qué hace, parámetros y retorno.
+
+## Calidad
+
+- Divide y vencerás: funciones cortas y reutilizables. Sin parches.
+- Logs en operaciones relevantes; errores controlados, registrados y propagados (`HttpException` con código correcto).
+- Principios SonarQube: sin duplicar lógica de auth, sin `catch` vacíos, sin secretos en código.
+
+## Git
+
+- No crear commits ni push salvo petición explícita del usuario.
+- No alterar `git config`. No `--force` a `main`/`master`. No `--no-verify`.
+
+## Documentación de producto
+
+- Si cambia el modelo de auth o el aislamiento por empresa, actualizar `docs/enterprise-access.md`.
+- Si cambia cómo se ejecutan o qué cubren los tests, actualizar `docs/tests.md`.

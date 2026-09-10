@@ -174,5 +174,95 @@ describe('WorkScheduleService', () => {
         message: 'Franja de horario no encontrada',
       });
     });
+
+    it('devuelve la franja cuando existe y fusiona relaciones extra', async () => {
+      const schedule = buildWorkSchedule();
+      workScheduleRepository.findById.mockResolvedValue(schedule);
+
+      await expect(service.findById(scheduleId, enterpriseId, ['custom'])).resolves.toEqual(
+        schedule,
+      );
+    });
+  });
+
+  describe('findAll, update vacío y delete', () => {
+    it('lista franjas fusionando relaciones por defecto', async () => {
+      workScheduleRepository.findAll.mockResolvedValue({
+        items: [],
+        total: 0,
+        currentPage: 1,
+        totalPages: 0,
+      });
+
+      await service.findAll(1, 10, 'startsAt', 'DESC', {});
+
+      expect(workScheduleRepository.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'startsAt',
+        'DESC',
+        {},
+        expect.arrayContaining(['userEnterprise']),
+      );
+    });
+
+    it('devuelve el registro actual si no hay campos editables', async () => {
+      workScheduleRepository.findById.mockResolvedValue(buildWorkSchedule());
+
+      await service.updateById(scheduleId, enterpriseId, {});
+
+      expect(workScheduleRepository.updateById).not.toHaveBeenCalled();
+    });
+
+    it('actualiza la franja cuando el rango es válido', async () => {
+      const updated = buildWorkSchedule({
+        startsAt: new Date('2026-04-13T09:00:00.000Z'),
+      });
+      workScheduleRepository.findById.mockResolvedValue(buildWorkSchedule());
+      workScheduleRepository.updateById.mockResolvedValue(updated);
+
+      await expect(
+        service.updateById(scheduleId, enterpriseId, {
+          startsAt: '2026-04-13T09:00:00.000Z',
+        }),
+      ).resolves.toEqual(updated);
+    });
+
+    it('propaga el error al crear y al actualizar', async () => {
+      workScheduleRepository.create.mockRejectedValue(new Error('fallo crear'));
+      await expect(
+        service.create(enterpriseId, {
+          userEnterpriseId,
+          startsAt: '2026-04-13T08:00:00.000Z',
+          endsAt: '2026-04-13T16:00:00.000Z',
+        }),
+      ).rejects.toThrow('fallo crear');
+
+      workScheduleRepository.findById.mockResolvedValue(buildWorkSchedule());
+      workScheduleRepository.updateById.mockRejectedValue(new Error('fallo update'));
+      await expect(
+        service.updateById(scheduleId, enterpriseId, {
+          endsAt: '2026-04-13T17:00:00.000Z',
+        }),
+      ).rejects.toThrow('fallo update');
+    });
+
+    it('elimina la franja y propaga el error de borrado', async () => {
+      workScheduleRepository.findById.mockResolvedValue(buildWorkSchedule());
+      workScheduleRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });
+
+      await expect(service.deleteById(scheduleId, enterpriseId)).resolves.toEqual({
+        affected: 1,
+        raw: [],
+      });
+
+      workScheduleRepository.deleteById.mockResolvedValue({ raw: [] });
+      await expect(service.deleteById(scheduleId, enterpriseId)).resolves.toEqual({
+        raw: [],
+      });
+
+      workScheduleRepository.deleteById.mockRejectedValue(new Error('fallo delete'));
+      await expect(service.deleteById(scheduleId, enterpriseId)).rejects.toThrow('fallo delete');
+    });
   });
 });

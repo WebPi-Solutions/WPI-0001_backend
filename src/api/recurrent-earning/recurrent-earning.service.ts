@@ -4,6 +4,7 @@ import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-ser
 import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recurrent-earning-repository.service';
 import { RecurrentEarning, RecurrentEarningType } from 'src/entities/recurrent-earning/recurrent-earning.entity';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 /**
@@ -18,6 +19,7 @@ export class RecurrentEarningService {
     private readonly recurrentEarningRepository: RecurrentEarningRepository,
     private readonly clientRepository: ClientRepository,
     private readonly invoiceSeriesRepository: InvoiceSeriesRepository,
+    private readonly enterpriseAccessService: EnterpriseAccessService,
   ) {}
 
   /**
@@ -95,6 +97,11 @@ export class RecurrentEarningService {
       throw new HttpException('Ingreso recurrente no encontrado', HttpStatus.NOT_FOUND);
     }
 
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      recurrentEarning.enterpriseId,
+      'Ingreso recurrente no encontrado',
+    );
+
     this.logger.log(`Ingreso recurrente encontrado: ${recurrentEarning.name} (ID: ${recurrentEarning.id})`);
     return recurrentEarning;
   }
@@ -114,6 +121,11 @@ export class RecurrentEarningService {
       this.logger.error(`Ingreso recurrente no encontrado con ID: ${id}`);
       throw new HttpException('Ingreso recurrente no encontrado', HttpStatus.NOT_FOUND);
     }
+
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      existingRecurrentEarning.enterpriseId,
+      'Ingreso recurrente no encontrado',
+    );
 
     this.normalizeRelatedIdentifiers(recurrentEarning);
     if (recurrentEarning.type) {
@@ -153,6 +165,11 @@ export class RecurrentEarningService {
       this.logger.error(`Ingreso recurrente no encontrado con ID: ${id}`);
       throw new HttpException('Ingreso recurrente no encontrado', HttpStatus.NOT_FOUND);
     }
+
+    this.enterpriseAccessService.assertCurrentEntityAccessible(
+      recurrentEarning.enterpriseId,
+      'Ingreso recurrente no encontrado',
+    );
 
     if (recurrentEarning.invoices && recurrentEarning.invoices.length > 0) {
       this.logger.error(`No se puede eliminar el ingreso recurrente ${id} porque tiene facturas asociadas`);

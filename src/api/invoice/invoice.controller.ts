@@ -5,6 +5,7 @@ import { InvoiceResponseDto } from 'src/entities/invoice/dto/invoice-response.dt
 import { InvoiceService } from './invoice.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 
 @ApiTags('Facturas')
 @Controller('invoices')
@@ -35,6 +36,7 @@ export class InvoiceController {
    * @returns Las facturas
    */
   @Get()
+  @RequireEnterpriseId()
   @MapResponse(InvoiceResponseDto)
   @ApiOperation({ summary: 'Obtener todas las facturas' })
   @ApiOkResponse({ type: InvoiceResponseDto, isArray: true, description: 'Facturas (vista pública).' })
@@ -57,9 +59,11 @@ export class InvoiceController {
     const pageNumber = Number(page);
     const pageSizeNumber = Number(pageSize);
 
-    // Parsear las relaciones si existen
+    // El filtro por tenant usa `client.enterpriseId`; el JOIN es obligatorio aunque el cliente no pida la relación.
     const relationsArray = relations ? relations.split(',') : [];
-
+    if (!relationsArray.includes('client')) {
+      relationsArray.push('client');
+    }
 
     // Parsear el filtro si existe
     let filterObj = {

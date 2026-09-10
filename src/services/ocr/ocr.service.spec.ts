@@ -52,5 +52,19 @@ describe('OcrService', () => {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
       });
     });
+
+    it('devuelve cadena vacía si Tesseract no reconoce texto', async () => {
+      mockedRecognize.mockResolvedValue(undefined);
+
+      await expect(service.extractTextFromImage(Buffer.from('imagen'))).resolves.toBe('');
+    });
+
+    it('rechaza un buffer nulo', async () => {
+      await expect(
+        service.extractTextFromImage(undefined as unknown as Buffer),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+      });
+    });
   });
 });

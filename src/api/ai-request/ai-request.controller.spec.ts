@@ -117,4 +117,22 @@ describe('AiRequestController', () => {
     });
     expect(aiRequestService.findById).toHaveBeenCalledWith('ai-request-1', ['enterprise', 'user']);
   });
+
+  it('usa valores por defecto al listar y busca sin relaciones', async () => {
+    aiRequestService.findAll.mockResolvedValue({ items: [], total: 0, currentPage: 1, totalPages: 0 });
+    aiRequestService.findById.mockResolvedValue({ id: 'ai-request-1' });
+
+    await controller.findAll('enterprise-1');
+    expect(aiRequestService.findAll).toHaveBeenCalledWith(
+      1,
+      10,
+      'createdAt',
+      'DESC',
+      { enterpriseId: 'enterprise-1' },
+      [],
+    );
+
+    await controller.findById('ai-request-1');
+    expect(aiRequestService.findById).toHaveBeenCalledWith('ai-request-1', []);
+  });
 });

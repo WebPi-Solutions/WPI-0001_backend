@@ -12,7 +12,9 @@ import {
   InvoiceSeriesListCountsDto,
 } from './dto';
 import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOkResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 
+@RequireEnterpriseId()
 @Controller('metrics')
 export class MetricsController {
   private readonly logger = new Logger(MetricsController.name);

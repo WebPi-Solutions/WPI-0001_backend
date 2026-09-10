@@ -236,8 +236,12 @@ export class UserRepository {
   ): Promise<User | null> {
     this.logger.log(`Buscando usuario por card_id ${cardId} en empresa ${enterpriseId}`);
 
-    const baseRelations = new Set<string>(['userEnterprises', ...(relations ?? [])]);
-    const relationArray = Array.from(baseRelations);
+    /** Relaciones pedidas por el caller; vacío si no se informaron. */
+    const requestedRelations = relations ?? [];
+    /** Relaciones a recargar, incluyendo siempre el vínculo con empresas. */
+    const relationArray = Array.from(
+      new Set<string>(['userEnterprises', ...requestedRelations]),
+    );
 
     const user = await this.userRepository
       .createQueryBuilder('user')
@@ -250,8 +254,8 @@ export class UserRepository {
       return null;
     }
 
-    // Si se solicitan relaciones adicionales, recargar por id con relations (evita duplicar joins manuales).
-    if (relationArray.length > 0) {
+    // Solo recarga si el caller pidió relaciones extra; el join ya trae userEnterprises.
+    if (requestedRelations.length > 0) {
       return this.userRepository.findOne({ where: { id: user.id }, relations: relationArray });
     }
     return user;

@@ -1,6 +1,6 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { of } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
 import { InvoiceResponseDto } from 'src/entities/invoice/dto/invoice-response.dto';
 import { SpentResponseDto } from 'src/entities/spent/dto/spent-response.dto';
 import { MAP_RESPONSE_KEY } from '../decorators/map-response.decorator';
@@ -149,5 +149,84 @@ describe('MapResponseInterceptor', () => {
       },
       error: done.fail,
     });
+  });
+
+  /**
+   * Sin DTO asociado el interceptor no transforma el cuerpo.
+   */
+  it('debe devolver la respuesta original cuando el handler no tiene DTO', (done) => {
+    jest.spyOn(reflector, 'get').mockReturnValue(undefined);
+    const originalPayload = { secret: 'no-mapear' };
+
+    interceptor.intercept(createExecutionContext(), { handle: () => of(originalPayload) }).subscribe({
+      next: (mapped) => {
+        expect(mapped).toBe(originalPayload);
+        done();
+      },
+      error: done.fail,
+    });
+  });
+
+  /**
+   * Primitivos, nulos y undefined no pasan por class-transformer.
+   */
+  it.each([
+    ['texto', 'ok'],
+    ['número', 42],
+    ['booleano', true],
+    ['nulo', null],
+    ['indefinido', undefined],
+  ])('debe dejar pasar un valor %s sin mapear', async (_label: string, primitiveValue: unknown) => {
+    jest.spyOn(reflector, 'get').mockReturnValue(InvoiceResponseDto);
+
+    const mapped = await firstValueFrom(
+      interceptor.intercept(createExecutionContext(InvoiceResponseDto), {
+        handle: () => of(primitiveValue),
+      }),
+    );
+
+    expect(mapped).toBe(primitiveValue);
+  });
+
+  /**
+   * Un array plano se serializa elemento a elemento.
+   */
+  it('debe mapear un array de facturas omitiendo campos internos', (done) => {
+    jest.spyOn(reflector, 'get').mockReturnValue(InvoiceResponseDto);
+
+    interceptor
+      .intercept(createExecutionContext(InvoiceResponseDto), {
+        handle: () =>
+          of([
+            {
+              id: 'inv-array-1',
+              clientId: 'cli-1',
+              seriesId: 'ser-1',
+              quoteId: 'quote-hidden',
+              seriesNumber: 1,
+              name: 'Factura array',
+              issuedDate: new Date('2026-03-01'),
+              collectionDate: new Date('2026-03-01'),
+              concepts: [],
+              status: 'issued',
+              clientName: 'Cliente',
+              clientNif: 'B1',
+              issuerName: 'Emisor',
+              issuerNif: 'B2',
+              createdAt: new Date('2026-03-01'),
+              updatedAt: new Date('2026-03-01'),
+            },
+          ]),
+      })
+      .subscribe({
+        next: (mapped) => {
+          const invoices = mapped as InvoiceResponseDto[];
+          expect(Array.isArray(invoices)).toBe(true);
+          expect(invoices[0].id).toBe('inv-array-1');
+          expect((invoices[0] as unknown as { quoteId?: string }).quoteId).toBeUndefined();
+          done();
+        },
+        error: done.fail,
+      });
   });
 });

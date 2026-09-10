@@ -5,6 +5,7 @@ import { SupplierResponseDto } from 'src/entities/supplier/dto/supplier-response
 import { SupplierService } from './supplier.service';
 import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
+import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 
 @ApiTags('Proveedores')
 @Controller('suppliers')
@@ -18,6 +19,7 @@ export class SupplierController {
    * @returns El proveedor creado
    */
   @Post()
+  @RequireEnterpriseId()
   @MapResponse(SupplierResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo proveedor' })
   @ApiOkResponse({ type: SupplierResponseDto, description: 'Proveedor creado (vista pública).' })
@@ -39,6 +41,7 @@ export class SupplierController {
    * @returns Los proveedores
    */
   @Get()
+  @RequireEnterpriseId()
   @MapResponse(SupplierResponseDto)
   @ApiOperation({ summary: 'Obtener todos los proveedores' })
   @ApiOkResponse({ type: SupplierResponseDto, isArray: true, description: 'Proveedores (vista pública).' })
