@@ -274,6 +274,12 @@ describe('EnterpriseAccessService', () => {
         expect((error as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
       }
     });
+
+    it('acepta el UUID recortando espacios alrededor', () => {
+      expect(() =>
+        service.assertCanAccessEnterprise(regularAccessContext, `  ${enterpriseId}  `),
+      ).not.toThrow();
+    });
   });
 
   describe('assertEntityAccessible', () => {
@@ -317,6 +323,41 @@ describe('EnterpriseAccessService', () => {
         }),
       ).not.toThrow();
     });
+
+    it('lanza 404 si el tenant de la entidad es nulo o solo espacios', () => {
+      expect(() =>
+        service.assertEntityAccessible(regularAccessContext, null, {
+          notFoundMessage: 'Recurso no encontrado',
+        }),
+      ).toThrow(HttpException);
+      expect(() =>
+        service.assertEntityAccessible(regularAccessContext, '   ', {
+          notFoundMessage: 'Recurso no encontrado',
+        }),
+      ).toThrow(HttpException);
+    });
+  });
+
+  describe('assertCurrentEntityAccessible', () => {
+    it('autoriza con el contexto de la petición actual', () => {
+      const accessContext: AccessContext = {
+        userId,
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId],
+      };
+
+      runWithEnterpriseAccessContext(accessContext, () => {
+        expect(() =>
+          service.assertCurrentEntityAccessible(enterpriseId, 'Factura no encontrada'),
+        ).not.toThrow();
+      });
+    });
+
+    it('lanza 403 si no hay contexto de petición', () => {
+      expect(() =>
+        service.assertCurrentEntityAccessible(enterpriseId, 'Factura no encontrada'),
+      ).toThrow(ForbiddenException);
+    });
   });
 
   describe('assertUserRecordAccessible', () => {
@@ -354,6 +395,51 @@ describe('EnterpriseAccessService', () => {
           'Usuario no encontrado',
         ),
       ).toThrow(HttpException);
+    });
+
+    it('omite el aislamiento para administradores globales', () => {
+      const adminAccessContext: AccessContext = {
+        userId,
+        isGlobalAdmin: true,
+        allowedEnterpriseIds: [],
+      };
+
+      expect(() =>
+        service.assertUserRecordAccessible(
+          adminAccessContext,
+          { id: 'otro-usuario', userEnterprises: [] },
+          'Usuario no encontrado',
+        ),
+      ).not.toThrow();
+    });
+
+    it('lanza 404 si el objetivo no tiene userEnterprises cargadas', () => {
+      expect(() =>
+        service.assertUserRecordAccessible(
+          regularAccessContext,
+          { id: 'otro-usuario' },
+          'Usuario no encontrado',
+        ),
+      ).toThrow(HttpException);
+    });
+  });
+
+  describe('assertCurrentUserRecordAccessible', () => {
+    it('autoriza al propio usuario con el contexto de la petición', () => {
+      const accessContext: AccessContext = {
+        userId,
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId],
+      };
+
+      runWithEnterpriseAccessContext(accessContext, () => {
+        expect(() =>
+          service.assertCurrentUserRecordAccessible(
+            { id: userId, userEnterprises: [] },
+            'Usuario no encontrado',
+          ),
+        ).not.toThrow();
+      });
     });
   });
 

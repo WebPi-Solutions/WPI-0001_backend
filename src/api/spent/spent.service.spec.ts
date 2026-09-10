@@ -694,6 +694,48 @@ describe('SpentService', () => {
 
       await expect(service.create(payload)).rejects.toThrow('duplicado');
     });
+
+    it('lanza 400 si el gasto no referencia ningún proveedor', async () => {
+      await expect(
+        service.create(buildSpent({ supplierId: undefined, supplier: undefined })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'El gasto debe tener un proveedor',
+      });
+      expect(spentRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('lanza 404 si el proveedor no existe', async () => {
+      supplierRepository.findById.mockResolvedValue(null);
+
+      await expect(service.create(buildSpent())).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Proveedor no encontrado',
+      });
+      expect(spentRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza supplierId y supplier.id de empresas distintas en el mismo payload', async () => {
+      const nestedSupplierId = 'supplier-otra-empresa';
+      supplierRepository.findById.mockImplementation(async (requestedSupplierId: string) => {
+        if (requestedSupplierId === 'supplier-id') {
+          return { id: 'supplier-id', enterpriseId };
+        }
+        return { id: nestedSupplierId, enterpriseId: 'otra-empresa' };
+      });
+
+      await expect(
+        service.create(
+          buildSpent({
+            supplier: { id: nestedSupplierId, enterpriseId: 'otra-empresa' } as Spent['supplier'],
+          }),
+        ),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Gasto no encontrado',
+      });
+      expect(spentRepository.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('findAll', () => {
@@ -752,6 +794,30 @@ describe('SpentService', () => {
       spentRepository.updateById.mockResolvedValue(payload);
 
       await expect(service.updateById(spentId, payload)).resolves.toEqual(payload);
+    });
+
+    it('no retargetea el gasto a un proveedor de otra empresa vía relación anidada', async () => {
+      const nestedSupplierId = 'supplier-otra-empresa';
+      spentRepository.findById.mockResolvedValue(buildSpent());
+      supplierRepository.findById.mockImplementation(async (requestedSupplierId: string) => {
+        if (requestedSupplierId === 'supplier-id') {
+          return { id: 'supplier-id', enterpriseId };
+        }
+        return { id: nestedSupplierId, enterpriseId: 'otra-empresa' };
+      });
+
+      await expect(
+        service.updateById(
+          spentId,
+          buildSpent({
+            supplier: { id: nestedSupplierId, enterpriseId: 'otra-empresa' } as Spent['supplier'],
+          }),
+        ),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Gasto no encontrado',
+      });
+      expect(spentRepository.updateById).not.toHaveBeenCalled();
     });
 
     it('relanza el error de actualización', async () => {

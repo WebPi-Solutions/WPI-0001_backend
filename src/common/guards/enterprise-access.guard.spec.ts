@@ -186,4 +186,78 @@ describe('EnterpriseAccessGuard', () => {
 
     expect(guard.canActivate(executionContext)).toBe(true);
   });
+
+  it('recorta espacios del enterpriseId del query', () => {
+    const executionContext = createExecutionContext({
+      user: regularUser,
+      query: { enterpriseId: `  ${allowedEnterpriseId}  ` },
+    });
+
+    expect(guard.canActivate(executionContext)).toBe(true);
+  });
+
+  it('lanza 400 si RequireEnterpriseId recibe solo espacios en blanco', () => {
+    mockRouteMetadata({ requireEnterpriseId: true });
+    const executionContext = createExecutionContext({
+      user: regularUser,
+      query: { enterpriseId: '   ' },
+    });
+
+    expect(() => guard.canActivate(executionContext)).toThrow(BadRequestException);
+  });
+
+  it('ignora enterpriseId no string en query y usa el del body', () => {
+    const executionContext = createExecutionContext({
+      user: regularUser,
+      query: { enterpriseId: [foreignEnterpriseId] as unknown as string },
+      body: { enterpriseId: allowedEnterpriseId },
+    });
+
+    expect(guard.canActivate(executionContext)).toBe(true);
+  });
+
+  it('cae a params si userEnterprises está vacío o sin enterpriseId', () => {
+    const emptyLinksContext = createExecutionContext({
+      user: regularUser,
+      body: { userEnterprises: [] },
+      params: { enterpriseId: allowedEnterpriseId },
+    });
+    expect(guard.canActivate(emptyLinksContext)).toBe(true);
+
+    const missingNestedIdContext = createExecutionContext({
+      user: regularUser,
+      body: { userEnterprises: [{ role: 'user' }] },
+      params: { enterpriseId: allowedEnterpriseId },
+    });
+    expect(guard.canActivate(missingNestedIdContext)).toBe(true);
+  });
+
+  it('ignora un body que no es un objeto y sigue leyendo params', () => {
+    const stringBodyContext = createExecutionContext({
+      user: regularUser,
+      body: 'no-objeto' as unknown as Request['body'],
+      params: { enterpriseId: allowedEnterpriseId },
+    });
+    expect(guard.canActivate(stringBodyContext)).toBe(true);
+
+    const nullBodyContext = createExecutionContext({
+      user: regularUser,
+      body: null,
+      params: { enterpriseId: allowedEnterpriseId },
+    });
+    expect(guard.canActivate(nullBodyContext)).toBe(true);
+  });
+
+  it('adjunta accessContext aunque la ruta omita el aislamiento', () => {
+    mockRouteMetadata({ skip: true });
+    const executionContext = createExecutionContext({
+      user: regularUser,
+      query: { enterpriseId: foreignEnterpriseId },
+    });
+
+    expect(guard.canActivate(executionContext)).toBe(true);
+    const request = executionContext.switchToHttp().getRequest<Request>();
+    expect(request.accessContext?.userId).toBe(regularUser.id);
+    expect(request.accessContext?.allowedEnterpriseIds).toEqual([allowedEnterpriseId]);
+  });
 });

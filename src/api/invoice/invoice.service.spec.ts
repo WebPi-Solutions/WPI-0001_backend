@@ -167,6 +167,105 @@ describe('InvoiceService', () => {
       expect(invoiceRepository.create).not.toHaveBeenCalled();
     });
 
+    it('rechaza clientId y client.id de empresas distintas en el mismo payload', async () => {
+      const nestedClientId = 'client-otra-empresa';
+      clientRepository.findById.mockImplementation(async (requestedClientId: string) => {
+        if (requestedClientId === clientId) {
+          return buildClient({ enterpriseId });
+        }
+        return buildClient({ id: nestedClientId, enterpriseId: 'otra-empresa' });
+      });
+      invoiceSeriesRepository.findById.mockResolvedValue(buildInvoiceSeries());
+
+      await expect(
+        service.create(
+          buildInvoice({
+            client: { id: nestedClientId } as Invoice['client'],
+          }),
+        ),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'La serie de factura no pertenece a la misma empresa que el cliente',
+      });
+      expect(invoiceRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza seriesId y series.id de empresas distintas en el mismo payload', async () => {
+      const nestedSeriesId = 'series-otra-empresa';
+      clientRepository.findById.mockResolvedValue(buildClient());
+      invoiceSeriesRepository.findById.mockImplementation(async (requestedSeriesId: string) => {
+        if (requestedSeriesId === seriesId) {
+          return buildInvoiceSeries({ enterpriseId });
+        }
+        return buildInvoiceSeries({ id: nestedSeriesId, enterpriseId: 'otra-empresa' });
+      });
+
+      await expect(
+        service.create(
+          buildInvoice({
+            series: { id: nestedSeriesId } as Invoice['series'],
+          }),
+        ),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'La serie de factura no pertenece a la misma empresa que el cliente',
+      });
+      expect(invoiceRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('lanza 400 si faltan cliente o serie en la comprobación de tenant', async () => {
+      await expect(
+        service.create(buildInvoice({ clientId: undefined, client: undefined })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'La factura debe tener un cliente',
+      });
+
+      clientRepository.findById.mockResolvedValue(buildClient());
+      await expect(
+        service.create(buildInvoice({ seriesId: undefined, series: undefined })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'La factura debe tener una serie',
+      });
+      expect(invoiceRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('lanza 404 si el cliente o la serie no existen al validar el tenant', async () => {
+      clientRepository.findById.mockResolvedValue(null);
+
+      await expect(service.create(buildInvoice())).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: `Cliente no encontrado con ID: ${clientId}`,
+      });
+
+      clientRepository.findById.mockResolvedValue(buildClient());
+      invoiceSeriesRepository.findById.mockResolvedValue(null);
+
+      await expect(service.create(buildInvoice())).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Serie de factura no encontrada',
+      });
+      expect(invoiceRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('usa el client.id anidado cuando clientId llega en blanco', async () => {
+      const nestedClientId = 'client-anidado';
+      clientRepository.findById.mockResolvedValue(buildClient({ id: nestedClientId }));
+      invoiceSeriesRepository.findById.mockResolvedValue(buildInvoiceSeries());
+      invoiceRepository.create.mockResolvedValue(buildInvoice({ clientId: nestedClientId }));
+
+      await expect(
+        service.create(
+          buildInvoice({
+            clientId: '   ',
+            client: { id: nestedClientId } as Invoice['client'],
+          }),
+        ),
+      ).resolves.toBeDefined();
+      expect(clientRepository.findById).toHaveBeenCalledWith(nestedClientId);
+    });
+
     it('numera y copia datos persistentes al crear una factura emitida', async () => {
       mockIssuedPersistentDataSources();
       invoiceRepository.create.mockImplementation(async (invoice: Invoice) => invoice);
@@ -292,6 +391,28 @@ describe('InvoiceService', () => {
           seriesNumber: null,
         }),
       );
+    });
+
+    it('no retargetea la factura a un cliente de otra empresa vía relación anidada', async () => {
+      const nestedClientId = 'client-otra-empresa';
+      invoiceRepository.findById.mockResolvedValue(buildInvoice({ status: InvoiceStatus.DRAFT }));
+      clientRepository.findById.mockImplementation(async (requestedClientId: string) => {
+        if (requestedClientId === clientId) {
+          return buildClient({ enterpriseId });
+        }
+        return buildClient({ id: nestedClientId, enterpriseId: 'otra-empresa' });
+      });
+      invoiceSeriesRepository.findById.mockResolvedValue(buildInvoiceSeries());
+
+      await expect(
+        service.updateById(invoiceId, {
+          client: { id: nestedClientId },
+        } as Invoice),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'La serie de factura no pertenece a la misma empresa que el cliente',
+      });
+      expect(invoiceRepository.updateById).not.toHaveBeenCalled();
     });
 
     it('relanza el error del repositorio', async () => {

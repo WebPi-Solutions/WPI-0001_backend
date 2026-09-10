@@ -152,6 +152,28 @@ describe('QuoteService', () => {
       expect(quoteRepository.create).not.toHaveBeenCalled();
     });
 
+    it('rechaza clientId y client.id de empresas distintas en el mismo payload', async () => {
+      const nestedClientId = 'client-otra-empresa';
+      clientRepository.findById.mockImplementation(async (requestedClientId: string) => {
+        if (requestedClientId === clientId) {
+          return buildClient({ enterpriseId });
+        }
+        return buildClient({ id: nestedClientId, enterpriseId: 'otra-empresa' });
+      });
+
+      await expect(
+        service.create(
+          buildQuote({
+            client: { id: nestedClientId } as Quote['client'],
+          }),
+        ),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Cotización no encontrada',
+      });
+      expect(quoteRepository.create).not.toHaveBeenCalled();
+    });
+
     it('lanza 404 si el cliente no existe al emitir', async () => {
       clientRepository.findById.mockResolvedValue(null);
 
@@ -263,6 +285,27 @@ describe('QuoteService', () => {
         quoteId,
         expect.objectContaining({ id: quoteId, name: 'Actualizada' }),
       );
+    });
+
+    it('no retargetea la cotización a un cliente de otra empresa vía relación anidada', async () => {
+      const nestedClientId = 'client-otra-empresa';
+      quoteRepository.findById.mockResolvedValue(buildQuote({ status: QuoteStatus.DRAFT }));
+      clientRepository.findById.mockImplementation(async (requestedClientId: string) => {
+        if (requestedClientId === clientId) {
+          return buildClient({ enterpriseId });
+        }
+        return buildClient({ id: nestedClientId, enterpriseId: 'otra-empresa' });
+      });
+
+      await expect(
+        service.updateById(quoteId, {
+          client: { id: nestedClientId },
+        } as Quote),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Cotización no encontrada',
+      });
+      expect(quoteRepository.updateById).not.toHaveBeenCalled();
     });
 
     it('propaga el error del repositorio al actualizar un borrador', async () => {
