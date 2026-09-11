@@ -4,7 +4,7 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { glob } from 'glob';
 import { join } from 'path';
 import { EntitiesModule } from 'src/entities/entities.module';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { StripeService } from 'src/services/stripe/stripe.service';
 import { DropboxModule } from 'src/services/dropbox/dropbox.module';
 import { FirebaseModule } from 'src/services/firebase/firebase.module';
@@ -12,6 +12,7 @@ import { FileModule } from 'src/services/file/file.module';
 import { OpenaiModule } from 'src/services/openai/openai.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { EnterpriseAccessGuard } from 'src/common/guards/enterprise-access.guard';
+import { EnterprisePermissionGuard } from 'src/common/guards/enterprise-permission.guard';
 import { EnterpriseAccessContextInterceptor } from 'src/common/interceptors/enterprise-access-context.interceptor';
 
 /**
@@ -97,9 +98,14 @@ export class ApiModule {
       EnterpriseAccessService,
       StripeService,
       EnterpriseAccessGuard,
+      EnterprisePermissionGuard,
       {
         provide: APP_GUARD,
         useClass: EnterpriseAccessGuard,
+      },
+      {
+        provide: APP_GUARD,
+        useClass: EnterprisePermissionGuard,
       },
       {
         provide: APP_INTERCEPTOR,

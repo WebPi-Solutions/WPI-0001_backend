@@ -94,7 +94,7 @@ Convenciones:
 - Los controllers se montan con `Test.createTestingModule` y el servicio correspondiente mockeado
 - Los repositorios reciben `getRepositoryToken(Entidad)` y, si aplica, un mock de `QueryBuilderService`
 
-La autorización multi-empresa se documenta en [Acceso por empresa](./enterprise-access.md). Los specs de referencia son `enterprise-access.service.spec.ts` y `enterprise-access.guard.spec.ts`.
+La autorización multi-empresa se documenta en [Acceso por empresa](./enterprise-access.md). El RBAC de rol, en [Permisos de rol de empresa](./enterprise-permissions.md). Specs de referencia: `enterprise-access.service.spec.ts`, `enterprise-access.guard.spec.ts`, `enterprise-permission.guard.spec.ts` y `test/e2e/access/permissions.e2e-spec.ts`.
 
 ### Qué no cubre (a propósito)
 
@@ -183,6 +183,7 @@ Enfoque HTTP: **control de acceso multi-empresa** y ciclo de vida CRUD. La cober
 | `enterpriseId` de otra empresa en query/body | 403 |
 | Recurso de otra empresa por UUID (IDOR) | **404** (no se revela que existe) |
 | Recurso propio / admin global | 200 o 201 |
+| Usuario de la empresa **sin** concesión de rol (deny by default) | **403** (no 404) |
 | Usuario sin empresas en rutas de tenant | 403; listado de empresas vacío; catálogo Stripe sí (skip) |
 | Alta de usuario con query de A y vínculo a B | 403 |
 | Crear empresa si no eres administrador global | 403 |

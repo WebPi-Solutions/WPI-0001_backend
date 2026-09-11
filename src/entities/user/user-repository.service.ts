@@ -2,8 +2,8 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { User, UserStatusTypes } from './user.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/helpers/query-builder/query-builder.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/common/helpers/query-builder/query-builder.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { UserEnterprise } from './user-enterprise.entity';
 import { CreateUserEnterpriseDto } from './dto/create-user-enterprise.dto';
 import { DefaultSchedule } from '../default-schedule/default-schedule.entity';
@@ -137,7 +137,10 @@ export class UserRepository {
           enterpriseId: normalizedEnterpriseId,
         })
         .where('user.status = :activeStatus', { activeStatus: UserStatusTypes.ACTIVE })
-        .andWhere('userEnterprise.role != :signingsRole', { signingsRole: 'signings' })
+        .leftJoin('userEnterprise.enterpriseRole', 'enterpriseRole')
+        .andWhere('(enterpriseRole.role IS NULL OR enterpriseRole.role != :signingsRole)', {
+          signingsRole: 'signings',
+        })
         .distinct(true)
         .getCount();
 
@@ -395,7 +398,7 @@ export class UserRepository {
    * @returns El usuario añadido
    */
   async addUserToEnterprise(userEnterprise: CreateUserEnterpriseDto): Promise<UserEnterprise> {
-    this.logger.log(`Vinculando usuario ${userEnterprise.userId} con empresa ${userEnterprise.enterpriseId} (Rol: ${userEnterprise.role})`);
+    this.logger.log(`Vinculando usuario ${userEnterprise.userId} con empresa ${userEnterprise.enterpriseId} (rol ${userEnterprise.enterpriseRoleId})`);
     
     try {
       const result = await this.userEnterpriseRepository.save(userEnterprise);
@@ -446,15 +449,15 @@ export class UserRepository {
    *
    * @param userId - ID del usuario
    * @param enterpriseId - ID de la empresa
-   * @param role - Nuevo rol a persistir en `user_enterprise.role`
+   * @param enterpriseRoleId - UUID de `enterprise_roles` de la misma empresa
    */
   async updateUserEnterpriseRole(
     userId: string,
     enterpriseId: string,
-    role: string,
+    enterpriseRoleId: string,
   ): Promise<void> {
     this.logger.log(
-      `Actualizando role en user_enterprise para usuario ${userId}, empresa ${enterpriseId}`,
+      `Actualizando enterprise_role_id en user_enterprise para usuario ${userId}, empresa ${enterpriseId}`,
     );
     const link = await this.userEnterpriseRepository.findOne({
       where: { userId, enterpriseId },
@@ -468,7 +471,7 @@ export class UserRepository {
         HttpStatus.NOT_FOUND,
       );
     }
-    link.role = role;
+    link.enterpriseRoleId = enterpriseRoleId;
     await this.userEnterpriseRepository.save(link);
   }
 }

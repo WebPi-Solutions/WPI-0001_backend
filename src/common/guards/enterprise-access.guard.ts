@@ -10,7 +10,7 @@ import {
   REQUIRE_ENTERPRISE_ID_KEY,
   SKIP_ENTERPRISE_ACCESS_KEY,
 } from 'src/common/decorators/enterprise-access.decorator';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 
 /**
  * Guard global de pertenencia a empresa.

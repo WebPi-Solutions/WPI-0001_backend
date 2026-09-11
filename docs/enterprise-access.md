@@ -4,6 +4,8 @@ Capa de **autorización multi-empresa**: un usuario autenticado de la empresa X 
 
 No es un segundo middleware HTTP. Firebase sigue resolviendo **quién eres**. Esta capa resuelve **a qué empresas puedes acceder**.
 
+La tercera capa (**qué puedes hacer** dentro de esa empresa) está en [Permisos de rol de empresa](./enterprise-permissions.md). Toda ruta nueva o cambiada debe cumplir **ambas**.
+
 ## Por qué no un middleware nuevo
 
 `FirebaseMiddleware` valida el Bearer token y carga `req.user`. Un middleware extra para empresas fallaría en tres puntos:
@@ -18,22 +20,23 @@ Billing ya hacía el patrón correcto (`req.user.id` → `user_enterprise` → 4
 flowchart TD
   request[Petición HTTP] --> firebaseMw[FirebaseMiddleware]
   firebaseMw --> identity["req.user identidad"]
-  identity --> guard[EnterpriseAccessGuard]
-  guard --> allowed["req.accessContext empresas permitidas"]
-  allowed --> interceptor[EnterpriseAccessContextInterceptor]
+  identity --> tenantGuard[EnterpriseAccessGuard]
+  tenantGuard --> allowed["req.accessContext empresas y permisos"]
+  allowed --> permGuard[EnterprisePermissionGuard]
+  permGuard --> interceptor[EnterpriseAccessContextInterceptor]
   interceptor --> controller[Controller]
   controller --> service[Service]
-  service --> entityCheck["assertEntityAccessible"]
+  service --> entityCheck["assertEntityAccessible + permiso"]
   entityCheck --> db[(Postgres)]
 ```
 
 Orden real en Nest: middleware → guards → interceptors → handler.
 
-## Tres capas
+## Cuatro capas
 
 ### 1. Identidad — `FirebaseMiddleware`
 
-Fichero: [`src/middleware/firebase/firebase.middleware.ts`](../src/middleware/firebase/firebase.middleware.ts).
+Fichero: [`src/common/middleware/firebase/firebase.middleware.ts`](../src/common/middleware/firebase/firebase.middleware.ts).
 
 - Exige `Authorization: Bearer <token>`.
 - Verifica el token con Firebase Admin.
@@ -44,7 +47,7 @@ No decide si el usuario pertenece a una empresa. Solo deja `req.user` listo.
 
 ### 2. Contexto de acceso — `EnterpriseAccessService`
 
-Fichero: [`src/helpers/enterprise-access/enterprise-access.service.ts`](../src/helpers/enterprise-access/enterprise-access.service.ts).
+Fichero: [`src/common/helpers/enterprise-access/enterprise-access.service.ts`](../src/common/helpers/enterprise-access/enterprise-access.service.ts).
 
 A partir de `req.user` construye un `AccessContext`:
 
@@ -53,6 +56,7 @@ A partir de `req.user` construye un `AccessContext`:
 | `userId` | `users.id` del caller |
 | `isGlobalAdmin` | `users.role === administrator` |
 | `allowedEnterpriseIds` | UUID únicos de `user_enterprise` |
+| `permissionsByEnterpriseId` | JSONB del rol de cada vínculo (`enterprise_roles.permissions`) |
 
 Un administrador global **salta el aislamiento** (panel Administración / CRUD de empresas). El resto solo opera sobre su set.
 
@@ -64,6 +68,8 @@ Métodos que importan en el día a día:
 | `assertEntityAccessible` | Tras cargar un recurso por id (servicios) | **404** (no revelar que existe) |
 | `assertUserRecordAccessible` | Ver o editar otro usuario | **404** si no es él mismo, no comparte empresa y no es admin |
 | `assertCanCreateEnterprise` | `POST /enterprises` | **403** si no es admin global |
+| `assertCanPerformEnterprisePermission` | Hay `enterpriseId` y la ruta exige un permiso | **403** (deny by default) |
+| `assertCurrentUserResourcePermission` | `GET/PATCH/DELETE /users/:id` sin query | **403** si no hay concesión en una empresa compartida |
 | `mergeRelationNames` | Forzar `client` / `supplier` / `userEnterprises` en el `findById` | — |
 
 Los servicios **no** reciben `Request`. El interceptor copia `req.accessContext` a AsyncLocalStorage; `assertCurrentEntityAccessible` lee ese almacén.
@@ -83,6 +89,24 @@ Registrado como `APP_GUARD` en [`api.module.ts`](../src/api/api.module.ts). En c
 Si no hay `req.user` (ruta pública o el middleware no corrió), el guard deja pasar. La autenticación sigue siendo responsabilidad de Firebase.
 
 Esto cierra el agujero de `GET /clients?enterpriseId=Y` sin pertenecer a Y.
+
+### 4. Permisos de rol de empresa — `EnterprisePermissionGuard`
+
+Guía completa: [Permisos de rol de empresa](./enterprise-permissions.md).
+
+Fichero: [`src/common/guards/enterprise-permission.guard.ts`](../src/common/guards/enterprise-permission.guard.ts).
+
+Tercera capa de **autorización** (después de identidad y pertenencia). El JSONB de `enterprise_roles.permissions` es **disperso**: una clave ausente se deniega. El catálogo vive en código (`permission.catalog.ts`), no en una tabla.
+
+- `@RequirePermission('clients', 'read')` en cada ruta de `src/api`.
+- Si hay `enterpriseId` → evalúa el JSONB del rol de esa empresa. Sin concesión → **403**.
+- Si no hay `enterpriseId` (UUID) → el guard deja pasar; el servicio llama a `assertCurrentEntityAccessible(..., { resource, action })` tras el `findById`.
+- `users.role === administrator` **se salta el RBAC**, igual que el aislamiento de tenant.
+- El rol de empresa `Administrador` persiste `{"*":{"read":true,"write":true,"delete":true}}`.
+- El rol `Empleado` persiste `{}` (sin concesiones iniciales). No se puede borrar.
+- `@SkipEnterprisePermission()` o `@SkipEnterpriseAccess()` omiten esta capa (`/users/myself`, catálogo Stripe, `POST /enterprises`, `DELETE /enterprises/:id`). El borrado de empresa lo autoriza `assertCanDeleteEnterprise` (solo admin global).
+
+No hay grants extra por usuario: solo el rol del vínculo `user_enterprise.enterprise_role_id`.
 
 ## Decoradores
 
@@ -149,11 +173,13 @@ El Guard no ve el cuerpo completo de un `PATCH /invoices/:id`. Los servicios deb
 
 ## Cómo añadir un endpoint nuevo
 
+El aislamiento por empresa **no basta**. Cada ruta de `src/api` también exige un permiso de rol. Checklist de RBAC: [Permisos de rol de empresa](./enterprise-permissions.md#cómo-añadir-o-cambiar-un-endpoint-obligatorio).
+
 1. **Listado o create con `enterpriseId` en query/body**  
-   Poner `@RequireEnterpriseId()` en el método o en el controlador. El Guard basta para esa petición.
+   Poner `@RequireEnterpriseId()` **y** `@RequirePermission(recurso, acción)` en el método o en el controlador. El Guard de tenant no sustituye al de permisos.
 
 2. **Get / update / delete / fichero por UUID**  
-   Tras el `findById`, llamar a `assertCurrentEntityAccessible(entity.enterpriseId, '… no encontrado')`.  
+   Tras el `findById`, llamar a `assertCurrentEntityAccessible(entity.enterpriseId, '… no encontrado', { resource, action })`.  
    Si el tenant no está en la entidad, cargar la relación (`client` / `supplier`) con `mergeRelationNames`.
 
 3. **Catálogo, perfil propio, health**  
@@ -163,7 +189,9 @@ El Guard no ve el cuerpo completo de un `PATCH /invoices/:id`. Los servicios deb
 
 5. **No** meter `enterpriseId` en el token de Firebase. El vínculo cambia y Firebase no es la fuente de `user_enterprise`.
 
-6. Esta capa **no** comprueba roles de empresa (`employee` / `administrator` / `signings`). Eso es autorización fina y se puede añadir después en el mismo `EnterpriseAccessService`.
+6. **Permiso de rol.** Añadir `@RequirePermission(recurso, acción)` en el controlador. En rutas por UUID, pasar `{ resource, action }` a `assertCurrentEntityAccessible`. Deny by default; no inventar recursos fuera de `PERMISSION_RESOURCES`.
+
+7. **Alta de empresa.** `EnterpriseService.create` siembra `Administrador` (`*`) y `Empleado` (`{}`). Esos dos roles no se pueden borrar; el Administrador tampoco puede cambiar de permisos. El alta de usuario sin `enterpriseRoleId` asigna `Empleado`.
 
 En tests de servicios, mockear al menos:
 
@@ -184,13 +212,18 @@ En tests de servicios, mockear al menos:
 
 | Fichero | Rol |
 |---|---|
-| `src/middleware/firebase/firebase.middleware.ts` | Token + `req.user` (+ `userEnterprises`) |
-| `src/helpers/enterprise-access/access-context.ts` | Tipo `AccessContext` |
-| `src/helpers/enterprise-access/enterprise-access.storage.ts` | AsyncLocalStorage de la petición |
-| `src/helpers/enterprise-access/enterprise-access.service.ts` | Contexto, 403 de empresa, 404 de entidad |
+| `src/common/middleware/firebase/firebase.middleware.ts` | Token + `req.user` (+ `userEnterprises`) |
+| `src/common/helpers/enterprise-access/access-context.ts` | Tipo `AccessContext` |
+| `src/common/helpers/enterprise-access/enterprise-access.storage.ts` | AsyncLocalStorage de la petición |
+| `src/common/helpers/enterprise-access/enterprise-access.service.ts` | Contexto, 403 de empresa, 404 de entidad, 403 de permiso |
+| `src/common/helpers/enterprise-permission/permission.catalog.ts` | Recursos, acciones, plantillas Administrador / Empleado |
+| `src/common/helpers/enterprise-permission/permission.evaluator.ts` | Deny by default y comodín `*` |
 | `src/common/decorators/enterprise-access.decorator.ts` | `@SkipEnterpriseAccess` / `@RequireEnterpriseId` |
-| `src/common/guards/enterprise-access.guard.ts` | Guard global |
+| `src/common/decorators/enterprise-permission.decorator.ts` | `@RequirePermission` / `@SkipEnterprisePermission` |
+| `src/common/guards/enterprise-access.guard.ts` | Guard global de tenant |
+| `src/common/guards/enterprise-permission.guard.ts` | Guard global de RBAC |
 | `src/common/interceptors/enterprise-access-context.interceptor.ts` | Copia el contexto al ALS |
-| `src/api/api.module.ts` | `APP_GUARD` + `APP_INTERCEPTOR` |
+| `src/api/enterprise-role/` | CRUD de roles y `GET /enterprise-roles/catalog` |
+| `src/api/api.module.ts` | `APP_GUARD` (tenant + permisos) + `APP_INTERCEPTOR` |
 
-Tests de referencia: `enterprise-access.service.spec.ts` y `enterprise-access.guard.spec.ts` (permitido, 403, skip, bypass de administrador).
+Tests de referencia: `enterprise-access.service.spec.ts`, `enterprise-permission.guard.spec.ts` y `test/e2e/access/permissions.e2e-spec.ts`.

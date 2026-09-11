@@ -2,8 +2,8 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Supplier } from './supplier.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/helpers/query-builder/query-builder.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/common/helpers/query-builder/query-builder.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 
 @Injectable()
 export class SupplierRepository {

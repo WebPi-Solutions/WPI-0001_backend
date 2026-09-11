@@ -1,8 +1,8 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { VacationRepository } from 'src/entities/vacation/vacation-repository.service';
 import { Vacation } from 'src/entities/vacation/vacation.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { DeleteResult } from 'typeorm';
 import { CreateVacationDto } from './dto/create-vacation.dto';
 import { UpdateVacationDto } from './dto/update-vacation.dto';

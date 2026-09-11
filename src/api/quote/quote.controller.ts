@@ -1,11 +1,12 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { QuoteService } from './quote.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
 import { QuoteResponseDto } from 'src/entities/quote/dto/quote-response.dto';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 
 @ApiTags('Cotizaciones')
 @Controller('quotes')
@@ -21,6 +22,7 @@ export class QuoteController {
    * @returns La cotización creada
    */
   @Post()
+  @RequirePermission('quotes', 'write')
   @MapResponse(QuoteResponseDto)
   @ApiOperation({ summary: 'Crear una nueva cotización' })
   @ApiOkResponse({ type: QuoteResponseDto, description: 'Cotización creada (vista pública).' })
@@ -36,6 +38,7 @@ export class QuoteController {
    * @returns Las cotizaciones
    */
   @Get()
+  @RequirePermission('quotes', 'read')
   @RequireEnterpriseId()
   @MapResponse(QuoteResponseDto)
   @ApiOperation({ summary: 'Obtener todas las cotizaciones' })
@@ -93,6 +96,7 @@ export class QuoteController {
    * @returns La cotización
    */
   @Get(':id')
+  @RequirePermission('quotes', 'read')
   @MapResponse(QuoteResponseDto)
   @ApiOperation({ summary: 'Obtener una cotización por su id' })
   @ApiOkResponse({ type: QuoteResponseDto, description: 'Cotización (vista pública).' })
@@ -111,6 +115,7 @@ export class QuoteController {
    * @returns La cotización actualizada
    */
   @Patch(':id')
+  @RequirePermission('quotes', 'write')
   @MapResponse(QuoteResponseDto)
   @ApiOperation({ summary: 'Actualizar una cotización por su id' })
   @ApiOkResponse({ type: QuoteResponseDto, description: 'Cotización actualizada (vista pública).' })
@@ -128,6 +133,7 @@ export class QuoteController {
    * @returns La cotización actualizada
    */
   @Patch(':id/status')
+  @RequirePermission('quotes', 'write')
   @MapResponse(QuoteResponseDto)
   @ApiOperation({ summary: 'Actualizar el estado de una cotización por su ID a un estado diferente a borrador' })
   @ApiOkResponse({ type: QuoteResponseDto, description: 'Cotización actualizada (vista pública).' })
@@ -144,6 +150,7 @@ export class QuoteController {
    * @returns La cotización eliminada
    */
   @Delete(':id')
+  @RequirePermission('quotes', 'delete')
   @ApiOperation({ summary: 'Eliminar una cotización por su id' })
   @ApiResponse({ status: 200, description: 'La cotización ha sido eliminada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })

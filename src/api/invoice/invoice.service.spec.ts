@@ -8,7 +8,7 @@ import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.servi
 import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
 import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recurrent-earning-repository.service';
 import { InvoiceService } from './invoice.service';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 
 describe('InvoiceService', () => {
   let service: InvoiceService;
@@ -141,6 +141,45 @@ describe('InvoiceService', () => {
   });
 
   describe('create', () => {
+    it('exige cliente al validar el tenant de la factura', async () => {
+      await expect(
+        service.create(buildInvoice({ clientId: undefined, client: undefined })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'La factura debe tener un cliente',
+      });
+    });
+
+    it('lanza 404 si el cliente no existe al validar el tenant', async () => {
+      clientRepository.findById.mockResolvedValue(null);
+
+      await expect(service.create(buildInvoice())).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: `Cliente no encontrado con ID: ${clientId}`,
+      });
+    });
+
+    it('exige serie al validar el tenant de la factura', async () => {
+      clientRepository.findById.mockResolvedValue(buildClient());
+
+      await expect(
+        service.create(buildInvoice({ seriesId: undefined, series: undefined })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'La factura debe tener una serie',
+      });
+    });
+
+    it('lanza 404 si la serie no existe al validar el tenant', async () => {
+      clientRepository.findById.mockResolvedValue(buildClient());
+      invoiceSeriesRepository.findById.mockResolvedValue(null);
+
+      await expect(service.create(buildInvoice())).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Serie de factura no encontrada',
+      });
+    });
+
     it('crea un borrador sin numerar ni copiar datos persistentes', async () => {
       const draftInvoice = buildInvoice({ status: InvoiceStatus.DRAFT });
       mockTenantAccessibleSources();

@@ -1,7 +1,7 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Client } from '../client/client.entity';
 import { InvoiceSeries } from '../invoice-series/invoice-series.entity';
-import { Concept } from '../../models/Concept';
+import { Concept } from 'src/common/models/Concept';
 import { Quote } from '../quote/quote.entity';
 import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 

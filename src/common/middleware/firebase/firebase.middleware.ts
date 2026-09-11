@@ -4,7 +4,7 @@ import { Request, Response, NextFunction } from 'express';
 import { firebaseAdmin } from './firebase.service';
 import { User } from 'src/entities/user/user.entity';
 import { UserRepository } from 'src/entities/user/user-repository.service';
-import { AccessContext } from 'src/helpers/enterprise-access/access-context';
+import { AccessContext } from 'src/common/helpers/enterprise-access/access-context';
 
 //Creamos esta interfaz para poder acceder al dato 'user' que será el correo obtenido de firebase en los siguientes controllers.
 declare global {
@@ -42,6 +42,7 @@ export class FirebaseMiddleware implements NestMiddleware {
       // Busca el usuario en la base de datos
       const user: User = await this.userRepository.findByEmail(decodedToken.email, [
         'userEnterprises',
+        'userEnterprises.enterpriseRole',
       ]);
       if(user){
         req.user = user

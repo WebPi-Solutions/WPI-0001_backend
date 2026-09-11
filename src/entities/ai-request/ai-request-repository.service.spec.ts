@@ -1,4 +1,4 @@
-jest.mock('src/helpers/query-builder/query-builder.service', () => ({
+jest.mock('src/common/helpers/query-builder/query-builder.service', () => ({
   QueryBuilderService: {
     getCount: jest.fn().mockResolvedValue(0),
     getPaginatedResults: jest.fn().mockResolvedValue({
@@ -13,7 +13,7 @@ jest.mock('src/helpers/query-builder/query-builder.service', () => ({
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { QueryBuilderService } from 'src/helpers/query-builder/query-builder.service';
+import { QueryBuilderService } from 'src/common/helpers/query-builder/query-builder.service';
 import { AiRequest, AiRequestType } from './ai-request.entity';
 import { AiRequestRepository } from './ai-request-repository.service';
 
@@ -52,6 +52,7 @@ describe('AiRequestRepository', () => {
       currentPage: 1,
       totalPages: 0,
     });
+    (QueryBuilderService.getCount as jest.Mock).mockResolvedValue(0);
 
     typeOrmRepositoryMock = {
       save: jest.fn(),
@@ -90,6 +91,99 @@ describe('AiRequestRepository', () => {
 
       expect(typeOrmRepositoryMock.save).toHaveBeenCalledWith(requestToCreate);
       expect(result.id).toBe('ai-request-uuid');
+    });
+  });
+
+  describe('count', () => {
+    it('cuenta peticiones con valores por defecto', async () => {
+      await aiRequestRepositoryService.count();
+
+      expect(QueryBuilderService.getCount).toHaveBeenCalledWith(
+        typeOrmRepositoryMock,
+        'aiRequest',
+        {},
+        undefined,
+      );
+    });
+
+    it('cuenta peticiones con relaciones convertidas a JOIN sin select', async () => {
+      const filter = { enterpriseId: 'enterprise-uuid' };
+      (QueryBuilderService.getCount as jest.Mock).mockResolvedValue(3);
+
+      const result = await aiRequestRepositoryService.count(filter, ['enterprise']);
+
+      expect(QueryBuilderService.getCount).toHaveBeenCalledWith(
+        typeOrmRepositoryMock,
+        'aiRequest',
+        filter,
+        [
+          {
+            property: 'enterprise',
+            alias: 'enterprise',
+            isLeftJoinAndSelect: false,
+          },
+        ],
+      );
+      expect(result).toBe(3);
+    });
+  });
+
+  describe('getListViewCounts', () => {
+    it('devuelve total, emisor y conceptos con tres conteos', async () => {
+      (QueryBuilderService.getCount as jest.Mock)
+        .mockResolvedValueOnce(10)
+        .mockResolvedValueOnce(4)
+        .mockResolvedValueOnce(6);
+
+      const result = await aiRequestRepositoryService.getListViewCounts(
+        'enterprise-uuid',
+        { correlationId_ilike: '1111' },
+      );
+
+      expect(QueryBuilderService.getCount).toHaveBeenCalledTimes(3);
+      expect(QueryBuilderService.getCount).toHaveBeenNthCalledWith(
+        1,
+        typeOrmRepositoryMock,
+        'aiRequest',
+        { enterpriseId: 'enterprise-uuid', correlationId_ilike: '1111' },
+        undefined,
+      );
+      expect(QueryBuilderService.getCount).toHaveBeenNthCalledWith(
+        2,
+        typeOrmRepositoryMock,
+        'aiRequest',
+        {
+          enterpriseId: 'enterprise-uuid',
+          correlationId_ilike: '1111',
+          type: AiRequestType.GET_SPENT_ISSUER,
+        },
+        undefined,
+      );
+      expect(QueryBuilderService.getCount).toHaveBeenNthCalledWith(
+        3,
+        typeOrmRepositoryMock,
+        'aiRequest',
+        {
+          enterpriseId: 'enterprise-uuid',
+          correlationId_ilike: '1111',
+          type: AiRequestType.GET_SPENT_CONCEPTS,
+        },
+        undefined,
+      );
+      expect(result).toEqual({ total: 10, issuer: 4, concepts: 6 });
+    });
+
+    it('usa filtro vacío por defecto', async () => {
+      await aiRequestRepositoryService.getListViewCounts('enterprise-uuid');
+
+      expect(QueryBuilderService.getCount).toHaveBeenCalledTimes(3);
+      expect(QueryBuilderService.getCount).toHaveBeenNthCalledWith(
+        1,
+        typeOrmRepositoryMock,
+        'aiRequest',
+        { enterpriseId: 'enterprise-uuid' },
+        undefined,
+      );
     });
   });
 

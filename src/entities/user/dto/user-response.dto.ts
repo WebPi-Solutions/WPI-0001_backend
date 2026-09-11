@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
 import { DefaultScheduleResponseDto } from 'src/entities/default-schedule/dto/default-schedule-response.dto';
 import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
+import { EnterpriseRoleResponseDto } from 'src/entities/enterprise-role/dto/enterprise-role-response.dto';
 import { UserRoleTypes, UserStatusTypes } from 'src/entities/user/user.entity';
 
 /**
@@ -114,11 +115,23 @@ export class UserEnterpriseResponseDto {
   enterpriseId: string;
 
   /**
-   * Rol del usuario en la empresa
+   * UUID del rol de empresa
    */
-  @ApiProperty({ description: 'Rol del usuario dentro de la empresa' })
+  @ApiProperty({ description: 'UUID del rol de empresa asignado' })
   @Expose()
-  role: string;
+  enterpriseRoleId: string;
+
+  /**
+   * Rol de empresa expandido (nombre y permisos) si se cargó la relación.
+   */
+  @ApiProperty({
+    description: 'Rol de empresa asociado al vínculo',
+    type: () => EnterpriseRoleResponseDto,
+    required: false,
+  })
+  @Expose()
+  @Type(() => EnterpriseRoleResponseDto)
+  enterpriseRole?: EnterpriseRoleResponseDto;
 
   /**
    * Identificador de tarjeta o credencial en el ámbito de la empresa

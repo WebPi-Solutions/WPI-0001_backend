@@ -1,11 +1,11 @@
-jest.mock('src/middleware/firebase/firebase.service', () => ({
+jest.mock('src/common/middleware/firebase/firebase.service', () => ({
   firebaseAdmin: {
     auth: jest.fn(),
   },
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { firebaseAdmin } from 'src/middleware/firebase/firebase.service';
+import { firebaseAdmin } from 'src/common/middleware/firebase/firebase.service';
 import { FirebaseService } from './firebase.service';
 
 describe('FirebaseService', () => {

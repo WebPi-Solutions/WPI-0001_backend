@@ -2,7 +2,7 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { SpentRepository } from 'src/entities/spent/spent-repository.service';
 import { Spent } from 'src/entities/spent/spent.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { DeleteResult } from 'typeorm';
 import { DropboxService } from 'src/services/dropbox/dropbox.service';
 import { MulterFile } from 'multer';
@@ -16,8 +16,8 @@ import { FileService } from 'src/services/file/file.service';
 import { ExtractedSpentConceptsResult, ExtractedSpentIssuerResult, OpenaiService } from 'src/services/openai/openai.service';
 import { SupplierRepository } from 'src/entities/supplier/supplier-repository.service';
 import { Supplier } from 'src/entities/supplier/supplier.entity';
-import { SpentConcept } from 'src/models/Concept';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { SpentConcept } from 'src/common/models/Concept';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { AiRequestService } from 'src/api/ai-request/ai-request.service';
 import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
 
@@ -113,7 +113,7 @@ export class SpentService {
     }
 
     this.logger.log(`Gasto encontrado: ${spent.name} (ID: ${spent.id})`);
-    this.assertSpentAccessible(spent);
+    this.assertSpentAccessible(spent, 'read');
     return spent;
   }
 
@@ -131,7 +131,7 @@ export class SpentService {
     if (!existingSpent) {
       throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
     }
-    this.assertSpentAccessible(existingSpent);
+    this.assertSpentAccessible(existingSpent, 'write');
 
     const mergedSpent = {
       ...existingSpent,
@@ -167,7 +167,7 @@ export class SpentService {
       // Obtener el gasto a partir de su ID
       const spent = await this.spentRepository.findById(spentId, ['supplier']);
       if (!spent) throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
-      this.assertSpentAccessible(spent);
+      this.assertSpentAccessible(spent, 'write');
       
       // Construir la ruta de Dropbox para el archivo
       const dropboxPath = this.spentRepository.getSpentFilePath(spent.supplier.enterpriseId, spentId);
@@ -587,7 +587,7 @@ export class SpentService {
        // Verificar si el gasto existe y tiene un archivo
        const spent = await this.spentRepository.findById(spentId, ['supplier']);
        if (!spent) throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
-       this.assertSpentAccessible(spent);
+       this.assertSpentAccessible(spent, 'read');
 
        if (!spent.file) {
          throw new HttpException('El gasto no tiene ningún archivo adjunto', HttpStatus.NOT_FOUND);
@@ -638,7 +638,7 @@ export class SpentService {
       // Verificar si el gasto tiene un documento asociado
       const spent = await this.spentRepository.findById(spentId, ['supplier']);
       if (!spent) throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
-      this.assertSpentAccessible(spent);
+      this.assertSpentAccessible(spent, 'delete');
       
       // Si tiene un documento, intentar eliminarlo de Dropbox
       if (spent && spent.file) {
@@ -674,7 +674,7 @@ export class SpentService {
       // Verificar si el gasto tiene un documento asociado
       const spent = await this.spentRepository.findById(spentId, ['supplier']);
       if (!spent) throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
-      this.assertSpentAccessible(spent);
+      this.assertSpentAccessible(spent, 'delete');
       
       // Si tiene un documento, intentar eliminarlo de Dropbox
       if (spent && spent.file) {
@@ -708,7 +708,7 @@ export class SpentService {
       // Verificar si el gasto existe
       const spent = await this.spentRepository.findById(spentId, ['supplier']);
       if (!spent) throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
-      this.assertSpentAccessible(spent);
+      this.assertSpentAccessible(spent, 'write');
       
       // Verificar si la empresa es la misma
       if (spent.supplier.enterpriseId === oldEnterpriseId) {
@@ -765,7 +765,8 @@ export class SpentService {
       this.enterpriseAccessService.assertCurrentEntityAccessible(
         supplier.enterpriseId,
         'Gasto no encontrado',
-      );
+        { resource: 'spents', action: 'write' },
+        );
       supplierEnterpriseIds.add(supplier.enterpriseId);
     }
 
@@ -778,14 +779,19 @@ export class SpentService {
   }
 
   /**
-   * Comprueba que el gasto pertenece a una empresa accesible para el caller.
+   * Comprueba tenant y permiso sobre el gasto.
    *
    * @param spent - Gasto con relación `supplier` cargada
+   * @param action - Acción del catálogo exigida
    */
-  private assertSpentAccessible(spent: Spent): void {
+  private assertSpentAccessible(
+    spent: Spent,
+    action: 'read' | 'write' | 'delete',
+  ): void {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       spent.supplier?.enterpriseId,
       'Gasto no encontrado',
+      { resource: 'spents', action },
     );
   }
 }

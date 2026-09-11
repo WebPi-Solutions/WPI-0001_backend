@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Client } from '../client/client.entity';
-import { Concept } from '../../models/Concept';
+import { Concept } from 'src/common/models/Concept';
 import { Invoice } from '../invoice/invoice.entity';
 
 export enum QuoteStatus {

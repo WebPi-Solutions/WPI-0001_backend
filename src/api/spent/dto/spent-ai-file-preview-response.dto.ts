@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { SpentConcept } from 'src/models/Concept';
+import { SpentConcept } from 'src/common/models/Concept';
 
 /**
  * Datos del emisor extraídos por IA para crear un proveedor si no existe en la empresa.

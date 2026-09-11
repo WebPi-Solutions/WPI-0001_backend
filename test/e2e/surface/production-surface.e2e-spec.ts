@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { coverDtoClass, invokeTypeOrmMetadataCallbacks } from 'src/test-utils/cover-data-classes';
-import { Concept, SpentConcept } from 'src/models/Concept';
-import { swaggerMiddleware } from 'src/middleware/swagger/swagger.middleware';
+import { Concept, SpentConcept } from 'src/common/models/Concept';
+import { swaggerMiddleware } from 'src/common/middleware/swagger/swagger.middleware';
 import { ClientResponseDto } from 'src/entities/client/dto/client-response.dto';
 import { SupplierResponseDto } from 'src/entities/supplier/dto/supplier-response.dto';
 import { InvoiceResponseDto } from 'src/entities/invoice/dto/invoice-response.dto';

@@ -1,14 +1,15 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DefaultScheduleRepository } from 'src/entities/default-schedule/default-schedule-repository.service';
 import { CreateUserEnterpriseDto } from 'src/entities/user/dto/create-user-enterprise.dto';
 import { CreateUserDto } from 'src/entities/user/dto/create-user.dto';
 import { UserEnterprise } from 'src/entities/user/user-enterprise.entity';
 import { UserRepository } from 'src/entities/user/user-repository.service';
 import { User, UserStatusTypes } from 'src/entities/user/user.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { DeleteResult } from 'typeorm';
 import { FirebaseService } from 'src/services/firebase/firebase.service';
+import { EnterpriseRoleService } from 'src/api/enterprise-role/enterprise-role.service';
 
 @Injectable()
 export class UserService {
@@ -19,6 +20,7 @@ export class UserService {
     private readonly firebaseService: FirebaseService,
     private readonly enterpriseAccessService: EnterpriseAccessService,
     private readonly defaultScheduleRepository: DefaultScheduleRepository,
+    private readonly enterpriseRoleService: EnterpriseRoleService,
   ) {}
 
   /**
@@ -153,7 +155,10 @@ export class UserService {
       enterpriseId,
     );
 
-    const role = user.userEnterprises[0].role;
+    const requestedEnterpriseRoleId = await this.resolveEnterpriseRoleIdForLink(
+      enterpriseId,
+      user.userEnterprises[0],
+    );
 
     /** FK resuelta para `user_enterprise.default_schedule_id` al vincular con esta empresa. */
     const resolvedDefaultScheduleForCreation =
@@ -211,7 +216,7 @@ export class UserService {
       const userEnterprise: CreateUserEnterpriseDto = {
         userId: existingUser.id,
         enterpriseId,
-        role,
+        enterpriseRoleId: requestedEnterpriseRoleId,
         cardId: nextCardIdForLink,
         defaultScheduleId: resolvedDefaultScheduleForCreation,
       };
@@ -283,7 +288,7 @@ export class UserService {
       const userEnterprise: CreateUserEnterpriseDto = {
         userId: newUser.id,
         enterpriseId,
-        role,
+        enterpriseRoleId: requestedEnterpriseRoleId,
         cardId: nextCardId,
         defaultScheduleId: resolvedDefaultScheduleForCreation,
       };
@@ -394,6 +399,12 @@ export class UserService {
       userFound,
       'Usuario no encontrado',
     );
+    this.enterpriseAccessService.assertCurrentUserResourcePermission(
+      userFound,
+      'users',
+      'read',
+      { allowSelfBypass: true },
+    );
     return this.redactForeignUserEnterprises(userFound);
   }
 
@@ -418,6 +429,12 @@ export class UserService {
     this.enterpriseAccessService.assertCurrentUserRecordAccessible(
       userFound,
       'Usuario no encontrado',
+    );
+    this.enterpriseAccessService.assertCurrentUserResourcePermission(
+      userFound,
+      'users',
+      'read',
+      { allowSelfBypass: true },
     );
     return this.redactForeignUserEnterprises(userFound);
   }
@@ -519,6 +536,11 @@ export class UserService {
         targetUser,
         'Usuario no encontrado',
       );
+      this.enterpriseAccessService.assertCurrentUserResourcePermission(
+        targetUser,
+        'users',
+        'write',
+      );
 
       if (enterpriseId) {
         await this.enterpriseAccessService.assertUserBelongsToEnterprise(
@@ -568,17 +590,17 @@ export class UserService {
       }
 
       // Actualización de rol en el vínculo usuario–empresa (si se envía en el body).
-      // Se acepta el patrón `userEnterprises: [{ role: '...' }]` desde el frontend, pero no se persiste
-      // como relación; se aplica como UPDATE sobre la fila del vínculo para la empresa activa.
+      // Se acepta `userEnterprises: [{ enterpriseRoleId }]` y se aplica sobre el vínculo de la empresa activa.
       const userPayloadWithEnterprises = user as Partial<User> & {
-        userEnterprises?: Array<{ role?: string | null }> | null;
+        userEnterprises?: Array<{ enterpriseRoleId?: string | null }> | null;
       };
-      const requestedRole = userPayloadWithEnterprises.userEnterprises?.[0]?.role ?? null;
-      const requestedRoleNormalized =
-        typeof requestedRole === 'string' ? requestedRole.trim() : '';
+      const requestedRoleId =
+        userPayloadWithEnterprises.userEnterprises?.[0]?.enterpriseRoleId ?? null;
+      const requestedRoleIdNormalized =
+        typeof requestedRoleId === 'string' ? requestedRoleId.trim() : '';
       const shouldUpdateEnterpriseRole =
         Object.prototype.hasOwnProperty.call(user as object, 'userEnterprises') &&
-        requestedRoleNormalized !== '';
+        requestedRoleIdNormalized !== '';
       if (shouldUpdateEnterpriseRole) {
         if (!enterpriseId) {
           this.logger.warn(
@@ -589,10 +611,14 @@ export class UserService {
             HttpStatus.BAD_REQUEST,
           );
         }
+        await this.enterpriseRoleService.assertRoleBelongsToEnterprise(
+          requestedRoleIdNormalized,
+          enterpriseId,
+        );
         await this.userRepository.updateUserEnterpriseRole(
           id,
           enterpriseId,
-          requestedRoleNormalized,
+          requestedRoleIdNormalized,
         );
       }
 
@@ -630,6 +656,11 @@ export class UserService {
     this.enterpriseAccessService.assertCurrentUserRecordAccessible(
       user,
       'Usuario no encontrado',
+    );
+    this.enterpriseAccessService.assertCurrentUserResourcePermission(
+      user,
+      'users',
+      'delete',
     );
 
     await this.enterpriseAccessService.assertUserEnterpriseLinkExists(
@@ -716,7 +747,7 @@ export class UserService {
         {
           userId: resolvedUserId,
           enterpriseId: resolvedEnterpriseId,
-          role: userEnterprise.role,
+          enterpriseRoleId: userEnterprise.enterpriseRoleId,
         },
         null,
         2,
@@ -743,7 +774,10 @@ export class UserService {
       const result = await this.userRepository.addUserToEnterprise({
         userId: resolvedUserId,
         enterpriseId: resolvedEnterpriseId,
-        role: userEnterprise.role,
+        enterpriseRoleId: await this.resolveEnterpriseRoleIdForLink(
+          resolvedEnterpriseId,
+          userEnterprise,
+        ),
         cardId: nextCardId,
       });
       this.logger.log(`Vinculación empresa-usuario creada exitosamente`);
@@ -752,6 +786,33 @@ export class UserService {
       this.logger.error(`Error al vincular usuario a empresa:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Resuelve el UUID de rol de empresa para un vínculo: el informado o, si falta, el rol empleado.
+   *
+   * @param enterpriseId - Empresa del vínculo
+   * @param linkPayload - Cuerpo con `enterpriseRoleId` opcional
+   * @returns UUID de `enterprise_roles` de esa empresa
+   */
+  private async resolveEnterpriseRoleIdForLink(
+    enterpriseId: string,
+    linkPayload: { enterpriseRoleId?: string | null },
+  ): Promise<string> {
+    const requestedRoleId =
+      typeof linkPayload.enterpriseRoleId === 'string'
+        ? linkPayload.enterpriseRoleId.trim()
+        : '';
+    if (requestedRoleId) {
+      await this.enterpriseRoleService.assertRoleBelongsToEnterprise(
+        requestedRoleId,
+        enterpriseId,
+      );
+      return requestedRoleId;
+    }
+    const employeeRole =
+      await this.enterpriseRoleService.getOrCreateEmployeeRole(enterpriseId);
+    return employeeRole.id;
   }
 
   /**

@@ -2,9 +2,9 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Quote, QuoteStatus } from './quote.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryBuilderService, QueryFilterOptions } from 'src/helpers/query-builder/query-builder.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
-import { Concept } from 'src/models/Concept';
+import { QueryBuilderService, QueryFilterOptions } from 'src/common/helpers/query-builder/query-builder.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
+import { Concept } from 'src/common/models/Concept';
 import { QuoteSubtotalsByStatusDto, QuoteStatusMetricsDto } from 'src/api/metrics/dto/quote-subtotals-by-status.dto';
 
 @Injectable()

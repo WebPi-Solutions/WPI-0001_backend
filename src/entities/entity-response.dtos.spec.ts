@@ -4,6 +4,7 @@ import { AiRequestType } from './ai-request/ai-request.entity';
 import { RecurrentEarningType } from './recurrent-earning/recurrent-earning.entity';
 import { SigningAction } from './signing/signing.entity';
 import { UserRoleTypes, UserStatusTypes } from './user/user.entity';
+import { plainToInstance } from 'class-transformer';
 import { coverDtoClass } from 'src/test-utils/cover-data-classes';
 import { InvoiceSeriesResponseDto } from './invoice-series/dto/invoice-series-response.dto';
 import { ClientResponseDto } from './client/dto/client-response.dto';
@@ -22,6 +23,7 @@ import { RecurrentEarningResponseDto } from './recurrent-earning/dto/recurrent-e
 import { UserEnterpriseResponseDto, UserResponseDto } from './user/dto/user-response.dto';
 import { UserEnterpriseResponseDto as ReexportedUserEnterpriseResponseDto } from './user/dto/user-enterprise-response.dto';
 import { EnterpriseResponseDto } from './enterprise/dto/enterprise-response.dto';
+import { EnterpriseRoleResponseDto } from './enterprise-role/dto/enterprise-role-response.dto';
 
 const now = new Date('2026-04-13T08:00:00.000Z');
 
@@ -217,11 +219,21 @@ describe('DTO de respuesta de entidades', () => {
   });
 
   it('debe instanciar vacaciones, horario, plantilla, festivo y fichajes', () => {
+    const enterpriseRole = coverDtoClass(EnterpriseRoleResponseDto, {
+      id: 'role-1',
+      enterpriseId: 'ent-1',
+      role: 'empleado',
+      permissions: {},
+      createdAt: now,
+      updatedAt: now,
+      userCount: 2,
+    });
     const userEnterprise = coverDtoClass(UserEnterpriseResponseDto, {
       id: 'ue-1',
       userId: 'user-1',
       enterpriseId: 'ent-1',
-      role: 'user',
+      enterpriseRoleId: enterpriseRole.id,
+      enterpriseRole,
       cardId: 1,
       defaultScheduleId: 'ds-1',
       createdAt: now,
@@ -313,7 +325,7 @@ describe('DTO de respuesta de entidades', () => {
       id: 'ue-1',
       userId: 'user-1',
       enterpriseId: 'ent-1',
-      role: 'administrator',
+      enterpriseRoleId: 'role-1',
       cardId: 7,
       defaultScheduleId: null,
       defaultSchedule: null,
@@ -341,5 +353,21 @@ describe('DTO de respuesta de entidades', () => {
     expect(user.userEnterprises?.[0].cardId).toBe(7);
     expect(aiRequest.totalTokens).toBe(30);
     expect(ReexportedUserEnterpriseResponseDto).toBe(UserEnterpriseResponseDto);
+  });
+
+  it('normaliza userCount inválido o negativo a 0', () => {
+    const invalidUserCount = plainToInstance(
+      EnterpriseRoleResponseDto,
+      { userCount: 'no-es-numero' },
+      { excludeExtraneousValues: true },
+    );
+    const negativeUserCount = plainToInstance(
+      EnterpriseRoleResponseDto,
+      { userCount: -4 },
+      { excludeExtraneousValues: true },
+    );
+
+    expect(invalidUserCount.userCount).toBe(0);
+    expect(negativeUserCount.userCount).toBe(0);
   });
 });

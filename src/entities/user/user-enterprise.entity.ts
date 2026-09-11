@@ -5,6 +5,7 @@ import { DefaultSchedule } from '../default-schedule/default-schedule.entity';
 import { Signing } from '../signing/signing.entity';
 import { Vacation } from '../vacation/vacation.entity';
 import { WorkSchedule } from '../work-schedule/work-schedule.entity';
+import { EnterpriseRole } from '../enterprise-role/enterprise-role.entity';
 
 /**
  * Entidad UsuarioEmpresa que representa la tabla user_enterprise en la base de datos
@@ -34,10 +35,20 @@ export class UserEnterprise {
   enterpriseId: string;
 
   /**
-   * Rol del usuario en la empresa específica
+   * UUID del rol de empresa (`enterprise_roles`).
    */
-  @Column()
-  role: string;
+  @Column({ name: 'enterprise_role_id' })
+  enterpriseRoleId: string;
+
+  /**
+   * Rol de empresa asignado a este vínculo.
+   */
+  @ManyToOne(() => EnterpriseRole, (enterpriseRole) => enterpriseRole.userEnterprises, {
+    onDelete: 'RESTRICT',
+    nullable: false,
+  })
+  @JoinColumn({ name: 'enterprise_role_id' })
+  enterpriseRole: EnterpriseRole;
 
   /**
    * Identificador de tarjeta o credencial NFC en el ámbito de esta empresa (fichajes).

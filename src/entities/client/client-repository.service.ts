@@ -6,8 +6,8 @@ import {
   QueryBuilderService,
   QueryFilterOptions,
   QueryRelation,
-} from 'src/helpers/query-builder/query-builder.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+} from 'src/common/helpers/query-builder/query-builder.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 
 @Injectable()
 export class ClientRepository {

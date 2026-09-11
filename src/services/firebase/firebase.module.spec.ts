@@ -2,7 +2,7 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { FirebaseService } from './firebase.service';
 import { FirebaseModule } from './firebase.module';
 
-jest.mock('src/middleware/firebase/firebase.service', () => ({
+jest.mock('src/common/middleware/firebase/firebase.service', () => ({
   firebaseAdmin: {
     auth: jest.fn(),
   },

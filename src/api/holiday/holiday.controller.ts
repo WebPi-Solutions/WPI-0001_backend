@@ -12,10 +12,11 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { HolidayResponseDto } from 'src/entities/holiday/dto/holiday-response.dto';
 import { Holiday } from 'src/entities/holiday/holiday.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
 import { UpdateHolidayDto } from './dto/update-holiday.dto';
 import { HolidayService } from './holiday.service';
@@ -36,6 +37,7 @@ export class HolidayController {
    * @returns Festivo creado
    */
   @Post()
+  @RequirePermission('holidays', 'write')
   @MapResponse(HolidayResponseDto)
   @ApiOperation({ summary: 'Crear un festivo' })
   @ApiResponse({ status: 201, description: 'Festivo creado correctamente.' })
@@ -60,6 +62,7 @@ export class HolidayController {
    * @returns Página de festivos
    */
   @Get()
+  @RequirePermission('holidays', 'read')
   @MapResponse(HolidayResponseDto)
   @ApiOperation({ summary: 'Listar festivos por empresa' })
   @ApiResponse({ status: 200, description: 'Listado obtenido correctamente.' })
@@ -113,6 +116,7 @@ export class HolidayController {
    * @returns Festivo
    */
   @Get(':id')
+  @RequirePermission('holidays', 'read')
   @MapResponse(HolidayResponseDto)
   @ApiOperation({ summary: 'Obtener un festivo por id' })
   @ApiResponse({ status: 200, description: 'Festivo encontrado.' })
@@ -141,6 +145,7 @@ export class HolidayController {
    * @returns Festivo actualizado
    */
   @Patch(':id')
+  @RequirePermission('holidays', 'write')
   @MapResponse(HolidayResponseDto)
   @ApiOperation({ summary: 'Actualizar un festivo' })
   @ApiResponse({ status: 200, description: 'Actualización correcta.' })
@@ -167,6 +172,7 @@ export class HolidayController {
    * @returns Resultado del borrado
    */
   @Delete(':id')
+  @RequirePermission('holidays', 'delete')
   @ApiOperation({ summary: 'Eliminar un festivo' })
   @ApiResponse({ status: 200, description: 'Eliminación correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrado.' })

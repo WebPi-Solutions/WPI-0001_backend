@@ -4,7 +4,7 @@ import { Response } from 'express';
 import { Spent } from 'src/entities/spent/spent.entity';
 import { SpentResponseDto } from 'src/entities/spent/dto/spent-response.dto';
 import { SpentService } from './spent.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { MulterFile } from 'multer';
 import { SpentFileUploadDto } from './dto/spent-file-upload.dto';
@@ -12,6 +12,7 @@ import { SpentAiFileUploadDto } from './dto/spent-ai-file-upload.dto';
 import { SpentAiFilePreviewResponseDto } from './dto/spent-ai-file-preview-response.dto';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 
 @ApiTags('Gastos')
 @Controller('spents')
@@ -25,6 +26,7 @@ export class SpentController {
    * @returns El gasto creado
    */
   @Post()
+  @RequirePermission('spents', 'write')
   @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo gasto' })
   @ApiOkResponse({ type: SpentResponseDto, description: 'Gasto creado (vista pública).' })
@@ -43,6 +45,7 @@ export class SpentController {
    * @returns El gasto creado con la ruta del archivo
    */
   @Post('file')
+  @RequirePermission('spents', 'write')
   @UseInterceptors(FileInterceptor('file', {
     limits: {
       fileSize: 10 * 1024 * 1024, // 10MB max file size for spent files
@@ -84,6 +87,7 @@ export class SpentController {
    * @returns Datos del archivo y spentData listo para crear el gasto
    */
   @Post('ai/file')
+  @RequirePermission('spents', 'write')
   @RequireEnterpriseId()
   @UseInterceptors(FileInterceptor('file', {
     limits: {
@@ -149,6 +153,7 @@ export class SpentController {
    * @returns Los gastos
    */
   @Get()
+  @RequirePermission('spents', 'read')
   @RequireEnterpriseId()
   @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Obtener todos los gastos' })
@@ -201,6 +206,7 @@ export class SpentController {
    * @returns El gasto
    */
   @Get(':id')
+  @RequirePermission('spents', 'read')
   @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Obtener un gasto por su id' })
   @ApiOkResponse({ type: SpentResponseDto, description: 'Gasto (vista pública).' })
@@ -219,6 +225,7 @@ export class SpentController {
    * @returns El gasto actualizado
    */
   @Patch(':id')
+  @RequirePermission('spents', 'write')
   @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Actualizar un gasto por su id' })
   @ApiOkResponse({ type: SpentResponseDto, description: 'Gasto actualizado (vista pública).' })
@@ -235,6 +242,7 @@ export class SpentController {
    * @returns El gasto eliminado
    */
   @Delete(':id')
+  @RequirePermission('spents', 'delete')
   @ApiOperation({ summary: 'Eliminar un gasto por su id' })
   @ApiResponse({ status: 200, description: 'El gasto ha sido eliminado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -250,6 +258,7 @@ export class SpentController {
    * @returns El archivo PDF
    */
   @Get(':id/file/download')
+  @RequirePermission('spents', 'read')
   @ApiOperation({ summary: 'Descargar el archivo adjunto de un gasto por su id' })
   @ApiResponse({ status: 200, description: 'El archivo ha sido descargado correctamente.' })
   @ApiResponse({ status: 404, description: 'Gasto o archivo no encontrado.' })
@@ -265,6 +274,7 @@ export class SpentController {
    * @returns El gasto actualizado
    */
   @Delete(':id/file')
+  @RequirePermission('spents', 'delete')
   @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Eliminar el archivo adjunto de un gasto por su id' })
   @ApiOkResponse({ type: SpentResponseDto, description: 'Gasto actualizado (vista pública).' })

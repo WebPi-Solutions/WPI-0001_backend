@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-series-repository.service';
 import { InvoiceSeries } from 'src/entities/invoice-series/invoice-series.entity';
 import { InvoiceSeriesService } from './invoice-series.service';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 
 describe('InvoiceSeriesService', () => {
   let service: InvoiceSeriesService;

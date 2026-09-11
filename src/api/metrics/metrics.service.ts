@@ -13,11 +13,13 @@ import {
   ClientCountsByTypeDto,
   SupplierCountsByTypeDto,
   InvoiceSeriesListCountsDto,
+  AiRequestCountsByTypeDto,
 } from './dto';
 import { UserRepository } from '../../entities/user/user-repository.service';
 import { ClientRepository } from '../../entities/client/client-repository.service';
 import { SupplierRepository } from '../../entities/supplier/supplier-repository.service';
 import { InvoiceSeriesRepository } from '../../entities/invoice-series/invoice-series-repository.service';
+import { AiRequestRepository } from '../../entities/ai-request/ai-request-repository.service';
 
 @Injectable()
 export class MetricsService {
@@ -31,6 +33,7 @@ export class MetricsService {
     private readonly clientRepository: ClientRepository,
     private readonly supplierRepository: SupplierRepository,
     private readonly invoiceSeriesRepository: InvoiceSeriesRepository,
+    private readonly aiRequestRepository: AiRequestRepository,
   ) {}
 
   /**
@@ -151,6 +154,23 @@ export class MetricsService {
     this.logger.log(`Obteniendo conteos de series de factura para empresa ${enterpriseId}`);
 
     return this.invoiceSeriesRepository.getListViewCounts(enterpriseId, filter, monthRange, weekRange);
+  }
+
+  /**
+   * Obtiene conteos de solicitudes de IA (total, emisor, conceptos) para el listado,
+   * usando {@link AiRequestRepository.getListViewCounts}.
+   *
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Mismos filtros que la tabla (sin `enterpriseId`)
+   * @returns Conteos alineados con las tarjetas de la vista
+   */
+  async getAiRequestCountsByType(
+    enterpriseId: string,
+    filter: Record<string, unknown> = {},
+  ): Promise<AiRequestCountsByTypeDto> {
+    this.logger.log(`Obteniendo conteos de solicitudes de IA por tipo para empresa ${enterpriseId}`);
+
+    return this.aiRequestRepository.getListViewCounts(enterpriseId, filter);
   }
 
   /**

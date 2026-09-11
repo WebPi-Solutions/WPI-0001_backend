@@ -1,10 +1,10 @@
 import { glob } from 'glob';
 import { MulterModule } from '@nestjs/platform-express';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { StripeService } from 'src/services/stripe/stripe.service';
 import { ApiModule } from './api.module';
 
-jest.mock('src/middleware/firebase/firebase.service', () => ({
+jest.mock('src/common/middleware/firebase/firebase.service', () => ({
   firebaseAdmin: {
     auth: jest.fn(),
   },

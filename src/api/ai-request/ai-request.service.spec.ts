@@ -5,7 +5,7 @@ import { AiRequestRepository } from 'src/entities/ai-request/ai-request-reposito
 import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
 import { AiRequestService } from './ai-request.service';
 import { CreateAiRequestDto } from './dto/create-ai-request.dto';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 
 describe('AiRequestService', () => {
   let service: AiRequestService;

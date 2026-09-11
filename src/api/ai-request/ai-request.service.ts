@@ -2,8 +2,8 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { AiRequestRepository } from 'src/entities/ai-request/ai-request-repository.service';
 import { AiRequest, AiRequestType } from 'src/entities/ai-request/ai-request.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { CreateAiRequestDto } from './dto/create-ai-request.dto';
 
 /**
@@ -107,7 +107,8 @@ export class AiRequestService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       aiRequest.enterpriseId,
       'Petición de IA no encontrada',
-    );
+      { resource: 'aiRequests', action: 'read' },
+      );
     return aiRequest;
   }
 

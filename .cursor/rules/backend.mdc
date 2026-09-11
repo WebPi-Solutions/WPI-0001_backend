@@ -1,31 +1,34 @@
 ---
-description: Auth Firebase + aislamiento por empresa, módulos Nest, DTOs y tests 100%
+description: Auth Firebase + aislamiento por empresa + RBAC de rol, módulos Nest, DTOs y tests 100%
 globs: src/**,test/**,docs/**
 alwaysApply: false
 ---
 
 # Backend NestJS
 
-Detalle de autorización: `docs/enterprise-access.md`. Tests: `docs/tests.md`.
+Detalle de autorización: `docs/enterprise-access.md`. RBAC de rol: `docs/enterprise-permissions.md`. Tests: `docs/tests.md`.
+
+**Toda ruta nueva o cambiada en `src/api` exige las tres capas:** Firebase Bearer, aislamiento por empresa y `@RequirePermission(recurso, acción)`. Deny by default. Sin concesión → **403**. El admin global se salta tenant y RBAC. No publiques un endpoint solo con `@RequireEnterpriseId()`.
 
 ## Autenticación y autorización (obligatorio en toda ruta)
 
-Hay **dos capas**. Firebase dice quién eres. Enterprise-access dice a qué empresas puedes acceder. No sustituyas una por la otra. No inventes `X-Enterprise-Id` ni pongas `enterpriseId` en el token.
+Hay **tres capas**. Firebase dice quién eres. Enterprise-access dice a qué empresas puedes acceder. El rol de empresa (`enterprise_roles.permissions`) dice qué puedes hacer. Deny by default. El administrador global (`users.role === administrator`) se salta tenant y RBAC. No inventes `X-Enterprise-Id` ni pongas `enterpriseId` en el token.
 
 ### Cómo está configurado hoy
 
-1. **Identidad — `FirebaseMiddleware`** (`src/middleware/firebase/firebase.middleware.ts`), aplicado a `*` salvo `GET /`.
+1. **Identidad — `FirebaseMiddleware`** (`src/common/middleware/firebase/firebase.middleware.ts`), aplicado a `*` salvo `GET /`.
    - Exige `Authorization: Bearer <JWT Firebase>`.
    - Verifica el token con Firebase Admin, carga el usuario de Postgres **con** `userEnterprises`, deja `req.user`.
    - Sin Bearer → **401**. Token válido pero email desconocido en `users` → **401/403**.
 2. **Contexto — `EnterpriseAccessGuard` + interceptor** (`APP_GUARD` / `APP_INTERCEPTOR` en `src/api/api.module.ts`).
-   - Construye `AccessContext` (`userId`, `isGlobalAdmin` si `users.role === administrator`, `allowedEnterpriseIds` de `user_enterprise`).
+   - Construye `AccessContext` (`userId`, `isGlobalAdmin` si `users.role === administrator`, `allowedEnterpriseIds` de `user_enterprise`, `permissionsByEnterpriseId` del JSONB del rol).
+   - `EnterprisePermissionGuard` (después del de tenant): `@RequirePermission(recurso, acción)`. Sin concesión → **403**. Sin `enterpriseId` el servicio evalúa tras el `findById`. `@SkipEnterprisePermission` / `@SkipEnterpriseAccess` omiten el RBAC.
    - Extrae `enterpriseId` en este orden: query → `body.enterpriseId` → `body.userEnterprises[0].enterpriseId` → params.
    - `@RequireEnterpriseId()`: si falta el id → **400**; si no hay vínculo → **403** (admin global no se filtra).
    - `@SkipEnterpriseAccess()`: no valida el id (health, `/users/myself`, catálogo Stripe). El contexto sí se adjunta.
    - Sin decorador y sin `enterpriseId` en la petición (p. ej. `GET /invoices/:id`): el Guard **no puede** decidir; lo hace el servicio tras el `findById`.
 3. **IDOR en el servicio** (imprescindible). Tras cargar la entidad:
-   - Tenant en la fila → `assertCurrentEntityAccessible(entity.enterpriseId, '… no encontrado')`.
+   - Tenant en la fila → `assertCurrentEntityAccessible(entity.enterpriseId, '… no encontrado', { resource, action })`.
    - Factura/presupuesto → cargar `client` con `mergeRelationNames` y comprobar `client.enterpriseId`.
    - Gasto → igual con `supplier`.
    - Usuario → `assertCurrentUserRecordAccessible` (él mismo, admin global, o empresa en común).
@@ -40,8 +43,8 @@ Hay **dos capas**. Firebase dice quién eres. Enterprise-access dice a qué empr
 
 | Tipo de endpoint | Qué poner |
 |---|---|
-| Listado / create con `enterpriseId` en query | `@RequireEnterpriseId()`. En create, **pisar** `body.enterpriseId` con el query. En findAll, el filtro de tenant **gana** al JSON (`{ ...parsed, enterpriseId }`). |
-| GET/PATCH/DELETE/fichero por UUID | Tras `findById`, assert de tenant. Revalidar FKs tras merge en update. |
+| Listado / create con `enterpriseId` en query | `@RequireEnterpriseId()` + `@RequirePermission(recurso, acción)`. En create, **pisar** `body.enterpriseId` con el query. En findAll, el filtro de tenant **gana** al JSON (`{ ...parsed, enterpriseId }`). |
+| GET/PATCH/DELETE/fichero por UUID | `@RequirePermission` + tras `findById`, assert de tenant **y** permiso. Revalidar FKs tras merge en update. |
 | Health, perfil propio, catálogo público autenticado | `@SkipEnterpriseAccess()`. |
 | Alta de empresa | `assertCanCreateEnterprise` (solo admin global). |
 
@@ -62,6 +65,7 @@ const entity = await this.repo.findById(id);
 this.enterpriseAccessService.assertCurrentEntityAccessible(
   entity.enterpriseId,
   'Cliente no encontrado',
+  { resource: 'clients', action: 'read' },
 );
 ```
 
@@ -72,7 +76,8 @@ Códigos HTTP de auth (e2e y contrato):
 | Sin Bearer | 401 |
 | `enterpriseId` de otra empresa en query/body | 403 |
 | UUID de otra empresa (IDOR) | 404 |
-| Recurso propio / admin global | 200/201 |
+| Recurso propio / admin global / rol `Administrador` (`*`) | 200/201 |
+| Sin permiso de rol (deny by default) | 403 |
 | Crear empresa sin ser admin global | 403 |
 
 ## Estructura de módulos
@@ -94,6 +99,7 @@ src/api/<recurso>/            # HTTP + reglas
 
 - `EntitiesModule.register()` y `ApiModule.register()` descubren `*.module.ts` / `*.controller.ts` / `*.service.ts` por glob. Un módulo de entidad nuevo se registra solo con el fichero en `src/entities/<recurso>/`.
 - El **repositorio** habla con TypeORM (`save`, `findOne`, `QueryBuilderService`). El **servicio de API** tiene las reglas (duplicados, estados, tenant, FKs). El **controller** valida query, fuerza `enterpriseId`, documenta Swagger y delega.
+- Transversal en `src/common/`: `guards/`, `interceptors/`, `decorators/`, `middleware/` (Firebase y Swagger), `helpers/` (acceso por empresa, query builder) y `models/` (Concept).
 - Integraciones (Stripe, Firebase Admin, Dropbox, OpenAI, OCR) viven en `src/services/`, no en `api/` ni en el repositorio.
 
 ## DTOs y Swagger
@@ -127,5 +133,6 @@ Umbral **100%** statements/branches/functions/lines en unitarios (`npm test` / `
   - Admin global sí accede a Y
   - Create/update que cuelgue FKs de Y → 404
   - PATCH de recurso de X con `enterpriseId` de Y en el body (query de X) → el tenant no se mueve
+  - Usuario de X **sin** permiso de rol → **403** (no 404)
 
 No bajes el `coverageThreshold`. Si una rama no la pisa el HTTP, el spec unitario del mismo fichero debe cubrirla (el jest e2e también ejecuta `src/**/*.spec.ts`).

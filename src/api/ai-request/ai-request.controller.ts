@@ -12,9 +12,10 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 import { AiRequestResponseDto } from 'src/entities/ai-request/dto/ai-request-response.dto';
 import { AiRequest } from 'src/entities/ai-request/ai-request.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { AiRequestService } from './ai-request.service';
 import { CreateAiRequestDto } from './dto/create-ai-request.dto';
 
@@ -36,6 +37,7 @@ export class AiRequestController {
    * @returns La petición registrada
    */
   @Post()
+  @RequirePermission('aiRequests', 'write')
   @RequireEnterpriseId()
   @MapResponse(AiRequestResponseDto)
   @ApiOperation({ summary: 'Registrar una petición a la API de IA' })
@@ -66,6 +68,7 @@ export class AiRequestController {
    * @returns Respuesta paginada con las peticiones
    */
   @Get()
+  @RequirePermission('aiRequests', 'read')
   @RequireEnterpriseId()
   @MapResponse(AiRequestResponseDto)
   @ApiOperation({ summary: 'Obtener las peticiones de IA de una empresa' })
@@ -127,6 +130,7 @@ export class AiRequestController {
    * @returns La petición encontrada
    */
   @Get(':id')
+  @RequirePermission('aiRequests', 'read')
   @MapResponse(AiRequestResponseDto)
   @ApiOperation({ summary: 'Obtener una petición de IA por su id' })
   @ApiResponse({ status: 200, description: 'La petición ha sido obtenida correctamente.' })

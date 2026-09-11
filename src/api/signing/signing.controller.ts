@@ -14,12 +14,13 @@ import {
 import { Request } from 'express';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { SigningResponseDto } from 'src/entities/signing/dto/signing-response.dto';
 import { SigningUpdateResponseDto } from 'src/entities/signing/dto/signing-update-response.dto';
 import { SigningUpdate } from 'src/entities/signing/signing-update.entity';
 import { Signing } from 'src/entities/signing/signing.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { CreateSigningDto } from './dto/create-signing.dto';
 import { UpdateSigningDto } from './dto/update-signing.dto';
 import { SigningService } from './signing.service';
@@ -40,6 +41,7 @@ export class SigningController {
    * @returns Fichaje creado
    */
   @Post()
+  @RequirePermission('signings', 'write')
   @MapResponse(SigningResponseDto)
   @ApiOperation({ summary: 'Crear un fichaje' })
   @ApiResponse({ status: 201, description: 'Fichaje creado correctamente.' })
@@ -68,6 +70,7 @@ export class SigningController {
    * @returns Página de fichajes
    */
   @Get()
+  @RequirePermission('signings', 'read')
   @MapResponse(SigningResponseDto)
   @ApiOperation({ summary: 'Listar fichajes por empresa' })
   @ApiResponse({ status: 200, description: 'Listado obtenido correctamente.' })
@@ -130,6 +133,7 @@ export class SigningController {
    * @returns Lista ordenada de más antigua a más reciente
    */
   @Get(':id/signing-updates')
+  @RequirePermission('signings', 'read')
   @MapResponse(SigningUpdateResponseDto)
   @ApiOperation({ summary: 'Histórico de actualizaciones de un fichaje' })
   @ApiResponse({ status: 200, description: 'Listado de cambios (puede ser vacío).' })
@@ -155,6 +159,7 @@ export class SigningController {
    * @returns Fichaje
    */
   @Get(':id')
+  @RequirePermission('signings', 'read')
   @MapResponse(SigningResponseDto)
   @ApiOperation({ summary: 'Obtener un fichaje por id' })
   @ApiResponse({ status: 200, description: 'Fichaje encontrado.' })
@@ -183,6 +188,7 @@ export class SigningController {
    * @returns Fichaje actualizado
    */
   @Patch(':id')
+  @RequirePermission('signings', 'write')
   @MapResponse(SigningResponseDto)
   @ApiOperation({ summary: 'Actualizar un fichaje' })
   @ApiResponse({ status: 200, description: 'Actualización correcta.' })
@@ -222,6 +228,7 @@ export class SigningController {
    * @returns Resultado de la anulación lógica
    */
   @Delete(':id')
+  @RequirePermission('signings', 'delete')
   @ApiOperation({ summary: 'Anular un fichaje (borrado lógico)' })
   @ApiResponse({ status: 200, description: 'Anulación correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrado.' })

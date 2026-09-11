@@ -1,12 +1,13 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DefaultScheduleRepository } from 'src/entities/default-schedule/default-schedule-repository.service';
 import { CreateUserDto } from 'src/entities/user/dto/create-user.dto';
 import { UserRepository } from 'src/entities/user/user-repository.service';
 import { UserEnterprise } from 'src/entities/user/user-enterprise.entity';
 import { User, UserStatusTypes } from 'src/entities/user/user.entity';
 import { FirebaseService } from 'src/services/firebase/firebase.service';
+import { EnterpriseRoleService } from 'src/api/enterprise-role/enterprise-role.service';
 import { UserService } from './user.service';
 
 describe('UserService', () => {
@@ -33,6 +34,7 @@ describe('UserService', () => {
     assertCurrentUserRecordAccessible: jest.Mock;
     getCurrentAccessContextOrThrow: jest.Mock;
     assertCanAccessEnterprise: jest.Mock;
+    assertCurrentUserResourcePermission: jest.Mock;
     mergeRelationNames: jest.Mock;
   };
   let firebaseService: {
@@ -43,10 +45,16 @@ describe('UserService', () => {
   let defaultScheduleRepository: {
     findById: jest.Mock;
   };
+  let enterpriseRoleService: {
+    getOrCreateEmployeeRole: jest.Mock;
+    assertRoleBelongsToEnterprise: jest.Mock;
+  };
 
   const userId = 'user-uuid';
   const enterpriseId = 'enterprise-uuid';
   const scheduleId = 'schedule-uuid';
+  const employeeRoleId = 'employee-role-uuid';
+  const managerRoleId = 'manager-role-uuid';
   const updatedUser = { id: userId, name: 'Ana', email: 'ana@example.com' } as User;
   const existingUser = {
     id: userId,
@@ -74,7 +82,6 @@ describe('UserService', () => {
       userEnterprises: [
         {
           enterpriseId,
-          role: 'user',
         },
       ],
       ...overrides,
@@ -107,9 +114,14 @@ describe('UserService', () => {
         allowedEnterpriseIds: [enterpriseId],
       }),
       assertCanAccessEnterprise: jest.fn(),
+      assertCurrentUserResourcePermission: jest.fn(),
       mergeRelationNames: jest.fn((relations?: string[], required: string[] = []) =>
         [...new Set([...(relations ?? []), ...required])],
       ),
+    };
+    enterpriseRoleService = {
+      getOrCreateEmployeeRole: jest.fn().mockResolvedValue({ id: employeeRoleId }),
+      assertRoleBelongsToEnterprise: jest.fn().mockResolvedValue({ id: managerRoleId }),
     };
     firebaseService = {
       verifyUserExistsByEmail: jest.fn().mockResolvedValue(false),
@@ -127,6 +139,7 @@ describe('UserService', () => {
         { provide: FirebaseService, useValue: firebaseService },
         { provide: EnterpriseAccessService, useValue: enterpriseAccessService },
         { provide: DefaultScheduleRepository, useValue: defaultScheduleRepository },
+        { provide: EnterpriseRoleService, useValue: enterpriseRoleService },
       ],
     }).compile();
 
@@ -152,8 +165,8 @@ describe('UserService', () => {
         service.create(
           buildCreateUserDto({
             userEnterprises: [
-              { enterpriseId, role: 'user' },
-              { enterpriseId: 'otra', role: 'user' },
+              { enterpriseId },
+              { enterpriseId: 'otra' },
             ] as CreateUserDto['userEnterprises'],
           }),
         ),
@@ -166,7 +179,7 @@ describe('UserService', () => {
       await expect(
         service.create(
           buildCreateUserDto({
-            userEnterprises: [{ role: 'user' }] as CreateUserDto['userEnterprises'],
+            userEnterprises: [{}] as CreateUserDto['userEnterprises'],
           }),
         ),
       ).rejects.toMatchObject({
@@ -262,7 +275,7 @@ describe('UserService', () => {
           userEnterprises: [
             {
               enterprise: { id: enterpriseId },
-              role: 'manager',
+              enterpriseRoleId: managerRoleId,
             },
           ] as CreateUserDto['userEnterprises'],
         }),
@@ -273,10 +286,14 @@ describe('UserService', () => {
       expect(userRepository.addUserToEnterprise).toHaveBeenCalledWith({
         userId,
         enterpriseId,
-        role: 'manager',
+        enterpriseRoleId: managerRoleId,
         cardId: 7,
         defaultScheduleId: scheduleId,
       });
+      expect(enterpriseRoleService.assertRoleBelongsToEnterprise).toHaveBeenCalledWith(
+        managerRoleId,
+        enterpriseId,
+      );
     });
 
     it('exige contraseña al crear un usuario nuevo', async () => {
@@ -324,10 +341,11 @@ describe('UserService', () => {
       expect(userRepository.addUserToEnterprise).toHaveBeenCalledWith({
         userId: createdUser.id,
         enterpriseId,
-        role: 'user',
+        enterpriseRoleId: employeeRoleId,
         cardId: 7,
         defaultScheduleId: null,
       });
+      expect(enterpriseRoleService.getOrCreateEmployeeRole).toHaveBeenCalledWith(enterpriseId);
       expect(firebaseService.createUser).toHaveBeenCalledWith('luis@example.com', 'secret-password');
     });
 
@@ -423,6 +441,39 @@ describe('UserService', () => {
       expect(userRepository.findById).toHaveBeenCalledWith(userId, ['userEnterprises']);
     });
 
+    it('lanza 404 si el usuario no existe', async () => {
+      userRepository.findById.mockResolvedValue(null);
+
+      await expect(service.findById(userId)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Usuario no encontrado',
+      });
+    });
+
+    it('devuelve al compañero sin recortar si no trae vínculos', async () => {
+      const colleagueWithoutLinks = {
+        id: 'colleague-uuid',
+        name: 'Compañero',
+        email: 'companero@example.com',
+        userEnterprises: [],
+      } as User;
+      userRepository.findById.mockResolvedValue(colleagueWithoutLinks);
+
+      await expect(service.findById('colleague-uuid')).resolves.toEqual(colleagueWithoutLinks);
+    });
+
+    it('resuelve el tenant del compañero desde la empresa anidada', async () => {
+      const colleagueUser = {
+        id: 'colleague-uuid',
+        name: 'Compañero',
+        email: 'companero@example.com',
+        userEnterprises: [{ enterprise: { id: enterpriseId } }],
+      } as User;
+      userRepository.findById.mockResolvedValue(colleagueUser);
+
+      await expect(service.findById('colleague-uuid')).resolves.toEqual(colleagueUser);
+    });
+
     it('oculta vínculos de otras empresas al consultar a un compañero', async () => {
       const colleagueUser = {
         id: 'colleague-uuid',
@@ -465,7 +516,7 @@ describe('UserService', () => {
         userId,
         {
           name: 'Ana',
-          userEnterprises: [{ role: '  manager  ' }],
+          userEnterprises: [{ enterpriseRoleId: `  ${managerRoleId}  ` }],
         } as unknown as User,
         enterpriseId,
       );
@@ -475,10 +526,14 @@ describe('UserService', () => {
         enterpriseId,
         expect.objectContaining({ operationContext: 'user.update' }),
       );
+      expect(enterpriseRoleService.assertRoleBelongsToEnterprise).toHaveBeenCalledWith(
+        managerRoleId,
+        enterpriseId,
+      );
       expect(userRepository.updateUserEnterpriseRole).toHaveBeenCalledWith(
         userId,
         enterpriseId,
-        'manager',
+        managerRoleId,
       );
       const patch = userRepository.updateById.mock.calls[0][1] as Record<string, unknown>;
       expect(patch.userEnterprises).toBeUndefined();
@@ -488,7 +543,7 @@ describe('UserService', () => {
     it('exige enterpriseId cuando se envía un rol', async () => {
       await expect(
         service.updateById(userId, {
-          userEnterprises: [{ role: 'admin' }],
+          userEnterprises: [{ enterpriseRoleId: managerRoleId }],
         } as unknown as User),
       ).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
@@ -503,7 +558,7 @@ describe('UserService', () => {
         userId,
         {
           name: 'Ana',
-          userEnterprises: [{ role: '   ' }],
+          userEnterprises: [{ enterpriseRoleId: '   ' }],
         } as unknown as User,
         enterpriseId,
       );
@@ -516,7 +571,7 @@ describe('UserService', () => {
       await service.updateById(
         userId,
         {
-          userEnterprises: [{ role: null }],
+          userEnterprises: [{ enterpriseRoleId: null }],
         } as unknown as User,
         enterpriseId,
       );
@@ -526,6 +581,15 @@ describe('UserService', () => {
   });
 
   describe('updateById — horario y errores', () => {
+    it('lanza 404 si el usuario no existe', async () => {
+      userRepository.findById.mockResolvedValue(null);
+
+      await expect(service.updateById(userId, { name: 'Ana' } as User)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Usuario no encontrado',
+      });
+    });
+
     it('actualiza el usuario sin comprobar empresa si no hay enterpriseId', async () => {
       await service.updateById(userId, { name: 'Ana' } as User);
 
@@ -787,21 +851,26 @@ describe('UserService', () => {
 
   describe('addUserToEnterprise', () => {
     it('vincula resolviendo IDs directos y asigna el siguiente card_id', async () => {
-      const createdLink = { id: 'link-1', userId, enterpriseId, role: 'user', cardId: 7 };
+      const createdLink = {
+        id: 'link-1',
+        userId,
+        enterpriseId,
+        enterpriseRoleId: employeeRoleId,
+        cardId: 7,
+      };
       userRepository.addUserToEnterprise.mockResolvedValue(createdLink);
 
       await expect(
         service.addUserToEnterprise({
           userId,
           enterpriseId,
-          role: 'user',
         } as UserEnterprise),
       ).resolves.toEqual(createdLink);
       expect(userRepository.getNextCardIdForEnterprise).toHaveBeenCalledWith(enterpriseId);
       expect(userRepository.addUserToEnterprise).toHaveBeenCalledWith({
         userId,
         enterpriseId,
-        role: 'user',
+        enterpriseRoleId: employeeRoleId,
         cardId: 7,
       });
     });
@@ -812,19 +881,19 @@ describe('UserService', () => {
       await service.addUserToEnterprise({
         user: { id: userId },
         enterprise: { id: enterpriseId },
-        role: 'admin',
+        enterpriseRoleId: managerRoleId,
       } as UserEnterprise);
 
       expect(userRepository.addUserToEnterprise).toHaveBeenCalledWith({
         userId,
         enterpriseId,
-        role: 'admin',
+        enterpriseRoleId: managerRoleId,
         cardId: 7,
       });
     });
 
     it('rechaza la vinculación si faltan userId o enterpriseId', async () => {
-      await expect(service.addUserToEnterprise({ role: 'user' } as UserEnterprise)).rejects.toMatchObject({
+      await expect(service.addUserToEnterprise({} as UserEnterprise)).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
         message: 'Se requieren userId y enterpriseId para vincular el usuario a la empresa.',
       });
@@ -842,7 +911,6 @@ describe('UserService', () => {
         service.addUserToEnterprise({
           userId,
           enterpriseId,
-          role: 'user',
         } as UserEnterprise),
       ).rejects.toThrow('duplicado');
     });

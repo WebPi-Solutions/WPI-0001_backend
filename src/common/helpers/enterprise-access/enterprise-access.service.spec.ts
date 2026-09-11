@@ -3,7 +3,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { User, UserRoleTypes } from 'src/entities/user/user.entity';
 import { UserRepository } from 'src/entities/user/user-repository.service';
 import { AccessContext } from './access-context';
-import { EnterpriseAccessService } from './enterprise-access.service';
+import {
+  EnterpriseAccessService,
+  buildMissingEnterprisePermissionMessage,
+} from './enterprise-access.service';
 import { runWithEnterpriseAccessContext } from './enterprise-access.storage';
 
 describe('EnterpriseAccessService', () => {
@@ -185,6 +188,10 @@ describe('EnterpriseAccessService', () => {
         userId,
         isGlobalAdmin: true,
         allowedEnterpriseIds: [enterpriseId, 'otra-empresa'],
+        permissionsByEnterpriseId: {
+          [enterpriseId]: {},
+          'otra-empresa': {},
+        },
       });
     });
 
@@ -198,6 +205,39 @@ describe('EnterpriseAccessService', () => {
         userId,
         isGlobalAdmin: false,
         allowedEnterpriseIds: [],
+        permissionsByEnterpriseId: {},
+      });
+    });
+
+    it('ignora vínculos sin identificador de empresa', () => {
+      const regularUser = {
+        id: userId,
+        role: UserRoleTypes.USER,
+        userEnterprises: [{}],
+      } as User;
+
+      expect(service.buildAccessContext(regularUser)).toEqual({
+        userId,
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [],
+        permissionsByEnterpriseId: {},
+      });
+    });
+
+    it('copia los permisos del rol de empresa en el mapa por tenant', () => {
+      const regularUser = {
+        id: userId,
+        role: UserRoleTypes.USER,
+        userEnterprises: [
+          {
+            enterpriseId,
+            enterpriseRole: { permissions: { invoices: { read: true } } },
+          },
+        ],
+      } as User;
+
+      expect(service.buildAccessContext(regularUser).permissionsByEnterpriseId).toEqual({
+        [enterpriseId]: { invoices: { read: true } },
       });
     });
 
@@ -212,6 +252,9 @@ describe('EnterpriseAccessService', () => {
         userId,
         isGlobalAdmin: false,
         allowedEnterpriseIds: [enterpriseId],
+        permissionsByEnterpriseId: {
+          [enterpriseId]: {},
+        },
       });
     });
   });
@@ -304,6 +347,31 @@ describe('EnterpriseAccessService', () => {
       }
     });
 
+    it('exige el permiso del catálogo cuando se informa requiredPermission', () => {
+      const accessContext: AccessContext = {
+        userId,
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId],
+        permissionsByEnterpriseId: { [enterpriseId]: {} },
+      };
+      runWithEnterpriseAccessContext(accessContext, () => {
+        expect(() =>
+          service.assertCurrentEntityAccessible(enterpriseId, 'Recurso no encontrado', {
+            resource: 'clients',
+            action: 'read',
+          }),
+        ).toThrow(ForbiddenException);
+      });
+    });
+
+    it('lanza 404 si la entidad no tiene empresa (mensaje con tenant desconocido)', () => {
+      expect(() =>
+        service.assertEntityAccessible(regularAccessContext, undefined, {
+          notFoundMessage: 'Recurso no encontrado',
+        }),
+      ).toThrow(HttpException);
+    });
+
     it('omite la comprobación para administradores globales', () => {
       const adminAccessContext: AccessContext = {
         userId,
@@ -355,6 +423,42 @@ describe('EnterpriseAccessService', () => {
         ),
       ).toThrow(HttpException);
     });
+
+    it('lanza 404 si el usuario objetivo no trae vínculos de empresa', () => {
+      expect(() =>
+        service.assertUserRecordAccessible(
+          regularAccessContext,
+          { id: 'otro-usuario' },
+          'Usuario no encontrado',
+        ),
+      ).toThrow(HttpException);
+    });
+
+    it('permite cualquier perfil a un administrador global', () => {
+      expect(() =>
+        service.assertUserRecordAccessible(
+          { userId, isGlobalAdmin: true, allowedEnterpriseIds: [] },
+          { id: 'otro-usuario', userEnterprises: [] },
+          'Usuario no encontrado',
+        ),
+      ).not.toThrow();
+    });
+  });
+
+  describe('assertCurrentUserRecordAccessible', () => {
+    it('usa el contexto de la petición actual', () => {
+      runWithEnterpriseAccessContext(
+        { userId, isGlobalAdmin: false, allowedEnterpriseIds: [enterpriseId] },
+        () => {
+          expect(() =>
+            service.assertCurrentUserRecordAccessible(
+              { id: userId, userEnterprises: [] },
+              'Usuario no encontrado',
+            ),
+          ).not.toThrow();
+        },
+      );
+    });
   });
 
   describe('assertCanCreateEnterprise', () => {
@@ -376,6 +480,258 @@ describe('EnterpriseAccessService', () => {
           allowedEnterpriseIds: [enterpriseId],
         }),
       ).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('assertCanDeleteEnterprise', () => {
+    it('permite eliminar empresas a un administrador global', () => {
+      expect(() =>
+        service.assertCanDeleteEnterprise({
+          userId,
+          isGlobalAdmin: true,
+          allowedEnterpriseIds: [],
+        }),
+      ).not.toThrow();
+    });
+
+    it('lanza 403 si el usuario no es administrador global', () => {
+      expect(() =>
+        service.assertCanDeleteEnterprise({
+          userId,
+          isGlobalAdmin: false,
+          allowedEnterpriseIds: [enterpriseId],
+        }),
+      ).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('assertCanPerformEnterprisePermission', () => {
+    it('permite al administrador global cualquier acción', () => {
+      expect(() =>
+        service.assertCanPerformEnterprisePermission(
+          { userId, isGlobalAdmin: true, allowedEnterpriseIds: [] },
+          enterpriseId,
+          'invoices',
+          'delete',
+        ),
+      ).not.toThrow();
+    });
+
+    it('permite si el JSONB concede la acción o el comodín *', () => {
+      expect(() =>
+        service.assertCanPerformEnterprisePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId],
+            permissionsByEnterpriseId: {
+              [enterpriseId]: { invoices: { read: true } },
+            },
+          },
+          enterpriseId,
+          'invoices',
+          'read',
+        ),
+      ).not.toThrow();
+    });
+
+    it('evalúa el permiso con el contexto de la petición actual', () => {
+      runWithEnterpriseAccessContext(
+        {
+          userId,
+          isGlobalAdmin: false,
+          allowedEnterpriseIds: [enterpriseId],
+          permissionsByEnterpriseId: {
+            [enterpriseId]: { invoices: { read: true } },
+          },
+        },
+        () => {
+          expect(() =>
+            service.assertCurrentPermission(enterpriseId, 'invoices', 'read'),
+          ).not.toThrow();
+        },
+      );
+    });
+
+    it('lanza 403 si el rol no concede la acción (deny by default)', () => {
+      expect(() =>
+        service.assertCanPerformEnterprisePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId],
+            permissionsByEnterpriseId: { [enterpriseId]: {} },
+          },
+          enterpriseId,
+          'invoices',
+          'write',
+        ),
+      ).toThrow(ForbiddenException);
+      expect(() =>
+        service.assertCanPerformEnterprisePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId],
+            permissionsByEnterpriseId: { [enterpriseId]: {} },
+          },
+          enterpriseId,
+          'invoices',
+          'write',
+        ),
+      ).toThrow(buildMissingEnterprisePermissionMessage('invoices', 'write'));
+    });
+
+    it('deniega si el contexto no trae mapa de permisos', () => {
+      expect(() =>
+        service.assertCanPerformEnterprisePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId],
+          },
+          enterpriseId,
+          'invoices',
+          'read',
+        ),
+      ).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('assertCanPerformUserResourcePermission', () => {
+    const colleagueUser = {
+      id: 'colleague-uuid',
+      userEnterprises: [{ enterpriseId }],
+    };
+
+    it('omite la comprobación para el administrador global y para el propio perfil en lectura', () => {
+      expect(() =>
+        service.assertCanPerformUserResourcePermission(
+          { userId, isGlobalAdmin: true, allowedEnterpriseIds: [] },
+          colleagueUser,
+          'users',
+          'delete',
+        ),
+      ).not.toThrow();
+      expect(() =>
+        service.assertCanPerformUserResourcePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId],
+            permissionsByEnterpriseId: { [enterpriseId]: {} },
+          },
+          { id: userId, userEnterprises: [{ enterpriseId }] },
+          'users',
+          'read',
+          { allowSelfBypass: true },
+        ),
+      ).not.toThrow();
+    });
+
+    it('permite si alguna empresa compartida concede el permiso', () => {
+      expect(() =>
+        service.assertCanPerformUserResourcePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId],
+            permissionsByEnterpriseId: {
+              [enterpriseId]: { users: { write: true } },
+            },
+          },
+          colleagueUser,
+          'users',
+          'write',
+        ),
+      ).not.toThrow();
+    });
+
+    it('usa el contexto actual para exigir el permiso sobre un usuario', () => {
+      runWithEnterpriseAccessContext(
+        {
+          userId,
+          isGlobalAdmin: false,
+          allowedEnterpriseIds: [enterpriseId],
+          permissionsByEnterpriseId: { [enterpriseId]: {} },
+        },
+        () => {
+          expect(() =>
+            service.assertCurrentUserResourcePermission(
+              { id: 'colleague-uuid', userEnterprises: [{ enterpriseId }] },
+              'users',
+              'read',
+            ),
+          ).toThrow(ForbiddenException);
+        },
+      );
+    });
+
+    it('lanza 403 si no hay concesión en ninguna empresa compartida', () => {
+      expect(() =>
+        service.assertCanPerformUserResourcePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId],
+            permissionsByEnterpriseId: { [enterpriseId]: {} },
+          },
+          colleagueUser,
+          'users',
+          'write',
+        ),
+      ).toThrow(ForbiddenException);
+      expect(() =>
+        service.assertCanPerformUserResourcePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId],
+            permissionsByEnterpriseId: { [enterpriseId]: {} },
+          },
+          colleagueUser,
+          'users',
+          'write',
+        ),
+      ).toThrow(buildMissingEnterprisePermissionMessage('users', 'write'));
+    });
+
+    it('deniega si comparte empresa pero el contexto no trae mapa de permisos', () => {
+      expect(() =>
+        service.assertCanPerformUserResourcePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId],
+          },
+          colleagueUser,
+          'users',
+          'read',
+        ),
+      ).toThrow(ForbiddenException);
+    });
+
+    it('trata como vacío un usuario sin userEnterprises y un contexto sin mapa', () => {
+      expect(() =>
+        service.assertCanPerformUserResourcePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId],
+          },
+          { id: 'colleague-uuid' },
+          'users',
+          'read',
+        ),
+      ).toThrow(ForbiddenException);
+    });
+  });
+
+  describe('buildMissingEnterprisePermissionMessage', () => {
+    it('incluye el recurso y la acción denegados', () => {
+      expect(buildMissingEnterprisePermissionMessage('users', 'read')).toBe(
+        'No tiene permiso para realizar la acción users.read',
+      );
     });
   });
 

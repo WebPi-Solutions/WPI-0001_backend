@@ -8,6 +8,7 @@ import { UserModule } from '../../entities/user/user.module';
 import { ClientModule } from '../../entities/client/client.module';
 import { SupplierModule } from '../../entities/supplier/supplier.module';
 import { InvoiceSeriesModule } from '../../entities/invoice-series/invoice-series.module';
+import { AiRequestModule } from '../../entities/ai-request/ai-request.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { InvoiceSeriesModule } from '../../entities/invoice-series/invoice-serie
     ClientModule,
     SupplierModule,
     InvoiceSeriesModule,
+    AiRequestModule,
   ],
   controllers: [MetricsController],
   providers: [MetricsService],

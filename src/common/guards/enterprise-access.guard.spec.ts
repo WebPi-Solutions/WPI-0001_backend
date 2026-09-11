@@ -8,7 +8,7 @@ import {
 } from 'src/common/decorators/enterprise-access.decorator';
 import { User, UserRoleTypes } from 'src/entities/user/user.entity';
 import { UserRepository } from 'src/entities/user/user-repository.service';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { EnterpriseAccessGuard } from './enterprise-access.guard';
 
 /**
@@ -116,6 +116,9 @@ describe('EnterpriseAccessGuard', () => {
       userId: regularUser.id,
       isGlobalAdmin: false,
       allowedEnterpriseIds: [allowedEnterpriseId],
+      permissionsByEnterpriseId: {
+        [allowedEnterpriseId]: {},
+      },
     });
   });
 
@@ -153,6 +156,16 @@ describe('EnterpriseAccessGuard', () => {
     mockRouteMetadata({ requireEnterpriseId: true });
     const executionContext = createExecutionContext({
       user: regularUser,
+    });
+
+    expect(() => guard.canActivate(executionContext)).toThrow(BadRequestException);
+  });
+
+  it('trata un enterpriseId solo con espacios como ausente', () => {
+    mockRouteMetadata({ requireEnterpriseId: true });
+    const executionContext = createExecutionContext({
+      user: regularUser,
+      query: { enterpriseId: '   ' },
     });
 
     expect(() => guard.canActivate(executionContext)).toThrow(BadRequestException);

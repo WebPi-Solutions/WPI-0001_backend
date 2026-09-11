@@ -12,10 +12,11 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { WorkScheduleResponseDto } from 'src/entities/work-schedule/dto/work-schedule-response.dto';
 import { WorkSchedule } from 'src/entities/work-schedule/work-schedule.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { CreateWorkScheduleDto } from './dto/create-work-schedule.dto';
 import { UpdateWorkScheduleDto } from './dto/update-work-schedule.dto';
 import { WorkScheduleService } from './work-schedule.service';
@@ -36,6 +37,7 @@ export class WorkScheduleController {
    * @returns Franja creada
    */
   @Post()
+  @RequirePermission('workSchedules', 'write')
   @MapResponse(WorkScheduleResponseDto)
   @ApiOperation({ summary: 'Crear una franja de trabajo' })
   @ApiResponse({ status: 201, description: 'Franja creada correctamente.' })
@@ -64,6 +66,7 @@ export class WorkScheduleController {
    * @returns Página de franjas
    */
   @Get()
+  @RequirePermission('workSchedules', 'read')
   @MapResponse(WorkScheduleResponseDto)
   @ApiOperation({ summary: 'Listar franjas de trabajo por empresa' })
   @ApiResponse({ status: 200, description: 'Listado obtenido correctamente.' })
@@ -124,6 +127,7 @@ export class WorkScheduleController {
    * @returns Franja
    */
   @Get(':id')
+  @RequirePermission('workSchedules', 'read')
   @MapResponse(WorkScheduleResponseDto)
   @ApiOperation({ summary: 'Obtener una franja de trabajo por id' })
   @ApiResponse({ status: 200, description: 'Franja encontrada.' })
@@ -152,6 +156,7 @@ export class WorkScheduleController {
    * @returns Franja actualizada
    */
   @Patch(':id')
+  @RequirePermission('workSchedules', 'write')
   @MapResponse(WorkScheduleResponseDto)
   @ApiOperation({ summary: 'Actualizar una franja de trabajo' })
   @ApiResponse({ status: 200, description: 'Actualización correcta.' })
@@ -178,6 +183,7 @@ export class WorkScheduleController {
    * @returns Resultado del borrado
    */
   @Delete(':id')
+  @RequirePermission('workSchedules', 'delete')
   @ApiOperation({ summary: 'Eliminar una franja de trabajo' })
   @ApiResponse({ status: 200, description: 'Eliminación correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrada.' })

@@ -36,14 +36,14 @@ jest.mock('@nestjs/swagger', () => ({
   },
 }));
 
-jest.mock('./middleware/swagger/swagger.middleware', () => ({
+jest.mock('./common/middleware/swagger/swagger.middleware', () => ({
   swaggerMiddleware: jest.fn(),
 }));
 
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
 import * as express from 'express';
-import { swaggerMiddleware } from './middleware/swagger/swagger.middleware';
+import { swaggerMiddleware } from './common/middleware/swagger/swagger.middleware';
 
 /**
  * Recupera la instancia de app mockeada que `bootstrap()` recibió de NestFactory.

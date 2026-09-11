@@ -81,6 +81,60 @@ describe('Billing (e2e) — control de acceso', () => {
     expect(response.status).toBe(401);
   });
 
+  it('un empleado sin billing.read consulta las suscripciones de su empresa (menú)', async () => {
+    const seed = getE2eSeed();
+    const response = await http()
+      .get('/billing/active-subscriptions')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.employeeA));
+    expect(response.status).toBe(200);
+  });
+
+  it('el empleado no puede mutar la suscripción de su empresa (billing.write)', async () => {
+    const seed = getE2eSeed();
+    const checkout = await http()
+      .post('/billing/create-subscription-checkout-session')
+      .set(authHeader(E2E_EMAIL.employeeA))
+      .send({
+        enterpriseId: seed.enterpriseA.id,
+        priceId: 'price_e2e',
+        successUrl: 'https://app.test/ok',
+        cancelUrl: 'https://app.test/ko',
+      });
+    expect(checkout.status).toBe(403);
+    expect(checkout.body.message).toBe(
+      'No tiene permiso para realizar la acción billing.write',
+    );
+
+    const updatePrice = await http()
+      .post('/billing/update-subscription-price')
+      .set(authHeader(E2E_EMAIL.employeeA))
+      .send({
+        enterpriseId: seed.enterpriseA.id,
+        subscriptionId: 'sub_e2e_a',
+        priceId: 'price_e2e',
+      });
+    expect(updatePrice.status).toBe(403);
+
+    const cancel = await http()
+      .post('/billing/cancel-subscription-at-period-end')
+      .set(authHeader(E2E_EMAIL.employeeA))
+      .send({
+        enterpriseId: seed.enterpriseA.id,
+        subscriptionId: 'sub_e2e_a',
+      });
+    expect(cancel.status).toBe(403);
+
+    const revoke = await http()
+      .post('/billing/revoke-cancel-subscription-at-period-end')
+      .set(authHeader(E2E_EMAIL.employeeA))
+      .send({
+        enterpriseId: seed.enterpriseA.id,
+        subscriptionId: 'sub_e2e_a',
+      });
+    expect(revoke.status).toBe(403);
+  });
+
   it('el usuario A consulta suscripciones de A y un usuario sin empresas recibe lista vacía', async () => {
     const seed = getE2eSeed();
     const own = await http()

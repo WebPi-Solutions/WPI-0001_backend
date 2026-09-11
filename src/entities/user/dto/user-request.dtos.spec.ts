@@ -2,7 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { coverDtoClass } from 'src/test-utils/cover-data-classes';
 import { UserEnterprise } from '../user-enterprise.entity';
-import { UserRoleTypes, UserStatusTypes } from '../user.entity';
+import { UserStatusTypes } from '../user.entity';
 import { CreateUserDto } from './create-user.dto';
 import { CreateUserEnterpriseDto } from './create-user-enterprise.dto';
 import { UpdateUserDto } from './update-user.dto';
@@ -64,28 +64,28 @@ describe('DTO de petición de usuario', () => {
     const withUuid = coverDtoClass(CreateUserEnterpriseDto, {
       enterpriseId: SAMPLE_UUID,
       userId: SAMPLE_UUID,
-      role: UserRoleTypes.USER,
+      enterpriseRoleId: SAMPLE_UUID,
       cardId: 1,
       defaultScheduleId: SAMPLE_UUID,
     });
     const withNull = coverDtoClass(CreateUserEnterpriseDto, {
       enterpriseId: SAMPLE_UUID,
       userId: SAMPLE_UUID,
-      role: UserRoleTypes.ADMIN,
+      enterpriseRoleId: SAMPLE_UUID,
       cardId: 2,
       defaultScheduleId: null,
     });
     const withEmpty = coverDtoClass(CreateUserEnterpriseDto, {
       enterpriseId: SAMPLE_UUID,
       userId: SAMPLE_UUID,
-      role: UserRoleTypes.USER,
+      enterpriseRoleId: SAMPLE_UUID,
       cardId: 3,
       defaultScheduleId: '',
     });
     const withUndefined = coverDtoClass(CreateUserEnterpriseDto, {
       enterpriseId: SAMPLE_UUID,
       userId: SAMPLE_UUID,
-      role: UserRoleTypes.USER,
+      enterpriseRoleId: SAMPLE_UUID,
       cardId: 4,
     });
 

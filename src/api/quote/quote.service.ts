@@ -3,8 +3,8 @@ import { ClientRepository } from 'src/entities/client/client-repository.service'
 import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-repository.service';
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
 import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 @Injectable()
@@ -79,7 +79,7 @@ export class QuoteService {
     
     if (quote) {
       this.logger.log(`Cotización encontrada con ID: ${quote.id}`);
-      this.assertQuoteAccessible(quote);
+      this.assertQuoteAccessible(quote, 'read');
     } else {
       this.logger.log(`No se encontró ninguna cotización con ID: ${id}`);
       throw new HttpException(`Cotización con ID: ${id} no encontrada`, HttpStatus.NOT_FOUND);
@@ -105,7 +105,7 @@ export class QuoteService {
       throw new HttpException('Cotización no encontrada', HttpStatus.NOT_FOUND);
     }
 
-    this.assertQuoteAccessible(quoteToUpdate);
+    this.assertQuoteAccessible(quoteToUpdate, 'write');
 
     if(quoteToUpdate.status !== QuoteStatus.DRAFT) {
       this.logger.error(`No se puede actualizar la cotización ${id} porque ya ha sido emitida`);
@@ -152,7 +152,7 @@ export class QuoteService {
       throw new HttpException(`Cotización no encontrada con ID: ${id}`, HttpStatus.NOT_FOUND);
     }
 
-    this.assertQuoteAccessible(quoteToUpdate);
+    this.assertQuoteAccessible(quoteToUpdate, 'write');
 
     if(quoteToUpdate.status !== QuoteStatus.DRAFT && status === QuoteStatus.DRAFT) {
       this.logger.error(`No se puede establecer como borrador una cotización que ya ha sido emitida`);
@@ -184,7 +184,7 @@ export class QuoteService {
       throw new HttpException(`Cotización con ID ${id} no encontrada`, HttpStatus.NOT_FOUND);
     }
 
-    this.assertQuoteAccessible(quote);
+    this.assertQuoteAccessible(quote, 'delete');
 
     if (quote.status !== QuoteStatus.DRAFT) {
       this.logger.error(`No se puede eliminar la cotización ${id} porque ya ha sido emitida`);
@@ -286,7 +286,8 @@ export class QuoteService {
       this.enterpriseAccessService.assertCurrentEntityAccessible(
         client.enterpriseId,
         'Cotización no encontrada',
-      );
+        { resource: 'quotes', action: 'write' },
+        );
       clientEnterpriseIds.add(client.enterpriseId);
     }
 
@@ -299,14 +300,19 @@ export class QuoteService {
   }
 
   /**
-   * Comprueba que la cotización pertenece a una empresa accesible para el caller.
+   * Comprueba tenant y permiso sobre la cotización.
    *
    * @param quote - Cotización con relación `client` cargada
+   * @param action - Acción del catálogo exigida
    */
-  private assertQuoteAccessible(quote: Quote): void {
+  private assertQuoteAccessible(
+    quote: Quote,
+    action: 'read' | 'write' | 'delete',
+  ): void {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       quote.client?.enterpriseId,
       `Cotización con ID: ${quote.id} no encontrada`,
+      { resource: 'quotes', action },
     );
   }
 }

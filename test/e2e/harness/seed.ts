@@ -15,8 +15,15 @@ import {
 import { Signing, SigningAction } from '../../../src/entities/signing/signing.entity';
 import { Spent } from '../../../src/entities/spent/spent.entity';
 import { Supplier } from '../../../src/entities/supplier/supplier.entity';
+import { EnterpriseRole } from '../../../src/entities/enterprise-role/enterprise-role.entity';
 import { UserEnterprise } from '../../../src/entities/user/user-enterprise.entity';
 import { User, UserRoleTypes, UserStatusTypes } from '../../../src/entities/user/user.entity';
+import {
+  ADMINISTRATOR_ROLE_PERMISSIONS,
+  EMPLOYEE_ROLE_PERMISSIONS,
+  ENTERPRISE_ROLE_NAME_ADMINISTRATOR,
+  ENTERPRISE_ROLE_NAME_EMPLOYEE,
+} from '../../../src/common/helpers/enterprise-permission/permission.catalog';
 import { Vacation } from '../../../src/entities/vacation/vacation.entity';
 import { WorkSchedule } from '../../../src/entities/work-schedule/work-schedule.entity';
 import { E2E_EMAIL } from './auth';
@@ -31,8 +38,14 @@ export interface E2eSeed {
   userB: User;
   admin: User;
   outsider: User;
+  employeeA: User;
+  administratorRoleA: EnterpriseRole;
+  employeeRoleA: EnterpriseRole;
+  administratorRoleB: EnterpriseRole;
+  employeeRoleB: EnterpriseRole;
   linkA: UserEnterprise;
   linkB: UserEnterprise;
+  linkEmployeeA: UserEnterprise;
   clientA: Client;
   clientB: Client;
   supplierA: Supplier;
@@ -107,18 +120,52 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     role: UserRoleTypes.USER,
     status: UserStatusTypes.ACTIVE,
   });
+  const employeeA = await dataSource.getRepository(User).save({
+    name: 'Empleado A',
+    email: E2E_EMAIL.employeeA,
+    role: UserRoleTypes.USER,
+    status: UserStatusTypes.ACTIVE,
+  });
+
+  const roleRepository = dataSource.getRepository(EnterpriseRole);
+  const administratorRoleA = await roleRepository.save({
+    enterpriseId: enterpriseA.id,
+    role: ENTERPRISE_ROLE_NAME_ADMINISTRATOR,
+    permissions: ADMINISTRATOR_ROLE_PERMISSIONS,
+  });
+  const employeeRoleA = await roleRepository.save({
+    enterpriseId: enterpriseA.id,
+    role: ENTERPRISE_ROLE_NAME_EMPLOYEE,
+    permissions: EMPLOYEE_ROLE_PERMISSIONS,
+  });
+  const administratorRoleB = await roleRepository.save({
+    enterpriseId: enterpriseB.id,
+    role: ENTERPRISE_ROLE_NAME_ADMINISTRATOR,
+    permissions: ADMINISTRATOR_ROLE_PERMISSIONS,
+  });
+  const employeeRoleB = await roleRepository.save({
+    enterpriseId: enterpriseB.id,
+    role: ENTERPRISE_ROLE_NAME_EMPLOYEE,
+    permissions: EMPLOYEE_ROLE_PERMISSIONS,
+  });
 
   const linkA = await dataSource.getRepository(UserEnterprise).save({
     userId: userA.id,
     enterpriseId: enterpriseA.id,
-    role: 'employee',
+    enterpriseRoleId: administratorRoleA.id,
     cardId: 1,
   });
   const linkB = await dataSource.getRepository(UserEnterprise).save({
     userId: userB.id,
     enterpriseId: enterpriseB.id,
-    role: 'employee',
+    enterpriseRoleId: administratorRoleB.id,
     cardId: 1,
+  });
+  const linkEmployeeA = await dataSource.getRepository(UserEnterprise).save({
+    userId: employeeA.id,
+    enterpriseId: enterpriseA.id,
+    enterpriseRoleId: employeeRoleA.id,
+    cardId: 2,
   });
 
   const clientA = await dataSource.getRepository(Client).save({
@@ -312,8 +359,14 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     userB,
     admin,
     outsider,
+    employeeA,
+    administratorRoleA,
+    employeeRoleA,
+    administratorRoleB,
+    employeeRoleB,
     linkA,
     linkB,
+    linkEmployeeA,
     clientA,
     clientB,
     supplierA,

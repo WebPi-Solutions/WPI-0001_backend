@@ -4,8 +4,8 @@ import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-ser
 import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.service';
 import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
 import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recurrent-earning-repository.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 @Injectable()
@@ -82,7 +82,7 @@ export class InvoiceService {
     
     if (invoice) {
       this.logger.log(`Factura encontrada con ID: ${invoice.id}`);
-      this.assertInvoiceAccessible(invoice);
+      this.assertInvoiceAccessible(invoice, 'read');
     } else {
       this.logger.log(`No se encontró ninguna factura con ID: ${id}`);
       throw new HttpException(`Factura con ID: ${id} no encontrada`, HttpStatus.NOT_FOUND);
@@ -108,7 +108,7 @@ export class InvoiceService {
       throw new HttpException('Factura no encontrada', HttpStatus.NOT_FOUND);
     }
 
-    this.assertInvoiceAccessible(invoiceToUpdate);
+    this.assertInvoiceAccessible(invoiceToUpdate, 'write');
 
     if(invoiceToUpdate.status !== InvoiceStatus.DRAFT) {
       this.logger.error(`No se puede actualizar la factura ${id} porque ya ha sido emitida`);
@@ -156,7 +156,7 @@ export class InvoiceService {
       throw new HttpException(`Factura no encontrada con ID: ${id}`, HttpStatus.NOT_FOUND);
     }
 
-    this.assertInvoiceAccessible(invoiceToUpdate);
+    this.assertInvoiceAccessible(invoiceToUpdate, 'write');
 
     if(invoiceToUpdate.status !== InvoiceStatus.DRAFT && status === InvoiceStatus.DRAFT) {
       this.logger.error(`No se puede establecer como borrador una factura que ya ha sido emitida`);
@@ -192,7 +192,7 @@ export class InvoiceService {
       throw new HttpException(`Factura con ID ${id} no encontrada`, HttpStatus.NOT_FOUND);
     }
 
-    this.assertInvoiceAccessible(invoice);
+    this.assertInvoiceAccessible(invoice, 'delete');
 
     if (invoice.status !== InvoiceStatus.DRAFT) {
       this.logger.error(`No se puede eliminar la factura ${id} porque ya ha sido emitida`);
@@ -362,7 +362,8 @@ export class InvoiceService {
       this.enterpriseAccessService.assertCurrentEntityAccessible(
         client.enterpriseId,
         'Factura no encontrada',
-      );
+        { resource: 'invoices', action: 'write' },
+        );
       clientEnterpriseIds.add(client.enterpriseId);
     }
 
@@ -382,7 +383,8 @@ export class InvoiceService {
       this.enterpriseAccessService.assertCurrentEntityAccessible(
         invoiceSeries.enterpriseId,
         'Factura no encontrada',
-      );
+        { resource: 'invoices', action: 'write' },
+        );
       seriesEnterpriseIds.add(invoiceSeries.enterpriseId);
     }
 
@@ -408,10 +410,20 @@ export class InvoiceService {
    *
    * @param invoice - Factura con relación `client` cargada
    */
-  private assertInvoiceAccessible(invoice: Invoice): void {
+  /**
+   * Comprueba tenant y permiso sobre la factura.
+   *
+   * @param invoice - Factura con `client` cargado
+   * @param action - Acción del catálogo
+   */
+  private assertInvoiceAccessible(
+    invoice: Invoice,
+    action: 'read' | 'write' | 'delete',
+  ): void {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       invoice.client?.enterpriseId,
       `Factura con ID: ${invoice.id} no encontrada`,
+      { resource: 'invoices', action },
     );
   }
 }

@@ -1,12 +1,18 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+import { ForbiddenException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-repository.service';
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { DeleteResult } from 'typeorm';
 import { MulterFile } from 'multer';
 import { DropboxService } from 'src/services/dropbox/dropbox.service';
 import { Response } from 'express';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import {
+  buildMissingEnterprisePermissionMessage,
+  EnterpriseAccessService,
+} from 'src/common/helpers/enterprise-access/enterprise-access.service';
+import { hasEnterprisePermission } from 'src/common/helpers/enterprise-permission/permission.evaluator';
+import { EnterpriseRoleService } from 'src/api/enterprise-role/enterprise-role.service';
 
 @Injectable()
 export class EnterpriseService {
@@ -16,6 +22,7 @@ export class EnterpriseService {
     private readonly enterpriseRepository: EnterpriseRepository,
     private readonly dropboxService: DropboxService,
     private readonly enterpriseAccessService: EnterpriseAccessService,
+    private readonly enterpriseRoleService: EnterpriseRoleService,
   ) {}
 
   /**
@@ -67,8 +74,11 @@ export class EnterpriseService {
     
     try {
       const payloadForPersistence = this.buildSanitizedEnterpriseWritePayload(enterprise);
+      // `stripe_id` es NOT NULL: se ignora el valor del cliente y se genera un placeholder hasta el alta Stripe.
+      payloadForPersistence.stripeId = `cus_pending_${randomUUID()}`;
       const newEnterprise = await this.enterpriseRepository.create(payloadForPersistence as Enterprise);
       this.logger.log(`Empresa creada exitosamente con ID: ${newEnterprise.id}`);
+      await this.enterpriseRoleService.seedDefaultRolesForEnterprise(newEnterprise.id);
       return newEnterprise;
     } catch (error) {
       this.logger.error(`Error al crear empresa ${enterprise.name}:`, error);
@@ -91,7 +101,8 @@ export class EnterpriseService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       enterprise.id,
       'Empresa no encontrada',
-    );
+      { resource: 'enterprises', action: 'write' },
+      );
     
 
     try {
@@ -137,7 +148,8 @@ export class EnterpriseService {
         this.enterpriseAccessService.assertCurrentEntityAccessible(
           enterprise.id,
           'Empresa no encontrada',
-        );
+          { resource: 'enterprises', action: 'read' },
+          );
         
         if (!enterprise.logo) {
           throw new HttpException('La empresa no tiene ningún archivo del logo', HttpStatus.NOT_FOUND);
@@ -239,7 +251,8 @@ export class EnterpriseService {
       this.enterpriseAccessService.assertCurrentEntityAccessible(
         enterprise.id,
         'Empresa no encontrada',
-      );
+        { resource: 'enterprises', action: 'read' },
+        );
     } else {
       this.logger.log(`No se encontró ninguna empresa con ID: ${id}`);
       throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
@@ -267,7 +280,8 @@ export class EnterpriseService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       enterpriseExists.id,
       'Empresa no encontrada',
-    );
+      { resource: 'enterprises', action: 'write' },
+      );
     
     try {
       const payloadForPersistence = this.buildSanitizedEnterpriseWritePayload(enterprise);
@@ -284,7 +298,8 @@ export class EnterpriseService {
   }
 
   /**
-   * Elimina una empresa por su ID
+   * Elimina una empresa por su ID. Solo un administrador global puede hacerlo.
+   *
    * @param id - El ID de la empresa a eliminar
    * @returns El resultado de la eliminación
    */
@@ -297,10 +312,12 @@ export class EnterpriseService {
       throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
     }
 
+    const accessContext = this.enterpriseAccessService.getCurrentAccessContextOrThrow();
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       enterpriseExists.id,
       'Empresa no encontrada',
     );
+    this.enterpriseAccessService.assertCanDeleteEnterprise(accessContext);
 
     if (enterpriseExists.recurrentEarnings && enterpriseExists.recurrentEarnings.length > 0) {
       this.logger.error(`No se puede eliminar la empresa ${id} porque tiene ingresos recurrentes asociados`);
@@ -362,9 +379,22 @@ export class EnterpriseService {
       return null;
     }
 
+    const readableEnterpriseIds = allowedEnterpriseIds.filter((linkedEnterpriseId) =>
+      hasEnterprisePermission(
+        accessContext.permissionsByEnterpriseId?.[linkedEnterpriseId] ?? {},
+        'enterprises',
+        'read',
+      ),
+    );
+    if (readableEnterpriseIds.length === 0) {
+      throw new ForbiddenException(
+        buildMissingEnterprisePermissionMessage('enterprises', 'read'),
+      );
+    }
+
     return {
       ...filter,
-      id: allowedEnterpriseIds,
+      id: readableEnterpriseIds,
     };
   }
 }

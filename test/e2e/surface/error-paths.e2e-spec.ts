@@ -4,8 +4,8 @@ import { http } from '@e2e/http';
 import { getE2eApp, getE2eSeed, startE2eWorld } from '@e2e/world';
 import { QuoteService } from 'src/api/quote/quote.service';
 import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
-import { runWithEnterpriseAccessContext } from 'src/helpers/enterprise-access/enterprise-access.storage';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
+import { runWithEnterpriseAccessContext } from 'src/common/helpers/enterprise-access/enterprise-access.storage';
 
 /**
  * Ramas de error de servicios y helpers que el contrato HTTP feliz no recorre

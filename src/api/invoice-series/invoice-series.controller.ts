@@ -3,9 +3,10 @@ import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { InvoiceSeries } from 'src/entities/invoice-series/invoice-series.entity';
 import { InvoiceSeriesResponseDto } from 'src/entities/invoice-series/dto/invoice-series-response.dto';
 import { InvoiceSeriesService } from './invoice-series.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 
 @ApiTags('Series de facturas')
 @Controller('invoice-series')
@@ -19,6 +20,7 @@ export class InvoiceSeriesController {
    * @returns La serie de factura creada
    */
   @Post()
+  @RequirePermission('invoiceSeries', 'write')
   @RequireEnterpriseId()
   @MapResponse(InvoiceSeriesResponseDto)
   @ApiOperation({ summary: 'Crear una nueva serie de factura' })
@@ -41,6 +43,7 @@ export class InvoiceSeriesController {
    * @returns Las series de facturas
    */
   @Get()
+  @RequirePermission('invoiceSeries', 'read')
   @RequireEnterpriseId()
   @MapResponse(InvoiceSeriesResponseDto)
   @ApiOperation({ summary: 'Obtener todas las series de facturas' })
@@ -90,6 +93,7 @@ export class InvoiceSeriesController {
    * @returns La serie de factura
    */
   @Get(':id')
+  @RequirePermission('invoiceSeries', 'read')
   @MapResponse(InvoiceSeriesResponseDto)
   @ApiOperation({ summary: 'Obtener una serie de factura por su id' })
   @ApiOkResponse({ type: InvoiceSeriesResponseDto, description: 'Serie (vista pública).' })
@@ -108,6 +112,7 @@ export class InvoiceSeriesController {
    * @returns La serie de factura actualizada
    */
   @Patch(':id')
+  @RequirePermission('invoiceSeries', 'write')
   @MapResponse(InvoiceSeriesResponseDto)
   @ApiOperation({ summary: 'Actualizar una serie de factura por su id' })
   @ApiOkResponse({ type: InvoiceSeriesResponseDto, description: 'Serie actualizada (vista pública).' })
@@ -124,6 +129,7 @@ export class InvoiceSeriesController {
    * @returns La serie de factura eliminada
    */
   @Delete(':id')
+  @RequirePermission('invoiceSeries', 'delete')
   @ApiOperation({ summary: 'Eliminar una serie de factura por su id' })
   @ApiResponse({ status: 200, description: 'La serie de factura ha sido eliminada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })

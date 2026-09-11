@@ -7,7 +7,7 @@ import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
 import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
 import { QuoteService } from './quote.service';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 
 describe('QuoteService', () => {
   let service: QuoteService;
@@ -114,6 +114,25 @@ describe('QuoteService', () => {
   });
 
   describe('create', () => {
+    it('rechaza clientes de empresas distintas en el mismo payload', async () => {
+      clientRepository.findById
+        .mockResolvedValueOnce(buildClient({ enterpriseId }))
+        .mockResolvedValueOnce(buildClient({ id: 'otro-cliente', enterpriseId: 'otra-empresa' }));
+
+      await expect(
+        service.create(
+          buildQuote({
+            clientId,
+            client: { id: 'otro-cliente' } as Quote['client'],
+          }),
+        ),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Cotización no encontrada',
+      });
+      expect(quoteRepository.create).not.toHaveBeenCalled();
+    });
+
     it('omite los datos persistentes cuando la cotización está en borrador', async () => {
       const draftQuote = buildQuote({ status: QuoteStatus.DRAFT });
       clientRepository.findById.mockResolvedValue(buildClient());
@@ -387,6 +406,26 @@ describe('QuoteService', () => {
   });
 
   describe('setQuotePersistentData', () => {
+    it('lanza 400 si se invoca sin clientId', async () => {
+      await expect(
+        service.setQuotePersistentData(buildQuote({ clientId: undefined })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'La cotización debe tener un cliente',
+      });
+    });
+
+    it('lanza 404 si el cliente no existe al copiar datos persistentes', async () => {
+      clientRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.setQuotePersistentData(buildQuote({ status: QuoteStatus.ISSUED })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: `Cliente no encontrado con ID: ${clientId}`,
+      });
+    });
+
     it('copia nombre, NIF y dirección del cliente y del emisor', async () => {
       mockPersistentDataSources();
       const quote = buildQuote({ status: QuoteStatus.ISSUED });

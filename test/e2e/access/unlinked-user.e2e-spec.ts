@@ -20,7 +20,10 @@ const TENANT_GET_PATHS = [
   '/recurrent-earnings',
   '/ai-requests',
   '/users',
+  '/enterprise-roles',
+  '/enterprise-roles/catalog',
   '/metrics/invoices/subtotals-by-status',
+  '/metrics/ai-requests/counts-by-type',
 ] as const;
 
 describe('Usuario sin empresas (e2e) — control de acceso', () => {

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { Observable } from 'rxjs';
-import { runWithEnterpriseAccessContext } from 'src/helpers/enterprise-access/enterprise-access.storage';
+import { runWithEnterpriseAccessContext } from 'src/common/helpers/enterprise-access/enterprise-access.storage';
 
 /**
  * Copia `req.accessContext` al AsyncLocalStorage para que los servicios

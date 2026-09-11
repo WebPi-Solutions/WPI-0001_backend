@@ -1,4 +1,4 @@
-jest.mock('src/helpers/query-builder/query-builder.service', () => ({
+jest.mock('src/common/helpers/query-builder/query-builder.service', () => ({
   QueryBuilderService: {
     getCount: jest.fn().mockResolvedValue(0),
     getPaginatedResults: jest.fn().mockResolvedValue({
@@ -13,7 +13,7 @@ jest.mock('src/helpers/query-builder/query-builder.service', () => ({
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { QueryBuilderService } from 'src/helpers/query-builder/query-builder.service';
+import { QueryBuilderService } from 'src/common/helpers/query-builder/query-builder.service';
 import { CreateUserEnterpriseDto } from './dto/create-user-enterprise.dto';
 import { User, UserStatusTypes } from './user.entity';
 import { UserEnterprise } from './user-enterprise.entity';
@@ -264,8 +264,12 @@ describe('UserRepository', () => {
       expect(userQueryBuilder.where).toHaveBeenCalledWith('user.status = :activeStatus', {
         activeStatus: UserStatusTypes.ACTIVE,
       });
+      expect(userQueryBuilder.leftJoin).toHaveBeenCalledWith(
+        'userEnterprise.enterpriseRole',
+        'enterpriseRole',
+      );
       expect(userQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'userEnterprise.role != :signingsRole',
+        '(enterpriseRole.role IS NULL OR enterpriseRole.role != :signingsRole)',
         { signingsRole: 'signings' },
       );
       expect(result).toBe(8);
@@ -622,7 +626,7 @@ describe('UserRepository', () => {
       const payload = {
         userId: 'user-uuid',
         enterpriseId: 'enterprise-uuid',
-        role: 'admin',
+        enterpriseRoleId: 'role-admin-uuid',
         cardId: 1,
       } as CreateUserEnterpriseDto;
       const savedLink = { id: 'link-uuid', ...payload } as UserEnterprise;
@@ -638,7 +642,7 @@ describe('UserRepository', () => {
       const payload = {
         userId: 'user-uuid',
         enterpriseId: 'enterprise-uuid',
-        role: 'admin',
+        enterpriseRoleId: 'role-admin-uuid',
         cardId: 1,
       } as CreateUserEnterpriseDto;
       userEnterpriseTypeOrmMock.save.mockRejectedValue(new Error('duplicado'));
@@ -652,7 +656,7 @@ describe('UserRepository', () => {
       const payload = {
         userId: 'user-uuid',
         enterpriseId: 'enterprise-uuid',
-        role: 'admin',
+        enterpriseRoleId: 'role-admin-uuid',
         cardId: 1,
       } as CreateUserEnterpriseDto;
       userEnterpriseTypeOrmMock.save.mockRejectedValue({ code: '23505' });
@@ -717,7 +721,7 @@ describe('UserRepository', () => {
         userRepositoryService.updateUserEnterpriseRole(
           'user-uuid',
           'enterprise-uuid',
-          'admin',
+          'role-admin-uuid',
         ),
       );
 
@@ -725,17 +729,17 @@ describe('UserRepository', () => {
     });
 
     it('actualiza el rol del vínculo', async () => {
-      const link = { id: 'link-uuid', role: 'user' } as UserEnterprise;
+      const link = { id: 'link-uuid', enterpriseRoleId: 'role-user-uuid' } as UserEnterprise;
       userEnterpriseTypeOrmMock.findOne.mockResolvedValue(link);
       userEnterpriseTypeOrmMock.save.mockResolvedValue(link);
 
       await userRepositoryService.updateUserEnterpriseRole(
         'user-uuid',
         'enterprise-uuid',
-        'admin',
+        'role-admin-uuid',
       );
 
-      expect(link.role).toBe('admin');
+      expect(link.enterpriseRoleId).toBe('role-admin-uuid');
       expect(userEnterpriseTypeOrmMock.save).toHaveBeenCalledWith(link);
     });
   });

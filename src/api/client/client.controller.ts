@@ -3,9 +3,10 @@ import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Client } from 'src/entities/client/client.entity';
 import { ClientResponseDto } from 'src/entities/client/dto/client-response.dto';
 import { ClientService } from './client.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 
 @ApiTags('Clientes')
 @Controller('clients')
@@ -19,6 +20,7 @@ export class ClientController {
    * @returns El cliente creado
    */
   @Post()
+  @RequirePermission('clients', 'write')
   @RequireEnterpriseId()
   @MapResponse(ClientResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo cliente' })
@@ -41,6 +43,7 @@ export class ClientController {
    * @returns Los clientes
    */
   @Get()
+  @RequirePermission('clients', 'read')
   @RequireEnterpriseId()
   @MapResponse(ClientResponseDto)
   @ApiOperation({ summary: 'Obtener todos los clientes' })
@@ -90,6 +93,7 @@ export class ClientController {
    * @returns El cliente
    */
   @Get(':id')
+  @RequirePermission('clients', 'read')
   @MapResponse(ClientResponseDto)
   @ApiOperation({ summary: 'Obtener un cliente por su id' })
   @ApiOkResponse({ type: ClientResponseDto, description: 'Cliente (vista pública).' })
@@ -108,6 +112,7 @@ export class ClientController {
    * @returns El cliente actualizado
    */
   @Patch(':id')
+  @RequirePermission('clients', 'write')
   @MapResponse(ClientResponseDto)
   @ApiOperation({ summary: 'Actualizar un cliente por su id' })
   @ApiOkResponse({ type: ClientResponseDto, description: 'Cliente actualizado (vista pública).' })
@@ -124,6 +129,7 @@ export class ClientController {
    * @returns El cliente eliminado
    */
   @Delete(':id')
+  @RequirePermission('clients', 'delete')
   @ApiOperation({ summary: 'Eliminar un cliente por su id' })
   @ApiResponse({ status: 200, description: 'El cliente ha sido eliminado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })

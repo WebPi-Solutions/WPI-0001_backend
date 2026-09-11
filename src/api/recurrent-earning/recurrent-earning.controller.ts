@@ -2,10 +2,11 @@ import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param
 import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RecurrentEarning } from 'src/entities/recurrent-earning/recurrent-earning.entity';
 import { RecurrentEarningResponseDto } from 'src/entities/recurrent-earning/dto/recurrent-earning-response.dto';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { RecurrentEarningService } from './recurrent-earning.service';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 
 /**
  * Controlador REST de ingresos recurrentes.
@@ -25,6 +26,7 @@ export class RecurrentEarningController {
    * @returns El ingreso recurrente creado
    */
   @Post()
+  @RequirePermission('recurrentEarnings', 'write')
   @RequireEnterpriseId()
   @MapResponse(RecurrentEarningResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo ingreso recurrente' })
@@ -57,6 +59,7 @@ export class RecurrentEarningController {
    * @returns Respuesta paginada con los ingresos recurrentes
    */
   @Get()
+  @RequirePermission('recurrentEarnings', 'read')
   @RequireEnterpriseId()
   @MapResponse(RecurrentEarningResponseDto)
   @ApiOperation({ summary: 'Obtener todos los ingresos recurrentes' })
@@ -120,6 +123,7 @@ export class RecurrentEarningController {
    * @returns El ingreso recurrente
    */
   @Get(':id')
+  @RequirePermission('recurrentEarnings', 'read')
   @MapResponse(RecurrentEarningResponseDto)
   @ApiOperation({ summary: 'Obtener un ingreso recurrente por su id' })
   @ApiOkResponse({ type: RecurrentEarningResponseDto, description: 'Ingreso recurrente (vista pública).' })
@@ -139,6 +143,7 @@ export class RecurrentEarningController {
    * @returns El ingreso recurrente actualizado
    */
   @Patch(':id')
+  @RequirePermission('recurrentEarnings', 'write')
   @MapResponse(RecurrentEarningResponseDto)
   @ApiOperation({ summary: 'Actualizar un ingreso recurrente por su id' })
   @ApiOkResponse({ type: RecurrentEarningResponseDto, description: 'Ingreso recurrente actualizado (vista pública).' })
@@ -157,6 +162,7 @@ export class RecurrentEarningController {
    * @returns El resultado de la eliminación
    */
   @Delete(':id')
+  @RequirePermission('recurrentEarnings', 'delete')
   @ApiOperation({ summary: 'Eliminar un ingreso recurrente por su id' })
   @ApiResponse({ status: 200, description: 'El ingreso recurrente ha sido eliminado correctamente.' })
   @ApiResponse({ status: 400, description: 'El ingreso recurrente tiene facturas asociadas.' })

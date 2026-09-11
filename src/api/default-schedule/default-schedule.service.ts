@@ -1,7 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { DefaultScheduleRepository } from 'src/entities/default-schedule/default-schedule-repository.service';
 import { DefaultSchedule } from 'src/entities/default-schedule/default-schedule.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { DeleteResult } from 'typeorm';
 import { CreateDefaultScheduleDto } from './dto/create-default-schedule.dto';
 import { UpdateDefaultScheduleDto } from './dto/update-default-schedule.dto';

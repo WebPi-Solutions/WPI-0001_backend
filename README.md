@@ -50,6 +50,7 @@ $ npm run start:prod
 Índice en [docs/](./docs/README.md).
 
 - [Acceso por empresa](./docs/enterprise-access.md) — autenticación Firebase vs autorización multi-empresa (guard, no un segundo middleware).
+- [Permisos de rol de empresa](./docs/enterprise-permissions.md) — RBAC por rol (`enterprise_roles.permissions`), deny by default.
 - [Tests](./docs/tests.md) — cómo ejecutar la suite, alcance, logs esperados y cómo añadir specs.
 
 ## Run tests

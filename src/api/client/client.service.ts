@@ -1,8 +1,8 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ClientRepository } from 'src/entities/client/client-repository.service';
 import { Client } from 'src/entities/client/client.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 @Injectable()
@@ -78,7 +78,8 @@ export class ClientService {
       this.enterpriseAccessService.assertCurrentEntityAccessible(
         client.enterpriseId,
         'Cliente no encontrado',
-      );
+        { resource: 'clients', action: 'read' },
+        );
     } else {
       this.logger.log(`No se encontró ningún cliente con ID: ${id}`);
       throw new HttpException('Cliente no encontrado', HttpStatus.NOT_FOUND);
@@ -106,7 +107,8 @@ export class ClientService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       existingClient.enterpriseId,
       'Cliente no encontrado',
-    );
+      { resource: 'clients', action: 'write' },
+      );
 
     const payloadForPersistence = {
       ...client,
@@ -142,7 +144,8 @@ export class ClientService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       client.enterpriseId,
       'Cliente no encontrado',
-    );
+      { resource: 'clients', action: 'delete' },
+      );
 
     if (client.recurrentEarnings && client.recurrentEarnings.length > 0) {
       this.logger.error(`No se puede eliminar el cliente ${id} porque tiene ingresos recurrentes asociados`);

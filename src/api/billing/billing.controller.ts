@@ -25,6 +25,10 @@ import { BillingTieredProductWithPricesResponseDto } from './dto/billing-tiered-
 import { ActiveBillingSubscriptionResponseMapper } from './mappers/active-billing-subscription-response.mapper';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { SkipEnterpriseAccess } from 'src/common/decorators/enterprise-access.decorator';
+import {
+  RequirePermission,
+  SkipEnterprisePermission,
+} from 'src/common/decorators/enterprise-permission.decorator';
 
 /**
  * Endpoints REST de facturación (delegación en Stripe desde el backend).
@@ -36,20 +40,22 @@ export class BillingController {
 
   /**
    * Lista suscripciones Stripe en estado activo o en prueba para las empresas del usuario autenticado.
-   * El frontend no llama a Stripe directamente: solo actúa como cliente HTTP de este endpoint.
+   * Es bootstrap de sesión (menú: gestión / fichajes): no exige `billing.read`.
+   * Con `enterpriseId` sigue haciendo falta el vínculo usuario–empresa.
    *
    * @param request - Petición HTTP con `user` poblado por el middleware de Firebase
    * @param enterpriseId - Opcional: acota la consulta a una empresa concreta (debe existir vínculo)
    * @returns Lista con estado, producto (nombre y metadatos), periodo actual, uso, renovación y cancelación al finalizar (mapeada vía {@link ActiveBillingSubscriptionResponseMapper})
    */
   @Get('active-subscriptions')
+  @SkipEnterprisePermission()
   @MapResponse(ActiveBillingSubscriptionResponseDto)
   @ApiBearerAuth('auth_token')
   @ApiOperation({
     summary:
       'Obtener suscripciones Stripe activas o en prueba del usuario autenticado',
     description:
-      'Agrega las suscripciones de todas las empresas vinculadas que tengan `stripeId`, salvo que se indique `enterpriseId`.',
+      'Agrega las suscripciones de todas las empresas vinculadas que tengan `stripeId`, salvo que se indique `enterpriseId`. No exige `billing.read`: el menú lateral usa estos módulos. La pantalla de suscripciones sí se oculta sin ese permiso.',
   })
   @ApiQuery({
     name: 'enterpriseId',
@@ -196,6 +202,7 @@ export class BillingController {
    * Crea una sesión de Stripe Checkout para iniciar una suscripción.\n+   * El frontend debe redirigir a la URL devuelta.\n+   *
    * @param request - Petición HTTP autenticada\n+   * @param body - Empresa, precio y URLs de retorno\n+   */
   @Post('create-subscription-checkout-session')
+  @RequirePermission('billing', 'write')
   @ApiBearerAuth('auth_token')
   @ApiBody({
     schema: {
@@ -259,6 +266,7 @@ export class BillingController {
    * Modifica una suscripción existente cambiando su precio principal (mensual/anual u otras variantes).\n+   *
    * @param request - Petición HTTP autenticada\n+   * @param body - Empresa, suscripción y nuevo `priceId`\n+   */
   @Post('update-subscription-price')
+  @RequirePermission('billing', 'write')
   @HttpCode(204)
   @ApiBearerAuth('auth_token')
   @ApiBody({
@@ -317,6 +325,7 @@ export class BillingController {
    * @param body - Cuerpo con `subscriptionId` y `enterpriseId` opcional para validar el vínculo
    */
   @Post('cancel-subscription-at-period-end')
+  @RequirePermission('billing', 'write')
   @HttpCode(204)
   @ApiBearerAuth('auth_token')
   @ApiBody({
@@ -364,6 +373,7 @@ export class BillingController {
    * @param body - Cuerpo con `subscriptionId` y `enterpriseId` opcional para validar el vínculo
    */
   @Post('revoke-cancel-subscription-at-period-end')
+  @RequirePermission('billing', 'write')
   @HttpCode(204)
   @ApiBearerAuth('auth_token')
   @ApiBody({

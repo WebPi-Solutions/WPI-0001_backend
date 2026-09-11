@@ -12,10 +12,11 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { VacationResponseDto } from 'src/entities/vacation/dto/vacation-response.dto';
 import { Vacation } from 'src/entities/vacation/vacation.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { CreateVacationDto } from './dto/create-vacation.dto';
 import { UpdateVacationDto } from './dto/update-vacation.dto';
 import { VacationService } from './vacation.service';
@@ -36,6 +37,7 @@ export class VacationController {
    * @returns Registro creado
    */
   @Post()
+  @RequirePermission('vacations', 'write')
   @MapResponse(VacationResponseDto)
   @ApiOperation({ summary: 'Crear un registro de vacaciones o permiso' })
   @ApiResponse({ status: 201, description: 'Registro creado correctamente.' })
@@ -64,6 +66,7 @@ export class VacationController {
    * @returns Página de registros
    */
   @Get()
+  @RequirePermission('vacations', 'read')
   @MapResponse(VacationResponseDto)
   @ApiOperation({ summary: 'Listar vacaciones y permisos por empresa' })
   @ApiResponse({ status: 200, description: 'Listado obtenido correctamente.' })
@@ -124,6 +127,7 @@ export class VacationController {
    * @returns Vacación
    */
   @Get(':id')
+  @RequirePermission('vacations', 'read')
   @MapResponse(VacationResponseDto)
   @ApiOperation({ summary: 'Obtener un registro de vacaciones por id' })
   @ApiResponse({ status: 200, description: 'Registro encontrado.' })
@@ -152,6 +156,7 @@ export class VacationController {
    * @returns Registro actualizado
    */
   @Patch(':id')
+  @RequirePermission('vacations', 'write')
   @MapResponse(VacationResponseDto)
   @ApiOperation({ summary: 'Actualizar un registro de vacaciones' })
   @ApiResponse({ status: 200, description: 'Actualización correcta.' })
@@ -178,6 +183,7 @@ export class VacationController {
    * @returns Resultado del borrado
    */
   @Delete(':id')
+  @RequirePermission('vacations', 'delete')
   @ApiOperation({ summary: 'Eliminar un registro de vacaciones' })
   @ApiResponse({ status: 200, description: 'Eliminación correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrado.' })

@@ -7,6 +7,7 @@ import { UserRepository } from '../../entities/user/user-repository.service';
 import { ClientRepository } from '../../entities/client/client-repository.service';
 import { SupplierRepository } from '../../entities/supplier/supplier-repository.service';
 import { InvoiceSeriesRepository } from '../../entities/invoice-series/invoice-series-repository.service';
+import { AiRequestRepository } from '../../entities/ai-request/ai-request-repository.service';
 import { Invoice } from '../../entities/invoice/invoice.entity';
 import { Spent } from '../../entities/spent/spent.entity';
 import { MetricsService } from './metrics.service';
@@ -26,6 +27,7 @@ describe('MetricsService', () => {
   let clientRepository: { getListViewCounts: jest.Mock };
   let supplierRepository: { getListViewCounts: jest.Mock };
   let invoiceSeriesRepository: { getListViewCounts: jest.Mock };
+  let aiRequestRepository: { getListViewCounts: jest.Mock };
 
   const enterpriseId = 'enterprise-uuid';
   const periodStart = new Date('2026-01-01T00:00:00.000Z');
@@ -94,6 +96,7 @@ describe('MetricsService', () => {
     clientRepository = { getListViewCounts: jest.fn().mockResolvedValue({ total: 0 }) };
     supplierRepository = { getListViewCounts: jest.fn().mockResolvedValue({ total: 0 }) };
     invoiceSeriesRepository = { getListViewCounts: jest.fn().mockResolvedValue({ total: 0 }) };
+    aiRequestRepository = { getListViewCounts: jest.fn().mockResolvedValue({ total: 0 }) };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -105,6 +108,7 @@ describe('MetricsService', () => {
         { provide: ClientRepository, useValue: clientRepository },
         { provide: SupplierRepository, useValue: supplierRepository },
         { provide: InvoiceSeriesRepository, useValue: invoiceSeriesRepository },
+        { provide: AiRequestRepository, useValue: aiRequestRepository },
       ],
     }).compile();
 
@@ -214,6 +218,19 @@ describe('MetricsService', () => {
         monthRange,
         weekRange,
       );
+    });
+
+    it('getAiRequestCountsByType reenvía empresa y filtro', async () => {
+      const filter = { type: 'get_spent_issuer' };
+      await service.getAiRequestCountsByType(enterpriseId, filter);
+
+      expect(aiRequestRepository.getListViewCounts).toHaveBeenCalledWith(enterpriseId, filter);
+    });
+
+    it('getAiRequestCountsByType usa filtro vacío por defecto', async () => {
+      await service.getAiRequestCountsByType(enterpriseId);
+
+      expect(aiRequestRepository.getListViewCounts).toHaveBeenCalledWith(enterpriseId, {});
     });
 
     it('getInvoiceSeriesListCounts usa filtro vacío por defecto', async () => {

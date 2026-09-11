@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ClientRepository } from 'src/entities/client/client-repository.service';
 import { Client } from 'src/entities/client/client.entity';
 import { ClientService } from './client.service';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 
 describe('ClientService', () => {
   let service: ClientService;

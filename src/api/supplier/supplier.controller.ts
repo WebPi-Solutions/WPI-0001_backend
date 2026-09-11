@@ -3,9 +3,10 @@ import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Supplier } from 'src/entities/supplier/supplier.entity';
 import { SupplierResponseDto } from 'src/entities/supplier/dto/supplier-response.dto';
 import { SupplierService } from './supplier.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 
 @ApiTags('Proveedores')
 @Controller('suppliers')
@@ -19,6 +20,7 @@ export class SupplierController {
    * @returns El proveedor creado
    */
   @Post()
+  @RequirePermission('suppliers', 'write')
   @RequireEnterpriseId()
   @MapResponse(SupplierResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo proveedor' })
@@ -41,6 +43,7 @@ export class SupplierController {
    * @returns Los proveedores
    */
   @Get()
+  @RequirePermission('suppliers', 'read')
   @RequireEnterpriseId()
   @MapResponse(SupplierResponseDto)
   @ApiOperation({ summary: 'Obtener todos los proveedores' })
@@ -90,6 +93,7 @@ export class SupplierController {
    * @returns El proveedor
    */
   @Get(':id')
+  @RequirePermission('suppliers', 'read')
   @MapResponse(SupplierResponseDto)
   @ApiOperation({ summary: 'Obtener un proveedor por su id' })
   @ApiOkResponse({ type: SupplierResponseDto, description: 'Proveedor (vista pública).' })
@@ -108,6 +112,7 @@ export class SupplierController {
    * @returns El proveedor actualizado
    */
   @Patch(':id')
+  @RequirePermission('suppliers', 'write')
   @MapResponse(SupplierResponseDto)
   @ApiOperation({ summary: 'Actualizar un proveedor por su id' })
   @ApiOkResponse({ type: SupplierResponseDto, description: 'Proveedor actualizado (vista pública).' })
@@ -124,6 +129,7 @@ export class SupplierController {
    * @returns El proveedor eliminado
    */
   @Delete(':id')
+  @RequirePermission('suppliers', 'delete')
   @ApiOperation({ summary: 'Eliminar un proveedor por su id' })
   @ApiResponse({ status: 200, description: 'El proveedor ha sido eliminado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })

@@ -3,8 +3,8 @@ import { ClientRepository } from 'src/entities/client/client-repository.service'
 import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-series-repository.service';
 import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recurrent-earning-repository.service';
 import { RecurrentEarning, RecurrentEarningType } from 'src/entities/recurrent-earning/recurrent-earning.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 /**
@@ -100,7 +100,8 @@ export class RecurrentEarningService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       recurrentEarning.enterpriseId,
       'Ingreso recurrente no encontrado',
-    );
+      { resource: 'recurrentEarnings', action: 'read' },
+      );
 
     this.logger.log(`Ingreso recurrente encontrado: ${recurrentEarning.name} (ID: ${recurrentEarning.id})`);
     return recurrentEarning;
@@ -125,7 +126,8 @@ export class RecurrentEarningService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       existingRecurrentEarning.enterpriseId,
       'Ingreso recurrente no encontrado',
-    );
+      { resource: 'recurrentEarnings', action: 'write' },
+      );
 
     this.normalizeRelatedIdentifiers(recurrentEarning);
     if (recurrentEarning.type) {
@@ -169,7 +171,8 @@ export class RecurrentEarningService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       recurrentEarning.enterpriseId,
       'Ingreso recurrente no encontrado',
-    );
+      { resource: 'recurrentEarnings', action: 'delete' },
+      );
 
     if (recurrentEarning.invoices && recurrentEarning.invoices.length > 0) {
       this.logger.error(`No se puede eliminar el ingreso recurrente ${id} porque tiene facturas asociadas`);

@@ -319,10 +319,26 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
       ).status,
     ).toBe(200);
 
-    const aiRequest = await http()
+    const aiDeniedForAdministrator = await http()
       .post('/ai-requests')
       .query({ enterpriseId: seed.enterpriseA.id })
       .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        promptTokens: 1,
+        completionTokens: 1,
+        totalTokens: 2,
+        type: 'get_spent_issuer',
+        message: 'e2e',
+      });
+    expect(aiDeniedForAdministrator.status).toBe(403);
+    expect(aiDeniedForAdministrator.body.message).toBe(
+      'No tiene permiso para realizar la acción aiRequests.write',
+    );
+
+    const aiRequest = await http()
+      .post('/ai-requests')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.admin))
       .send({
         promptTokens: 1,
         completionTokens: 1,
@@ -436,7 +452,7 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
         name: 'Alta e2e',
         email: `alta-${Date.now()}@e2e.test`,
         password: 'secret-password',
-        userEnterprises: [{ enterpriseId: seed.enterpriseA.id, role: 'user' }],
+        userEnterprises: [{ enterpriseId: seed.enterpriseA.id }],
       });
     expect([200, 201]).toContain(created.status);
 
@@ -525,10 +541,6 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
       });
     expect(duplicateNif.status).toBe(409);
 
-    /**
-     * `create` sanitiza `stripeId` y la columna es NOT NULL: el alta admin contra
-     * Postgres real responde 500. Se cubre el 409 de NIF y este fallo de persistencia.
-     */
     const created = await http()
       .post('/enterprises')
       .set(authHeader(E2E_EMAIL.admin))
@@ -537,7 +549,8 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
         email: `admin-ent-${Date.now()}@e2e.test`,
         nif: `Z${Date.now().toString().slice(-8)}`,
       });
-    expect([201, 500]).toContain(created.status);
+    expect(created.status).toBe(201);
+    expect(created.body.id).toBeDefined();
   });
 
   it('billing propio: catálogo, checkout, cambio de precio y cancelación', async () => {

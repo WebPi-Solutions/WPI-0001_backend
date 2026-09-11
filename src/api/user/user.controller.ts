@@ -6,10 +6,11 @@ import {
   RequireEnterpriseId,
   SkipEnterpriseAccess,
 } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 import { UserResponseDto } from 'src/entities/user/dto/user-response.dto';
 import { User } from 'src/entities/user/user.entity';
 import { UserService } from './user.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { CreateUserDto } from 'src/entities/user/dto/create-user.dto';
 
 @ApiTags('Usuarios')
@@ -25,6 +26,7 @@ export class UserController {
    */
   @Post()
   @RequireEnterpriseId()
+  @RequirePermission('users', 'write')
   @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Create un nuevo usuario' })
   @ApiOkResponse({ type: UserResponseDto, description: 'Usuario creado o vinculado (vista API).' })
@@ -41,6 +43,7 @@ export class UserController {
    */
   @Get()
   @RequireEnterpriseId()
+  @RequirePermission('users', 'read')
   @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Obtener todos los usuarios' })
   @ApiOkResponse({ description: 'Listado paginado (cada ítem como UserResponseDto).' })
@@ -98,7 +101,11 @@ export class UserController {
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async findMyself(@Req() req: Request) {
-    return this.userService.findByEmail(req.user.email, ['userEnterprises', 'userEnterprises.enterprise']);
+    return this.userService.findByEmail(req.user.email, [
+      'userEnterprises',
+      'userEnterprises.enterprise',
+      'userEnterprises.enterpriseRole',
+    ]);
   }
 
   /**
@@ -111,6 +118,7 @@ export class UserController {
    */
   @Get('card/:cardId')
   @RequireEnterpriseId()
+  @RequirePermission('users', 'read')
   @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Obtener un usuario por card_id (empresa)' })
   @ApiQuery({
@@ -151,6 +159,7 @@ export class UserController {
    * @returns El usuario
    */
   @Get('email/:email')
+  @RequirePermission('users', 'read')
   @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Obtener un usuario por su email' })
   @ApiOkResponse({ type: UserResponseDto, description: 'Usuario encontrado (vista API).' })
@@ -168,6 +177,7 @@ export class UserController {
    * @returns El usuario
    */
   @Get(':id')
+  @RequirePermission('users', 'read')
   @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Obtener un usuario por su id' })
   @ApiOkResponse({ type: UserResponseDto, description: 'Usuario encontrado (vista API).' })
@@ -186,6 +196,7 @@ export class UserController {
    * @returns El usuario actualizado
    */
   @Patch(':id')
+  @RequirePermission('users', 'write')
   @MapResponse(UserResponseDto)
   @ApiOperation({ summary: 'Actualizar un usuario por su id' })
   @ApiQuery({
@@ -212,6 +223,7 @@ export class UserController {
    * Si tiene más empresas, solo se elimina la relación con la empresa indicada.
    */
   @Delete(':id/enterprise/:enterpriseId')
+  @RequirePermission('users', 'delete')
   @ApiOperation({ summary: 'Desvincular usuario de una empresa' })
   @ApiResponse({ status: 200, description: 'Usuario desvinculado o eliminado correctamente.' })
   @ApiResponse({ status: 400, description: 'El usuario no está vinculado a esta empresa.' })

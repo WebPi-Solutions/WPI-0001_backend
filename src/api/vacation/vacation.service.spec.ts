@@ -1,6 +1,6 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { VacationRepository } from 'src/entities/vacation/vacation-repository.service';
 import { Vacation } from 'src/entities/vacation/vacation.entity';
 import { VacationService } from './vacation.service';

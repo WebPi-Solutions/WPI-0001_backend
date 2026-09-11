@@ -1,6 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsInt, IsUUID, IsEnum, IsOptional, ValidateIf } from 'class-validator';
-import { UserRoleTypes } from '../user.entity';
+import { IsNotEmpty, IsInt, IsUUID, IsOptional, ValidateIf } from 'class-validator';
 
 export class CreateUserEnterpriseDto {
   @ApiProperty({ description: 'ID de la empresa' })
@@ -13,10 +12,13 @@ export class CreateUserEnterpriseDto {
   @IsNotEmpty()
   userId: string;
 
-  @ApiProperty({ description: 'Rol del usuario en la empresa' })
-  @IsEnum(UserRoleTypes)
+  /**
+   * Rol de empresa (`enterprise_roles.id`) del mismo `enterpriseId`.
+   */
+  @ApiProperty({ description: 'UUID del rol de empresa asignado al vínculo' })
+  @IsUUID()
   @IsNotEmpty()
-  role: string;
+  enterpriseRoleId: string;
 
   @ApiProperty({
     description: 'Identificador de tarjeta/NFC en el ámbito de la empresa (asignado por el servidor al vincular)',

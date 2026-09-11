@@ -11,9 +11,9 @@ if (process.env.E2E_TEST !== 'true') {
 }
 
 //MiddleWares
-import { FirebaseMiddleware } from './middleware/firebase/firebase.middleware';
+import { FirebaseMiddleware } from './common/middleware/firebase/firebase.middleware';
 import { UserModule } from './entities/user/user.module';
-import { FirebaseModule } from './middleware/firebase/firebase.module';
+import { FirebaseModule } from './common/middleware/firebase/firebase.module';
 
 @Module({
   imports: [
@@ -22,16 +22,7 @@ import { FirebaseModule } from './middleware/firebase/firebase.module';
      * Así los e2e pueden fijar el Postgres de Testcontainers antes de conectar.
      */
     TypeOrmModule.forRootAsync({
-      useFactory: () => ({
-        type: 'postgres' as const,
-        host: process.env.DATABASE_HOST,
-        port: parseInt(process.env.DATABASE_PORT, 10),
-        username: process.env.DATABASE_USERNAME,
-        password: process.env.DATABASE_PASSWORD,
-        database: process.env.DATABASE_NAME,
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        ...buildTypeOrmRuntimeFlags(),
-      }),
+      useFactory: buildTypeOrmConnectionOptions,
     }),
     ApiModule.register(),
     
@@ -50,6 +41,36 @@ export class AppModule implements NestModule {
     .exclude('')
     .forRoutes('*')
   }
+}
+
+/**
+ * Opciones de conexión TypeORM leídas de `process.env` al inicializar el módulo.
+ * Extraídas para cubrir `parseInt` y el resto de campos sin compilar `TypeOrmModule`.
+ *
+ * @returns Configuración de `TypeOrmModule.forRootAsync`
+ */
+export function buildTypeOrmConnectionOptions(): {
+  type: 'postgres';
+  host: string | undefined;
+  port: number;
+  username: string | undefined;
+  password: string | undefined;
+  database: string | undefined;
+  entities: string[];
+  synchronize: boolean;
+  dropSchema: boolean;
+  logging: boolean;
+} {
+  return {
+    type: 'postgres',
+    host: process.env.DATABASE_HOST,
+    port: parseInt(process.env.DATABASE_PORT, 10),
+    username: process.env.DATABASE_USERNAME,
+    password: process.env.DATABASE_PASSWORD,
+    database: process.env.DATABASE_NAME,
+    entities: [__dirname + '/**/*.entity{.ts,.js}'],
+    ...buildTypeOrmRuntimeFlags(),
+  };
 }
 
 /**

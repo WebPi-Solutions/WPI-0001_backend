@@ -11,4 +11,5 @@ export * from './user-counts-by-status.dto';
 export * from './client-counts-by-type.dto';
 export * from './supplier-counts-by-type.dto';
 export * from './invoice-series-list-counts.dto';
+export * from './ai-request-counts-by-type.dto';
 

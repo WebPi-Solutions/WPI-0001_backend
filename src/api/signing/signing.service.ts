@@ -1,10 +1,10 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { SigningRepository } from 'src/entities/signing/signing-repository.service';
 import { SigningUpdateRepository } from 'src/entities/signing/signing-update-repository.service';
 import { SigningUpdate } from 'src/entities/signing/signing-update.entity';
 import { Signing, SigningAction } from 'src/entities/signing/signing.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EntityManager, UpdateResult } from 'typeorm';
 import { CreateSigningDto } from './dto/create-signing.dto';
 import { UpdateSigningDto } from './dto/update-signing.dto';

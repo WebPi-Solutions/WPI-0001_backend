@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SupplierRepository } from 'src/entities/supplier/supplier-repository.service';
 import { Supplier } from 'src/entities/supplier/supplier.entity';
 import { SupplierService } from './supplier.service';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 
 describe('SupplierService', () => {
   let service: SupplierService;
@@ -119,6 +119,15 @@ describe('SupplierService', () => {
   });
 
   describe('updateById', () => {
+    it('lanza 404 si el proveedor no existe', async () => {
+      supplierRepository.findById.mockResolvedValue(null);
+
+      await expect(service.updateById(supplierId, buildSupplier())).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Proveedor no encontrado',
+      });
+    });
+
     it('actualiza el proveedor y lo devuelve', async () => {
       const updatedSupplier = buildSupplier({ name: 'Proveedor Actualizado' });
       supplierRepository.findById.mockResolvedValue(buildSupplier());
@@ -142,6 +151,15 @@ describe('SupplierService', () => {
   });
 
   describe('deleteById', () => {
+    it('lanza 404 si el proveedor no existe', async () => {
+      supplierRepository.findById.mockResolvedValue(null);
+
+      await expect(service.deleteById(supplierId)).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Proveedor no encontrado',
+      });
+    });
+
     it('elimina el proveedor y devuelve el resultado', async () => {
       supplierRepository.findById.mockResolvedValue(buildSupplier());
       supplierRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });

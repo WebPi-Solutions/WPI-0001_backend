@@ -10,10 +10,16 @@ import {
   ClientCountsByTypeDto,
   SupplierCountsByTypeDto,
   InvoiceSeriesListCountsDto,
+  AiRequestCountsByTypeDto,
 } from './dto';
 import { ApiBadRequestResponse, ApiBearerAuth, ApiInternalServerErrorResponse, ApiOkResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 
+/**
+ * Agregados de listados. No existe el permiso `metrics`: cada ruta exige
+ * `read` de la entidad consultada (facturas, gastos, clientes, etc.).
+ */
 @RequireEnterpriseId()
 @Controller('metrics')
 export class MetricsController {
@@ -29,6 +35,7 @@ export class MetricsController {
    * @returns Subtotales y conteos por estado (total, draft, issued, paid, partially_paid, cancelled)
    */
   @Get('invoices/subtotals-by-status')
+  @RequirePermission('invoices', 'read')
   @ApiOperation({ summary: 'Obtiene importes imponibles de facturas desglosados por estado' })
   @ApiBearerAuth('auth_token')
   @ApiQuery({ name: 'enterpriseId', description: 'ID de la empresa', required: true })
@@ -76,6 +83,7 @@ export class MetricsController {
    * @returns Subtotales y conteos por estado (total, pending, paid, partially_paid, cancelled)
    */
   @Get('spents/subtotals-by-status')
+  @RequirePermission('spents', 'read')
   @ApiOperation({ summary: 'Obtiene importes imponibles de gastos desglosados por estado' })
   @ApiBearerAuth('auth_token')
   @ApiQuery({ name: 'enterpriseId', description: 'ID de la empresa', required: true })
@@ -123,6 +131,7 @@ export class MetricsController {
    * @returns Subtotales y conteos por estado (total, draft, issued, converted, rejected)
    */
   @Get('quotes/subtotals-by-status')
+  @RequirePermission('quotes', 'read')
   @ApiOperation({ summary: 'Obtiene importes imponibles de presupuestos desglosados por estado' })
   @ApiBearerAuth('auth_token')
   @ApiQuery({ name: 'enterpriseId', description: 'ID de la empresa', required: true })
@@ -170,6 +179,7 @@ export class MetricsController {
    * @returns Conteos total, activos e inactivos
    */
   @Get('users/counts-by-status')
+  @RequirePermission('users', 'read')
   @ApiOperation({ summary: 'Obtiene conteos de usuarios por empresa y filtros (listado)' })
   @ApiBearerAuth('auth_token')
   @ApiQuery({ name: 'enterpriseId', description: 'ID de la empresa', required: true })
@@ -218,6 +228,7 @@ export class MetricsController {
    * @returns Conteos total, individuales y empresas
    */
   @Get('clients/counts-by-type')
+  @RequirePermission('clients', 'read')
   @ApiOperation({ summary: 'Obtiene conteos de clientes por tipo para el listado' })
   @ApiBearerAuth('auth_token')
   @ApiQuery({ name: 'enterpriseId', description: 'ID de la empresa', required: true })
@@ -266,6 +277,7 @@ export class MetricsController {
    * @returns Conteos total, individuales y empresas
    */
   @Get('suppliers/counts-by-type')
+  @RequirePermission('suppliers', 'read')
   @ApiOperation({ summary: 'Obtiene conteos de proveedores por tipo para el listado' })
   @ApiBearerAuth('auth_token')
   @ApiQuery({ name: 'enterpriseId', description: 'ID de la empresa', required: true })
@@ -318,6 +330,7 @@ export class MetricsController {
    * @returns Conteos total, mes y semana
    */
   @Get('invoice-series/list-counts')
+  @RequirePermission('invoiceSeries', 'read')
   @ApiOperation({ summary: 'Obtiene conteos de series de factura para el listado (total, mes, semana)' })
   @ApiBearerAuth('auth_token')
   @ApiQuery({ name: 'enterpriseId', description: 'ID de la empresa', required: true })
@@ -387,6 +400,55 @@ export class MetricsController {
   }
 
   /**
+   * Obtiene conteos de solicitudes de IA por tipo (total, emisor, conceptos) para el listado,
+   * con los mismos filtros que la tabla.
+   *
+   * @param enterpriseId - ID de la empresa
+   * @param filter - Filtros en formato JSON (opcional)
+   * @returns Conteos total, emisor y conceptos
+   */
+  @Get('ai-requests/counts-by-type')
+  @RequirePermission('aiRequests', 'read')
+  @ApiOperation({ summary: 'Obtiene conteos de solicitudes de IA por tipo para el listado' })
+  @ApiBearerAuth('auth_token')
+  @ApiQuery({ name: 'enterpriseId', description: 'ID de la empresa', required: true })
+  @ApiQuery({ name: 'filter', description: 'Filtros en formato JSON (opcional)', required: false })
+  @ApiOkResponse({ description: 'Conteos de solicitudes de IA calculados' })
+  @ApiBadRequestResponse({ description: 'Bad Request' })
+  @ApiInternalServerErrorResponse({ description: 'Error interno del servidor' })
+  async getAiRequestCountsByType(
+    @Query('enterpriseId') enterpriseId: string,
+    @Query('filter') filter?: string,
+  ): Promise<AiRequestCountsByTypeDto> {
+    this.logger.log(`Solicitud de conteos de solicitudes de IA por tipo - Empresa: ${enterpriseId}`);
+
+    if (!enterpriseId) {
+      throw new BadRequestException('El parámetro enterpriseId es requerido');
+    }
+
+    let filterObj: Record<string, unknown> = {};
+    if (filter) {
+      try {
+        filterObj = JSON.parse(filter);
+      } catch (error) {
+        this.logger.warn(`Error al parsear filtro JSON: ${error.message}`);
+      }
+    }
+
+    try {
+      const metrics = await this.metricsService.getAiRequestCountsByType(enterpriseId, filterObj);
+      this.logger.log(`Conteos de solicitudes de IA obtenidos para empresa ${enterpriseId}`);
+      return metrics;
+    } catch (error) {
+      this.logger.error(`Error obteniendo conteos de solicitudes de IA: ${error.message}`, error.stack);
+      throw new HttpException(
+        `Error obteniendo conteos de solicitudes de IA: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
    * Obtiene métricas de facturas emitidas (no borrador) en un rango de fechas
    * @param startDate - Fecha de inicio (formato YYYY-MM-DD)
    * @param endDate - Fecha de fin (formato YYYY-MM-DD)
@@ -394,6 +456,7 @@ export class MetricsController {
    * @returns Métricas de facturas emitidas (no borrador) calculadas
    */
   @Get('invoices')
+  @RequirePermission('invoices', 'read')
   @ApiOperation({ summary: 'Obtiene métricas de facturas emitidas (no borrador) en un rango de fechas' })
   @ApiBearerAuth('auth_token')
   @ApiQuery({ name: 'startDate', description: 'Fecha de inicio (formato YYYY-MM-DD)', required: true })
@@ -447,6 +510,7 @@ export class MetricsController {
    * @returns Métricas de gastos recibidos calculadas
    */
   @Get('spents')
+  @RequirePermission('spents', 'read')
   @ApiOperation({ summary: 'Obtiene métricas de gastos recibidos en un rango de fechas' })
   @ApiBearerAuth('auth_token')
   @ApiQuery({ name: 'startDate', description: 'Fecha de inicio (formato YYYY-MM-DD)', required: true })
@@ -499,6 +563,7 @@ export class MetricsController {
    * @returns Métricas mensuales de facturas
    */
   @Get('invoices/yearly')
+  @RequirePermission('invoices', 'read')
   @ApiOperation({ summary: 'Obtiene métricas mensuales de facturas para un año específico' })
   @ApiBearerAuth('auth_token')
   @ApiQuery({ name: 'year', description: 'Año a consultar (ej: 2025)', required: true })
@@ -546,6 +611,7 @@ export class MetricsController {
    * @returns Métricas mensuales de gastos
    */
   @Get('spents/yearly')
+  @RequirePermission('spents', 'read')
   @ApiOperation({ summary: 'Obtiene métricas mensuales de gastos para un año específico' })
   @ApiBearerAuth('auth_token')
   @ApiQuery({ name: 'year', description: 'Año a consultar (ej: 2025)', required: true })

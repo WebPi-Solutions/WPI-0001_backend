@@ -80,6 +80,7 @@ describe('FirebaseMiddleware', () => {
     expect(verifyIdToken).toHaveBeenCalledWith('valid-token');
     expect(userRepository.findByEmail).toHaveBeenCalledWith('user@test.com', [
       'userEnterprises',
+      'userEnterprises.enterpriseRole',
     ]);
     expect(request.user).toBe(foundUser);
     expect(nextFunction).toHaveBeenCalledTimes(1);

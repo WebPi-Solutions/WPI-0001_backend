@@ -24,7 +24,7 @@ describe('Ramas dotenv fuera de e2e', () => {
         }));
         jest.doMock('dropbox', () => ({ Dropbox: jest.fn() }));
         jest.doMock('dotenv', () => ({ config: jest.fn() }));
-        require('src/middleware/firebase/firebase.service');
+        require('src/common/middleware/firebase/firebase.service');
         require('src/services/dropbox/dropbox.service');
         require('src/app.module');
       });

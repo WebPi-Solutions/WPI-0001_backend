@@ -12,6 +12,7 @@ import { Signing, SigningAction } from './signing/signing.entity';
 import { SigningUpdate } from './signing/signing-update.entity';
 import { Spent } from './spent/spent.entity';
 import { Supplier } from './supplier/supplier.entity';
+import { EnterpriseRole } from './enterprise-role/enterprise-role.entity';
 import { UserEnterprise } from './user/user-enterprise.entity';
 import { User, UserRoleTypes, UserStatusTypes } from './user/user.entity';
 import { Vacation } from './vacation/vacation.entity';
@@ -69,11 +70,22 @@ describe('Entidades TypeORM', () => {
       enterprise,
       userEnterpriseLinks: [],
     });
+    const enterpriseRole = Object.assign(new EnterpriseRole(), {
+      id: 'role-1',
+      enterpriseId: enterprise.id,
+      role: 'empleado',
+      permissions: {},
+      createdAt: now,
+      updatedAt: now,
+      enterprise,
+      userEnterprises: [],
+    });
     const userEnterprise = Object.assign(new UserEnterprise(), {
       id: 'ue-1',
       userId: user.id,
       enterpriseId: enterprise.id,
-      role: 'user',
+      enterpriseRoleId: enterpriseRole.id,
+      enterpriseRole,
       cardId: 1,
       defaultSchedule,
       defaultScheduleId: defaultSchedule.id,

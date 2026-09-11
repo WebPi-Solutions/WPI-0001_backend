@@ -9,6 +9,11 @@ import { User, UserRoleTypes } from 'src/entities/user/user.entity';
 import { UserRepository } from 'src/entities/user/user-repository.service';
 import { AccessContext } from './access-context';
 import { getEnterpriseAccessContext } from './enterprise-access.storage';
+import {
+  PermissionAction,
+  PermissionResource,
+} from 'src/common/helpers/enterprise-permission/permission.catalog';
+import { hasEnterprisePermission } from 'src/common/helpers/enterprise-permission/permission.evaluator';
 
 /**
  * Opciones para {@link EnterpriseAccessService.assertUserBelongsToEnterprise}.
@@ -155,10 +160,21 @@ export class EnterpriseAccessService {
       ),
     ];
 
+    const permissionsByEnterpriseId: AccessContext['permissionsByEnterpriseId'] = {};
+    for (const link of userEnterpriseLinks) {
+      const linkedEnterpriseId = link.enterpriseId ?? link.enterprise?.id;
+      if (!linkedEnterpriseId) {
+        continue;
+      }
+      permissionsByEnterpriseId[linkedEnterpriseId] =
+        link.enterpriseRole?.permissions ?? {};
+    }
+
     return {
       userId: user.id,
       isGlobalAdmin: user.role === UserRoleTypes.ADMIN,
       allowedEnterpriseIds,
+      permissionsByEnterpriseId,
     };
   }
 
@@ -251,11 +267,23 @@ export class EnterpriseAccessService {
   assertCurrentEntityAccessible(
     entityEnterpriseId: string | null | undefined,
     notFoundMessage: string,
+    requiredPermission?: {
+      resource: PermissionResource;
+      action: PermissionAction;
+    },
   ): void {
     const accessContext = this.getCurrentAccessContextOrThrow();
     this.assertEntityAccessible(accessContext, entityEnterpriseId, {
       notFoundMessage,
     });
+    if (requiredPermission && entityEnterpriseId) {
+      this.assertCanPerformEnterprisePermission(
+        accessContext,
+        entityEnterpriseId,
+        requiredPermission.resource,
+        requiredPermission.action,
+      );
+    }
   }
 
   /**
@@ -324,6 +352,148 @@ export class EnterpriseAccessService {
   }
 
   /**
+   * Solo un administrador global puede eliminar empresas (panel de administración).
+   *
+   * @param accessContext - Contexto de la petición
+   */
+  assertCanDeleteEnterprise(accessContext: AccessContext): void {
+    if (accessContext.isGlobalAdmin) {
+      return;
+    }
+    this.logger.warn(
+      `El usuario ${accessContext.userId} intentó eliminar una empresa sin ser administrador global`,
+    );
+    throw new ForbiddenException(
+      'No tiene permiso para eliminar empresas.',
+    );
+  }
+
+  /**
+   * Comprueba que el rol de `enterpriseId` concede la acción.
+   * El administrador global se salta el RBAC.
+   *
+   * @param accessContext - Contexto de la petición
+   * @param enterpriseId - Empresa cuyo rol se evalúa
+   * @param resource - Recurso del catálogo
+   * @param action - Acción exigida
+   */
+  assertCanPerformEnterprisePermission(
+    accessContext: AccessContext,
+    enterpriseId: string,
+    resource: PermissionResource,
+    action: PermissionAction,
+  ): void {
+    if (accessContext.isGlobalAdmin) {
+      return;
+    }
+    const permissions =
+      accessContext.permissionsByEnterpriseId?.[enterpriseId] ?? {};
+    if (hasEnterprisePermission(permissions, resource, action)) {
+      return;
+    }
+    this.logger.warn(
+      `El usuario ${accessContext.userId} no tiene permiso ${resource}.${action} en la empresa ${enterpriseId}`,
+    );
+    throw new ForbiddenException(
+      buildMissingEnterprisePermissionMessage(resource, action),
+    );
+  }
+
+  /**
+   * Variante de {@link assertCanPerformEnterprisePermission} con el contexto de la petición actual.
+   *
+   * @param enterpriseId - Empresa cuyo rol se evalúa
+   * @param resource - Recurso del catálogo
+   * @param action - Acción exigida
+   */
+  assertCurrentPermission(
+    enterpriseId: string,
+    resource: PermissionResource,
+    action: PermissionAction,
+  ): void {
+    const accessContext = this.getCurrentAccessContextOrThrow();
+    this.assertCanPerformEnterprisePermission(
+      accessContext,
+      enterpriseId,
+      resource,
+      action,
+    );
+  }
+
+  /**
+   * Exige un permiso de catálogo sobre un usuario objetivo en una empresa compartida.
+   * El administrador global se salta el RBAC. El propio perfil puede omitirse en lecturas.
+   *
+   * @param accessContext - Contexto de la petición
+   * @param targetUser - Usuario objetivo (con `userEnterprises` si es posible)
+   * @param resource - Recurso del catálogo (habitualmente `users`)
+   * @param action - Acción exigida
+   * @param options - `allowSelfBypass` permite al caller leerse a sí mismo sin `users.read`
+   */
+  assertCanPerformUserResourcePermission(
+    accessContext: AccessContext,
+    targetUser: { id: string; userEnterprises?: Array<{ enterpriseId: string }> },
+    resource: PermissionResource,
+    action: PermissionAction,
+    options?: { allowSelfBypass?: boolean },
+  ): void {
+    if (accessContext.isGlobalAdmin) {
+      return;
+    }
+    if (options?.allowSelfBypass && targetUser.id === accessContext.userId) {
+      return;
+    }
+
+    const targetEnterpriseIds = (targetUser.userEnterprises ?? []).map(
+      (link) => link.enterpriseId,
+    );
+    const sharedEnterpriseIds = targetEnterpriseIds.filter((enterpriseId) =>
+      accessContext.allowedEnterpriseIds.includes(enterpriseId),
+    );
+    const hasPermissionOnSharedEnterprise = sharedEnterpriseIds.some((enterpriseId) =>
+      hasEnterprisePermission(
+        accessContext.permissionsByEnterpriseId?.[enterpriseId] ?? {},
+        resource,
+        action,
+      ),
+    );
+    if (hasPermissionOnSharedEnterprise) {
+      return;
+    }
+
+    this.logger.warn(
+      `El usuario ${accessContext.userId} no tiene permiso ${resource}.${action} sobre el perfil ${targetUser.id}`,
+    );
+    throw new ForbiddenException(
+      buildMissingEnterprisePermissionMessage(resource, action),
+    );
+  }
+
+  /**
+   * Variante de {@link assertCanPerformUserResourcePermission} con el contexto actual.
+   *
+   * @param targetUser - Usuario objetivo
+   * @param resource - Recurso del catálogo
+   * @param action - Acción exigida
+   * @param options - Bypass opcional del propio perfil
+   */
+  assertCurrentUserResourcePermission(
+    targetUser: { id: string; userEnterprises?: Array<{ enterpriseId: string }> },
+    resource: PermissionResource,
+    action: PermissionAction,
+    options?: { allowSelfBypass?: boolean },
+  ): void {
+    const accessContext = this.getCurrentAccessContextOrThrow();
+    this.assertCanPerformUserResourcePermission(
+      accessContext,
+      targetUser,
+      resource,
+      action,
+      options,
+    );
+  }
+
+  /**
    * Une nombres de relaciones TypeORM evitando duplicados.
    *
    * @param relations - Relaciones pedidas por el caller
@@ -336,4 +506,18 @@ export class EnterpriseAccessService {
   ): string[] {
     return [...new Set([...(relations ?? []), ...requiredRelationNames])];
   }
+}
+
+/**
+ * Construye el 403 de RBAC con el permiso denegado, para depurar desde la UI.
+ *
+ * @param resource - Recurso del catálogo
+ * @param action - Acción exigida
+ * @returns Mensaje HTTP con `recurso.acción`
+ */
+export function buildMissingEnterprisePermissionMessage(
+  resource: PermissionResource,
+  action: PermissionAction,
+): string {
+  return `No tiene permiso para realizar la acción ${resource}.${action}`;
 }

@@ -1,6 +1,8 @@
 import { coverDtoClass } from 'src/test-utils/cover-data-classes';
+import { AiRequestCountsByTypeDto } from './ai-request-counts-by-type.dto';
 import { ClientCountsByTypeDto } from './client-counts-by-type.dto';
 import {
+  AiRequestCountsByTypeDto as BarrelAiRequestCounts,
   ClientCountsByTypeDto as BarrelClientCounts,
   InvoiceSeriesListCountsDto as BarrelInvoiceSeriesCounts,
   SupplierCountsByTypeDto as BarrelSupplierCounts,
@@ -14,6 +16,17 @@ import { UserCountsByStatusDto } from './user-counts-by-status.dto';
  * Cubre constructores de los DTO de conteos de métricas y el barrel `index.ts`.
  */
 describe('DTO de métricas de listados', () => {
+  it('debe instanciar AiRequestCountsByTypeDto', () => {
+    const dto = coverDtoClass(AiRequestCountsByTypeDto, {
+      total: 24,
+      issuer: 12,
+      concepts: 12,
+    });
+
+    expect(dto.total).toBe(24);
+    expect(dto.issuer + dto.concepts).toBe(dto.total);
+  });
+
   it('debe instanciar ClientCountsByTypeDto', () => {
     const dto = coverDtoClass(ClientCountsByTypeDto, {
       total: 120,
@@ -58,6 +71,7 @@ describe('DTO de métricas de listados', () => {
   });
 
   it('debe reexportar las clases desde el barrel index', () => {
+    expect(BarrelAiRequestCounts).toBe(AiRequestCountsByTypeDto);
     expect(BarrelClientCounts).toBe(ClientCountsByTypeDto);
     expect(BarrelInvoiceSeriesCounts).toBe(InvoiceSeriesListCountsDto);
     expect(BarrelSupplierCounts).toBe(SupplierCountsByTypeDto);

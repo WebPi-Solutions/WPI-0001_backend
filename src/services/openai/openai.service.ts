@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import OpenAI from 'openai';
-import { SpentConcept } from 'src/models/Concept';
+import { SpentConcept } from 'src/common/models/Concept';
 import { spentConceptsSystemPrompt } from './prompts/spent-concepts.system.prompt';
 import { buildSpentConceptsUserPrompt } from './prompts/spent-concepts.user.prompt';
 import { spentIssuerSystemPrompt } from './prompts/spent-issuer.system.prompt';

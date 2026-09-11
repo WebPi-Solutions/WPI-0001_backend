@@ -1,9 +1,13 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { QueryBuilderService, QueryFilterOptions } from 'src/helpers/query-builder/query-builder.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
-import { AiRequest } from './ai-request.entity';
+import {
+  QueryBuilderService,
+  QueryFilterOptions,
+  QueryRelation,
+} from 'src/common/helpers/query-builder/query-builder.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
+import { AiRequest, AiRequestType } from './ai-request.entity';
 
 /**
  * Repositorio de peticiones a la API de IA.
@@ -28,6 +32,53 @@ export class AiRequestRepository {
       `Persistiendo petición de IA tipo ${aiRequest.type} para la empresa ${aiRequest.enterpriseId}`,
     );
     return this.aiRequestTypeOrmRepository.save(aiRequest);
+  }
+
+  /**
+   * Cuenta peticiones de IA con los mismos filtros que el listado (sin paginar).
+   *
+   * @param filter - Filtros de consulta
+   * @param relations - Relaciones solo JOIN (para filtros anidados)
+   * @returns Número de filas
+   */
+  async count(
+    filter: Record<string, unknown> = {},
+    relations?: string[],
+  ): Promise<number> {
+    const queryRelations: QueryRelation[] | undefined = relations
+      ? relations.map((relation) => ({
+          property: relation,
+          alias: relation,
+          isLeftJoinAndSelect: false,
+        }))
+      : undefined;
+    return QueryBuilderService.getCount(
+      this.aiRequestTypeOrmRepository,
+      'aiRequest',
+      filter,
+      queryRelations,
+    );
+  }
+
+  /**
+   * Conteos para las tarjetas del listado: total, emisor y conceptos.
+   * Tres llamadas a {@link count}; el tipo fuerza emisor o conceptos.
+   *
+   * @param enterpriseId - Empresa
+   * @param filter - Filtros de la vista (sin `enterpriseId`)
+   * @returns Conteos alineados con las tarjetas de la vista
+   */
+  async getListViewCounts(
+    enterpriseId: string,
+    filter: Record<string, unknown> = {},
+  ): Promise<{ total: number; issuer: number; concepts: number }> {
+    const baseFilter: Record<string, unknown> = { enterpriseId, ...filter };
+    const [total, issuer, concepts] = await Promise.all([
+      this.count(baseFilter),
+      this.count({ ...baseFilter, type: AiRequestType.GET_SPENT_ISSUER }),
+      this.count({ ...baseFilter, type: AiRequestType.GET_SPENT_CONCEPTS }),
+    ]);
+    return { total, issuer, concepts };
   }
 
   /**

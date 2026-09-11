@@ -1,8 +1,8 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { WorkScheduleRepository } from 'src/entities/work-schedule/work-schedule-repository.service';
 import { WorkSchedule } from 'src/entities/work-schedule/work-schedule.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { DeleteResult } from 'typeorm';
 import { CreateWorkScheduleDto } from './dto/create-work-schedule.dto';
 import { UpdateWorkScheduleDto } from './dto/update-work-schedule.dto';

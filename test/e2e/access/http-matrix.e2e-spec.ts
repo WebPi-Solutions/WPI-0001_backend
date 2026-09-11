@@ -21,6 +21,8 @@ const TENANT_LIST_PATHS = [
   '/recurrent-earnings',
   '/ai-requests',
   '/users',
+  '/enterprise-roles',
+  '/enterprise-roles/catalog',
   '/metrics/invoices/subtotals-by-status',
   '/metrics/spents/subtotals-by-status',
   '/metrics/quotes/subtotals-by-status',
@@ -32,6 +34,7 @@ const TENANT_LIST_PATHS = [
   '/metrics/invoices/yearly',
   '/metrics/spents/yearly',
   '/metrics/invoice-series/list-counts',
+  '/metrics/ai-requests/counts-by-type',
 ] as const;
 
 /**

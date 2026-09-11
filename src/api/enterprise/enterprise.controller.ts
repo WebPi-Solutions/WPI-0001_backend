@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch,
 import { ApiConsumes, ApiBody, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { MulterFile } from 'multer';
 import { EnterpriseService } from './enterprise.service';
 import { Response } from 'express';
@@ -10,6 +10,8 @@ import { EnterpriseLogoUploadDto } from './dto/enterprise-logo-upload.dto';
 import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
+import { SkipEnterprisePermission } from 'src/common/decorators/enterprise-permission.decorator';
 
 @ApiTags('Empresas')
 @Controller('enterprises')
@@ -18,13 +20,18 @@ export class EnterpriseController {
   constructor(private readonly enterpriseService: EnterpriseService){}
 
   /**
-   * Crea una nueva empresa
+   * Crea una nueva empresa y siembra los roles por defecto Administrador y Empleado.
    * @param enterprise - La empresa a crear
    * @returns La empresa creada
    */
   @Post()
+  @SkipEnterprisePermission()
   @MapResponse(EnterpriseResponseDto)
-  @ApiOperation({ summary: 'Crear una nueva empresa' })
+  @ApiOperation({
+    summary: 'Crear una nueva empresa',
+    description:
+      'Tras el alta se crean los roles por defecto Administrador (permisos `*`) y Empleado (sin concesiones).',
+  })
   @ApiOkResponse({ type: EnterpriseResponseDto, description: 'Empresa creada (vista pública).' })
   @ApiResponse({ status: 201, description: 'La empresa ha sido creada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -40,6 +47,7 @@ export class EnterpriseController {
    * @returns El archivo del logo de la empresa creado/reemplazado en Dropbox
    */
   @Post('logo')
+  @RequirePermission('enterprises', 'write')
   @RequireEnterpriseId()
   @MapResponse(EnterpriseResponseDto)
   @UseInterceptors(FileInterceptor('file', {
@@ -78,6 +86,7 @@ export class EnterpriseController {
    * @returns Las empresas
    */
   @Get()
+  @RequirePermission('enterprises', 'read')
   @MapResponse(EnterpriseResponseDto)
   @ApiOperation({ summary: 'Obtener todas las empresas' })
   @ApiOkResponse({ description: 'Listado paginado de empresas (vista pública por ítem).' })
@@ -118,6 +127,7 @@ export class EnterpriseController {
    * @returns La empresa
    */
   @Get(':id')
+  @RequirePermission('enterprises', 'read')
   @MapResponse(EnterpriseResponseDto)
   @ApiOperation({ summary: 'Obtener una empresa por su id' })
   @ApiOkResponse({ type: EnterpriseResponseDto, description: 'Empresa encontrada (vista pública).' })
@@ -139,6 +149,7 @@ export class EnterpriseController {
  * @returns El archivo del logo de la empresa
  */
   @Get('logo/:enterpriseId')
+  @RequirePermission('enterprises', 'read')
   @ApiOperation({ summary: 'Descargar el archivo del logo de la empresa por su id' })
   @ApiResponse({ status: 200, description: 'El archivo ha sido descargado correctamente.' })
   @ApiResponse({ status: 404, description: 'Empresa o archivo no encontrado.' })
@@ -155,6 +166,7 @@ export class EnterpriseController {
    * @returns La empresa actualizada
    */
   @Patch(':id')
+  @RequirePermission('enterprises', 'write')
   @MapResponse(EnterpriseResponseDto)
   @ApiOperation({ summary: 'Actualizar una empresa por su id' })
   @ApiOkResponse({ type: EnterpriseResponseDto, description: 'Empresa actualizada (vista pública).' })
@@ -174,7 +186,11 @@ export class EnterpriseController {
    * @returns La empresa eliminada
    */
   @Delete(':id')
-  @ApiOperation({ summary: 'Eliminar una empresa por su id' })
+  @SkipEnterprisePermission()
+  @ApiOperation({
+    summary: 'Eliminar una empresa por su id',
+    description: 'Solo un administrador global puede eliminar empresas. No forma parte del RBAC de rol.',
+  })
   @ApiResponse({ status: 200, description: 'La empresa ha sido eliminada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })

@@ -30,7 +30,7 @@ export class UserEnterpriseService {
     const link = await this.userRepository.findUserEnterpriseByEnterpriseAndCardId(
       enterpriseId,
       cardId,
-      ['user', 'enterprise'],
+      ['user', 'enterprise', 'enterpriseRole'],
     );
 
     if (!link) {

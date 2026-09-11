@@ -1,6 +1,6 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { SigningRepository } from 'src/entities/signing/signing-repository.service';
 import { SigningUpdateRepository } from 'src/entities/signing/signing-update-repository.service';
 import { Signing, SigningAction } from 'src/entities/signing/signing.entity';

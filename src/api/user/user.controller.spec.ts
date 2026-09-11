@@ -133,6 +133,7 @@ describe('UserController', () => {
       expect(userService.findByEmail).toHaveBeenCalledWith('ana@example.com', [
         'userEnterprises',
         'userEnterprises.enterprise',
+        'userEnterprises.enterpriseRole',
       ]);
     });
   });

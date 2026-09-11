@@ -5,7 +5,7 @@ import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-ser
 import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recurrent-earning-repository.service';
 import { RecurrentEarning, RecurrentEarningType } from 'src/entities/recurrent-earning/recurrent-earning.entity';
 import { RecurrentEarningService } from './recurrent-earning.service';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 
 describe('RecurrentEarningService', () => {
   let service: RecurrentEarningService;

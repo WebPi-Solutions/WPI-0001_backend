@@ -2,6 +2,7 @@ import { Controller, Get, HttpException, HttpStatus, Param, Query } from '@nestj
 import { ApiOkResponse, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 import { UserEnterpriseResponseDto } from 'src/entities/user/dto/user-enterprise-response.dto';
 import { UserEnterprise } from 'src/entities/user/user-enterprise.entity';
 import { UserEnterpriseService } from './user-enterprise.service';
@@ -19,6 +20,7 @@ export class UserEnterpriseController {
    * Pensado para la pantalla kiosco: devuelve directamente `userEnterpriseId` (id del vínculo).
    */
   @Get('card/:cardId')
+  @RequirePermission('signings', 'read')
   @RequireEnterpriseId()
   @MapResponse(UserEnterpriseResponseDto)
   @ApiOperation({ summary: 'Obtener vínculo user_enterprise por card_id (empresa)' })

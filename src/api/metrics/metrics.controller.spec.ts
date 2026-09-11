@@ -13,6 +13,7 @@ describe('MetricsController', () => {
     getClientCountsByType: jest.Mock;
     getSupplierCountsByType: jest.Mock;
     getInvoiceSeriesListCounts: jest.Mock;
+    getAiRequestCountsByType: jest.Mock;
     getInvoicesMetrics: jest.Mock;
     getSpentMetrics: jest.Mock;
     getYearlyInvoiceMetrics: jest.Mock;
@@ -30,6 +31,7 @@ describe('MetricsController', () => {
       getClientCountsByType: jest.fn().mockResolvedValue({}),
       getSupplierCountsByType: jest.fn().mockResolvedValue({}),
       getInvoiceSeriesListCounts: jest.fn().mockResolvedValue({}),
+      getAiRequestCountsByType: jest.fn().mockResolvedValue({}),
       getInvoicesMetrics: jest.fn().mockResolvedValue({}),
       getSpentMetrics: jest.fn().mockResolvedValue({}),
       getYearlyInvoiceMetrics: jest.fn().mockResolvedValue({}),
@@ -293,17 +295,20 @@ describe('MetricsController', () => {
       });
     });
 
-    it('exige enterpriseId en conteos de clientes y proveedores', async () => {
+    it('exige enterpriseId en conteos de clientes, proveedores y solicitudes de IA', async () => {
       await expect(controller.getClientCountsByType('')).rejects.toBeInstanceOf(BadRequestException);
       await expect(controller.getSupplierCountsByType('')).rejects.toBeInstanceOf(BadRequestException);
+      await expect(controller.getAiRequestCountsByType('')).rejects.toBeInstanceOf(BadRequestException);
     });
 
-    it('delega conteos de clientes y proveedores con filtro vacío', async () => {
+    it('delega conteos de clientes, proveedores y solicitudes de IA con filtro vacío', async () => {
       await controller.getClientCountsByType(enterpriseId);
       await controller.getSupplierCountsByType(enterpriseId);
+      await controller.getAiRequestCountsByType(enterpriseId);
 
       expect(metricsService.getClientCountsByType).toHaveBeenCalledWith(enterpriseId, {});
       expect(metricsService.getSupplierCountsByType).toHaveBeenCalledWith(enterpriseId, {});
+      expect(metricsService.getAiRequestCountsByType).toHaveBeenCalledWith(enterpriseId, {});
     });
 
     it('traduce un error de conteo de usuarios a 500', async () => {
@@ -325,25 +330,32 @@ describe('MetricsController', () => {
       await controller.getUserCountsByStatus(enterpriseId, '{no-es-json');
       await controller.getClientCountsByType(enterpriseId, '{no-es-json');
       await controller.getSupplierCountsByType(enterpriseId, '{no-es-json');
+      await controller.getAiRequestCountsByType(enterpriseId, '{no-es-json');
 
       expect(metricsService.getSpentSubtotalsByStatus).toHaveBeenCalledWith(enterpriseId, {});
       expect(metricsService.getQuoteSubtotalsByStatus).toHaveBeenCalledWith(enterpriseId, {});
       expect(metricsService.getUserCountsByStatus).toHaveBeenCalledWith(enterpriseId, {});
       expect(metricsService.getClientCountsByType).toHaveBeenCalledWith(enterpriseId, {});
       expect(metricsService.getSupplierCountsByType).toHaveBeenCalledWith(enterpriseId, {});
+      expect(metricsService.getAiRequestCountsByType).toHaveBeenCalledWith(enterpriseId, {});
     });
 
-    it('reenvía filtros JSON de clientes y proveedores', async () => {
+    it('reenvía filtros JSON de clientes, proveedores y solicitudes de IA', async () => {
       const filterJson = JSON.stringify({ type: 'company' });
+      const aiRequestFilterJson = JSON.stringify({ type: 'get_spent_issuer' });
 
       await controller.getClientCountsByType(enterpriseId, filterJson);
       await controller.getSupplierCountsByType(enterpriseId, filterJson);
+      await controller.getAiRequestCountsByType(enterpriseId, aiRequestFilterJson);
 
       expect(metricsService.getClientCountsByType).toHaveBeenCalledWith(enterpriseId, {
         type: 'company',
       });
       expect(metricsService.getSupplierCountsByType).toHaveBeenCalledWith(enterpriseId, {
         type: 'company',
+      });
+      expect(metricsService.getAiRequestCountsByType).toHaveBeenCalledWith(enterpriseId, {
+        type: 'get_spent_issuer',
       });
     });
 
@@ -352,6 +364,7 @@ describe('MetricsController', () => {
       metricsService.getQuoteSubtotalsByStatus.mockRejectedValue(new Error('fallo presupuestos'));
       metricsService.getClientCountsByType.mockRejectedValue(new Error('fallo clientes'));
       metricsService.getSupplierCountsByType.mockRejectedValue(new Error('fallo proveedores'));
+      metricsService.getAiRequestCountsByType.mockRejectedValue(new Error('fallo solicitudes IA'));
 
       await expect(controller.getSpentSubtotalsByStatus(enterpriseId)).rejects.toMatchObject({
         status: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -368,6 +381,10 @@ describe('MetricsController', () => {
       await expect(controller.getSupplierCountsByType(enterpriseId)).rejects.toMatchObject({
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         message: 'Error obteniendo conteos de proveedores: fallo proveedores',
+      });
+      await expect(controller.getAiRequestCountsByType(enterpriseId)).rejects.toMatchObject({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'Error obteniendo conteos de solicitudes de IA: fallo solicitudes IA',
       });
     });
   });

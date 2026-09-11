@@ -3,9 +3,10 @@ import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagg
 import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
 import { InvoiceResponseDto } from 'src/entities/invoice/dto/invoice-response.dto';
 import { InvoiceService } from './invoice.service';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 
 @ApiTags('Facturas')
 @Controller('invoices')
@@ -21,6 +22,7 @@ export class InvoiceController {
    * @returns La factura creada
    */
   @Post()
+  @RequirePermission('invoices', 'write')
   @MapResponse(InvoiceResponseDto)
   @ApiOperation({ summary: 'Crear una nueva factura' })
   @ApiOkResponse({ type: InvoiceResponseDto, description: 'Factura creada (vista pública).' })
@@ -36,6 +38,7 @@ export class InvoiceController {
    * @returns Las facturas
    */
   @Get()
+  @RequirePermission('invoices', 'read')
   @RequireEnterpriseId()
   @MapResponse(InvoiceResponseDto)
   @ApiOperation({ summary: 'Obtener todas las facturas' })
@@ -93,6 +96,7 @@ export class InvoiceController {
    * @returns La factura
    */
   @Get(':id')
+  @RequirePermission('invoices', 'read')
   @MapResponse(InvoiceResponseDto)
   @ApiOperation({ summary: 'Obtener una factura por su id' })
   @ApiOkResponse({ type: InvoiceResponseDto, description: 'Factura (vista pública).' })
@@ -111,6 +115,7 @@ export class InvoiceController {
    * @returns La factura actualizada
    */
   @Patch(':id')
+  @RequirePermission('invoices', 'write')
   @MapResponse(InvoiceResponseDto)
   @ApiOperation({ summary: 'Actualizar una factura por su id' })
   @ApiOkResponse({ type: InvoiceResponseDto, description: 'Factura actualizada (vista pública).' })
@@ -128,6 +133,7 @@ export class InvoiceController {
    * @returns La factura actualizada
    */
   @Patch(':id/status')
+  @RequirePermission('invoices', 'write')
   @MapResponse(InvoiceResponseDto)
   @ApiOperation({ summary: 'Actualizar el estado de una factura por su ID a un estado diferente a borrador' })
   @ApiOkResponse({ type: InvoiceResponseDto, description: 'Factura actualizada (vista pública).' })
@@ -144,6 +150,7 @@ export class InvoiceController {
    * @returns La factura eliminada
    */
   @Delete(':id')
+  @RequirePermission('invoices', 'delete')
   @ApiOperation({ summary: 'Eliminar una factura por su id' })
   @ApiResponse({ status: 200, description: 'La factura ha sido eliminada correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })

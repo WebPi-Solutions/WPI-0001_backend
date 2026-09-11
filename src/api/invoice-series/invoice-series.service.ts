@@ -1,8 +1,8 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-series-repository.service';
 import { InvoiceSeries } from 'src/entities/invoice-series/invoice-series.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 @Injectable()
@@ -82,7 +82,8 @@ export class InvoiceSeriesService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       invoiceSeries.enterpriseId,
       'Serie de facturas no encontrada',
-    );
+      { resource: 'invoiceSeries', action: 'read' },
+      );
     
     return invoiceSeries;
   }
@@ -106,6 +107,7 @@ export class InvoiceSeriesService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       seriesExists.enterpriseId,
       `La serie de facturas ${id} no existe`,
+      { resource: 'invoiceSeries', action: 'write' },
     );
 
     if(seriesExists.invoices.length > 0 && seriesExists.series !== invoiceSeries.series) {
@@ -148,6 +150,7 @@ export class InvoiceSeriesService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       seriesExists.enterpriseId,
       `La serie de facturas ${id} no existe`,
+      { resource: 'invoiceSeries', action: 'delete' },
     );
 
     if(seriesExists.invoices.length > 0) {

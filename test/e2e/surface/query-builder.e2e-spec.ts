@@ -1,6 +1,6 @@
 import { Client } from 'src/entities/client/client.entity';
 import { Invoice } from 'src/entities/invoice/invoice.entity';
-import { QueryBuilderService } from 'src/helpers/query-builder/query-builder.service';
+import { QueryBuilderService } from 'src/common/helpers/query-builder/query-builder.service';
 import { getE2eDataSource, getE2eSeed, startE2eWorld } from '@e2e/world';
 
 describe('QueryBuilderService (e2e) — Postgres real', () => {

@@ -1,4 +1,4 @@
-jest.mock('../../../src/middleware/firebase/firebase.service', () => ({
+jest.mock('../../../src/common/middleware/firebase/firebase.service', () => ({
   firebaseAdmin: {
     auth: () => ({
       verifyIdToken: async (token: string) => {

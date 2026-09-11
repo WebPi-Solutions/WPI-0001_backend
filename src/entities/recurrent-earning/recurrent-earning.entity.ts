@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
-import { Concept } from '../../models/Concept';
+import { Concept } from 'src/common/models/Concept';
 import { Client } from '../client/client.entity';
 import { Enterprise } from '../enterprise/enterprise.entity';
 import { Invoice } from '../invoice/invoice.entity';

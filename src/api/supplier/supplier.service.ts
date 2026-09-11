@@ -1,8 +1,8 @@
 import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { SupplierRepository } from 'src/entities/supplier/supplier-repository.service';
 import { Supplier } from 'src/entities/supplier/supplier.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 
 @Injectable()
@@ -76,7 +76,8 @@ export class SupplierService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       supplier.enterpriseId,
       'Proveedor no encontrado',
-    );
+      { resource: 'suppliers', action: 'read' },
+      );
     
     return supplier;
   }
@@ -98,7 +99,8 @@ export class SupplierService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       existingSupplier.enterpriseId,
       'Proveedor no encontrado',
-    );
+      { resource: 'suppliers', action: 'write' },
+      );
 
     const payloadForPersistence = {
       ...supplier,
@@ -132,7 +134,8 @@ export class SupplierService {
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       existingSupplier.enterpriseId,
       'Proveedor no encontrado',
-    );
+      { resource: 'suppliers', action: 'delete' },
+      );
     
     try {
       const result = await this.supplierRepository.deleteById(id);

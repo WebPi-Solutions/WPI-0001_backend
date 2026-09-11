@@ -100,6 +100,40 @@ describe('Empresas (e2e) — control de acceso', () => {
     expect([403, 404]).toContain(response.status);
   });
 
+  it('el empleado no lista ni lee ni edita su empresa (enterprises.read/write)', async () => {
+    const seed = getE2eSeed();
+    const list = await http()
+      .get('/enterprises')
+      .query({ pageSize: 50 })
+      .set(authHeader(E2E_EMAIL.employeeA));
+    expect(list.status).toBe(403);
+    expect(list.body.message).toBe(
+      'No tiene permiso para realizar la acción enterprises.read',
+    );
+
+    const byId = await http()
+      .get(`/enterprises/${seed.enterpriseA.id}`)
+      .set(authHeader(E2E_EMAIL.employeeA));
+    expect(byId.status).toBe(403);
+    expect(byId.body.message).toBe(
+      'No tiene permiso para realizar la acción enterprises.read',
+    );
+
+    const patch = await http()
+      .patch(`/enterprises/${seed.enterpriseA.id}`)
+      .set(authHeader(E2E_EMAIL.employeeA))
+      .send({ name: 'Hackeada' });
+    expect(patch.status).toBe(403);
+    expect(patch.body.message).toBe(
+      'No tiene permiso para realizar la acción enterprises.write',
+    );
+  });
+
+  it('GET /enterprises sin Bearer es 401', async () => {
+    const response = await http().get('/enterprises');
+    expect(response.status).toBe(401);
+  });
+
   it('el usuario A no sube logo a la empresa B', async () => {
     const seed = getE2eSeed();
     const response = await http()

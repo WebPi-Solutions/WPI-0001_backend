@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Supplier } from '../supplier/supplier.entity';
-import { SpentConcept } from 'src/models/Concept';
+import { SpentConcept } from 'src/common/models/Concept';
 
 /**
  * Entidad Gasto que representa la tabla spents en la base de datos

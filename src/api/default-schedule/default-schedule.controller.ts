@@ -13,9 +13,10 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { DefaultScheduleResponseDto } from 'src/entities/default-schedule/dto/default-schedule-response.dto';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
+import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { DefaultSchedule } from 'src/entities/default-schedule/default-schedule.entity';
-import { PaginatedResponse } from 'src/helpers/query-builder/Pagination';
+import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { DefaultScheduleService } from './default-schedule.service';
 import { CreateDefaultScheduleDto } from './dto/create-default-schedule.dto';
 import { UpdateDefaultScheduleDto } from './dto/update-default-schedule.dto';
@@ -38,6 +39,7 @@ export class DefaultScheduleController {
    * @returns Plantilla creada
    */
   @Post()
+  @RequirePermission('defaultSchedules', 'write')
   @MapResponse(DefaultScheduleResponseDto)
   @ApiOperation({ summary: 'Crear una plantilla de horario por defecto' })
   @ApiResponse({ status: 201, description: 'Plantilla creada correctamente.' })
@@ -65,6 +67,7 @@ export class DefaultScheduleController {
    * @returns Página de plantillas
    */
   @Get()
+  @RequirePermission('defaultSchedules', 'read')
   @MapResponse(DefaultScheduleResponseDto)
   @ApiOperation({ summary: 'Listar plantillas de horario por empresa' })
   @ApiResponse({ status: 200, description: 'Listado obtenido correctamente.' })
@@ -122,6 +125,7 @@ export class DefaultScheduleController {
    * @returns Plantilla
    */
   @Get(':id')
+  @RequirePermission('defaultSchedules', 'read')
   @MapResponse(DefaultScheduleResponseDto)
   @ApiOperation({ summary: 'Obtener una plantilla de horario por id' })
   @ApiResponse({ status: 200, description: 'Plantilla encontrada.' })
@@ -157,6 +161,7 @@ export class DefaultScheduleController {
    * @returns Plantilla actualizada
    */
   @Patch(':id')
+  @RequirePermission('defaultSchedules', 'write')
   @MapResponse(DefaultScheduleResponseDto)
   @ApiOperation({ summary: 'Actualizar una plantilla de horario' })
   @ApiResponse({ status: 200, description: 'Actualización correcta.' })
@@ -183,6 +188,7 @@ export class DefaultScheduleController {
    * @returns Resultado del borrado
    */
   @Delete(':id')
+  @RequirePermission('defaultSchedules', 'delete')
   @ApiOperation({ summary: 'Eliminar una plantilla de horario' })
   @ApiResponse({ status: 200, description: 'Eliminación correcta.' })
   @ApiResponse({ status: 404, description: 'No encontrada.' })

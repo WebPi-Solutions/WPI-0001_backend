@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { firebaseAdmin } from 'src/middleware/firebase/firebase.service';
+import { firebaseAdmin } from 'src/common/middleware/firebase/firebase.service';
 
 @Injectable()
 export class FirebaseService {

@@ -11,7 +11,7 @@ import { SupplierRepository } from 'src/entities/supplier/supplier-repository.se
 import { AiRequestService } from 'src/api/ai-request/ai-request.service';
 import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
 import { SpentService } from './spent.service';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 
 describe('SpentService', () => {
   let service: SpentService;
@@ -680,6 +680,43 @@ describe('SpentService', () => {
   });
 
   describe('create', () => {
+    it('exige proveedor al validar el tenant del gasto', async () => {
+      await expect(
+        service.create(buildSpent({ supplierId: undefined, supplier: undefined })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'El gasto debe tener un proveedor',
+      });
+    });
+
+    it('lanza 404 si el proveedor no existe al validar el tenant', async () => {
+      supplierRepository.findById.mockResolvedValue(null);
+
+      await expect(service.create(buildSpent())).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Proveedor no encontrado',
+      });
+    });
+
+    it('rechaza proveedores de empresas distintas en el mismo payload', async () => {
+      supplierRepository.findById
+        .mockResolvedValueOnce({ id: 'supplier-id', enterpriseId })
+        .mockResolvedValueOnce({ id: 'otro-proveedor', enterpriseId: 'otra-empresa' });
+
+      await expect(
+        service.create(
+          buildSpent({
+            supplierId: 'supplier-id',
+            supplier: { id: 'otro-proveedor', enterpriseId: 'otra-empresa' } as Spent['supplier'],
+          }),
+        ),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Gasto no encontrado',
+      });
+      expect(spentRepository.create).not.toHaveBeenCalled();
+    });
+
     it('persiste el gasto y lo devuelve', async () => {
       const payload = buildSpent();
       spentRepository.create.mockResolvedValue(payload);
@@ -746,6 +783,15 @@ describe('SpentService', () => {
   });
 
   describe('updateById', () => {
+    it('lanza 404 si el gasto no existe', async () => {
+      spentRepository.findById.mockResolvedValue(null);
+
+      await expect(service.updateById(spentId, buildSpent())).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Gasto no encontrado',
+      });
+    });
+
     it('actualiza el gasto', async () => {
       const payload = buildSpent({ name: 'Actualizado' });
       spentRepository.findById.mockResolvedValue(buildSpent());

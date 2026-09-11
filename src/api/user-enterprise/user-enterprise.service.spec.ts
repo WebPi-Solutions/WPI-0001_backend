@@ -48,7 +48,7 @@ describe('UserEnterpriseService', () => {
       expect(userRepository.findUserEnterpriseByEnterpriseAndCardId).toHaveBeenCalledWith(
         enterpriseId,
         cardId,
-        ['user', 'enterprise'],
+        ['user', 'enterprise', 'enterpriseRole'],
       );
     });
 

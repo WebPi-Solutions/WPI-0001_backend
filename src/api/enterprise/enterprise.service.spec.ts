@@ -1,4 +1,4 @@
-import { HttpStatus } from '@nestjs/common';
+import { ForbiddenException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Response } from 'express';
 import { MulterFile } from 'multer';
@@ -6,7 +6,11 @@ import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-reposit
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
 import { DropboxService } from 'src/services/dropbox/dropbox.service';
 import { EnterpriseService } from './enterprise.service';
-import { EnterpriseAccessService } from 'src/helpers/enterprise-access/enterprise-access.service';
+import {
+  buildMissingEnterprisePermissionMessage,
+  EnterpriseAccessService,
+} from 'src/common/helpers/enterprise-access/enterprise-access.service';
+import { EnterpriseRoleService } from 'src/api/enterprise-role/enterprise-role.service';
 
 describe('EnterpriseService', () => {
   let service: EnterpriseService;
@@ -30,7 +34,11 @@ describe('EnterpriseService', () => {
   let enterpriseAccessService: {
     assertCurrentEntityAccessible: jest.Mock;
     assertCanCreateEnterprise: jest.Mock;
+    assertCanDeleteEnterprise: jest.Mock;
     getCurrentAccessContextOrThrow: jest.Mock;
+  };
+  let enterpriseRoleService: {
+    seedDefaultRolesForEnterprise: jest.Mock;
   };
 
   const enterpriseId = 'enterprise-uuid';
@@ -104,11 +112,15 @@ describe('EnterpriseService', () => {
     enterpriseAccessService = {
       assertCurrentEntityAccessible: jest.fn(),
       assertCanCreateEnterprise: jest.fn(),
+      assertCanDeleteEnterprise: jest.fn(),
       getCurrentAccessContextOrThrow: jest.fn().mockReturnValue({
         userId: 'test-user-id',
         isGlobalAdmin: true,
         allowedEnterpriseIds: [],
       }),
+    };
+    enterpriseRoleService = {
+      seedDefaultRolesForEnterprise: jest.fn().mockResolvedValue(undefined),
     };
 
     const testingModule: TestingModule = await Test.createTestingModule({
@@ -117,6 +129,7 @@ describe('EnterpriseService', () => {
         { provide: EnterpriseRepository, useValue: enterpriseRepository },
         { provide: DropboxService, useValue: dropboxService },
         { provide: EnterpriseAccessService, useValue: enterpriseAccessService },
+        { provide: EnterpriseRoleService, useValue: enterpriseRoleService },
       ],
     }).compile();
 
@@ -160,13 +173,17 @@ describe('EnterpriseService', () => {
         string,
         unknown
       >;
-      expect(persistedPayload.stripeId).toBeUndefined();
+      expect(persistedPayload.stripeId).toEqual(expect.stringMatching(/^cus_pending_/));
+      expect(persistedPayload.stripeId).not.toBe('cus_forzado');
       expect(persistedPayload.clients).toBeUndefined();
       expect(persistedPayload.suppliers).toBeUndefined();
       expect(persistedPayload.userEnterprises).toBeUndefined();
       expect(persistedPayload.invoiceSeries).toBeUndefined();
       expect(persistedPayload.defaultSchedules).toBeUndefined();
       expect(persistedPayload.holidays).toBeUndefined();
+      expect(enterpriseRoleService.seedDefaultRolesForEnterprise).toHaveBeenCalledWith(
+        enterpriseId,
+      );
       expect(persistedPayload.name).toBe('Empresa Demo');
     });
 
@@ -392,11 +409,15 @@ describe('EnterpriseService', () => {
       );
     });
 
-    it('restringe el listado a las empresas vinculadas si el caller no es administrador global', async () => {
+    it('restringe el listado a las empresas vinculadas con enterprises.read', async () => {
       enterpriseAccessService.getCurrentAccessContextOrThrow.mockReturnValue({
         userId: 'regular-user-id',
         isGlobalAdmin: false,
         allowedEnterpriseIds: [enterpriseId, 'otra-empresa'],
+        permissionsByEnterpriseId: {
+          [enterpriseId]: { enterprises: { read: true } },
+          'otra-empresa': { enterprises: { read: true } },
+        },
       });
       enterpriseRepository.findAll.mockResolvedValue(emptyPaginatedResponse);
 
@@ -410,6 +431,140 @@ describe('EnterpriseService', () => {
         { nif: 'B00000000', id: [enterpriseId, 'otra-empresa'] },
         undefined,
       );
+    });
+
+    it('omite del listado las empresas vinculadas sin enterprises.read', async () => {
+      enterpriseAccessService.getCurrentAccessContextOrThrow.mockReturnValue({
+        userId: 'regular-user-id',
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId, 'otra-empresa'],
+        permissionsByEnterpriseId: {
+          [enterpriseId]: { enterprises: { read: true } },
+          'otra-empresa': {},
+        },
+      });
+      enterpriseRepository.findAll.mockResolvedValue(emptyPaginatedResponse);
+
+      await service.findAll(1, 10, 'name', 'ASC', {});
+
+      expect(enterpriseRepository.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'name',
+        'ASC',
+        { id: [enterpriseId] },
+        undefined,
+      );
+    });
+
+    it('lanza 403 si el caller tiene empresas pero ninguna con enterprises.read', async () => {
+      enterpriseAccessService.getCurrentAccessContextOrThrow.mockReturnValue({
+        userId: 'regular-user-id',
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId],
+        permissionsByEnterpriseId: { [enterpriseId]: {} },
+      });
+
+      await expect(service.findAll(1, 10, 'name', 'ASC', {})).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      await expect(service.findAll(1, 10, 'name', 'ASC', {})).rejects.toThrow(
+        buildMissingEnterprisePermissionMessage('enterprises', 'read'),
+      );
+      expect(enterpriseRepository.findAll).not.toHaveBeenCalled();
+    });
+
+    it('lanza 403 si el contexto no trae permissionsByEnterpriseId', async () => {
+      enterpriseAccessService.getCurrentAccessContextOrThrow.mockReturnValue({
+        userId: 'regular-user-id',
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId],
+      });
+
+      await expect(service.findAll(1, 10, 'name', 'ASC', {})).rejects.toThrow(
+        buildMissingEnterprisePermissionMessage('enterprises', 'read'),
+      );
+    });
+
+    it('lanza 403 si el mapa de permisos no incluye la empresa vinculada', async () => {
+      enterpriseAccessService.getCurrentAccessContextOrThrow.mockReturnValue({
+        userId: 'regular-user-id',
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId],
+        permissionsByEnterpriseId: {},
+      });
+
+      await expect(service.findAll(1, 10, 'name', 'ASC', { id: enterpriseId })).rejects.toThrow(
+        buildMissingEnterprisePermissionMessage('enterprises', 'read'),
+      );
+    });
+
+    it('intersecta filter.id en array con las empresas que tienen enterprises.read', async () => {
+      enterpriseAccessService.getCurrentAccessContextOrThrow.mockReturnValue({
+        userId: 'regular-user-id',
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId, 'otra-empresa'],
+        permissionsByEnterpriseId: {
+          [enterpriseId]: { enterprises: { read: true } },
+          'otra-empresa': { enterprises: { read: true } },
+        },
+      });
+      enterpriseRepository.findAll.mockResolvedValue(emptyPaginatedResponse);
+
+      await service.findAll(1, 10, 'name', 'ASC', { id: [enterpriseId] });
+
+      expect(enterpriseRepository.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'name',
+        'ASC',
+        { id: [enterpriseId] },
+        undefined,
+      );
+    });
+
+    it('ignora filter.id nulo y lista las empresas con enterprises.read', async () => {
+      enterpriseAccessService.getCurrentAccessContextOrThrow.mockReturnValue({
+        userId: 'regular-user-id',
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId],
+        permissionsByEnterpriseId: {
+          [enterpriseId]: { enterprises: { read: true } },
+        },
+      });
+      enterpriseRepository.findAll.mockResolvedValue(emptyPaginatedResponse);
+
+      await service.findAll(1, 10, 'name', 'ASC', { id: null });
+
+      expect(enterpriseRepository.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'name',
+        'ASC',
+        { id: [enterpriseId] },
+        undefined,
+      );
+    });
+
+    it('devuelve página vacía si filter.id no coincide con ninguna empresa vinculada', async () => {
+      enterpriseAccessService.getCurrentAccessContextOrThrow.mockReturnValue({
+        userId: 'regular-user-id',
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId],
+        permissionsByEnterpriseId: {
+          [enterpriseId]: { enterprises: { read: true } },
+        },
+      });
+
+      await expect(
+        service.findAll(1, 10, 'name', 'ASC', { id: 'empresa-ajena' }),
+      ).resolves.toEqual({
+        items: [],
+        total: 0,
+        currentPage: 1,
+        totalPages: 0,
+      });
+      expect(enterpriseRepository.findAll).not.toHaveBeenCalled();
     });
 
     it('devuelve página vacía si el usuario no tiene empresas vinculadas', async () => {
@@ -500,6 +655,19 @@ describe('EnterpriseService', () => {
   });
 
   describe('deleteById', () => {
+    it('exige administrador global antes de borrar', async () => {
+      enterpriseRepository.findById.mockResolvedValue(buildEnterprise());
+      enterpriseRepository.deleteById.mockResolvedValue({ affected: 0, raw: [] });
+
+      await service.deleteById(enterpriseId);
+
+      expect(enterpriseAccessService.assertCurrentEntityAccessible).toHaveBeenCalledWith(
+        enterpriseId,
+        'Empresa no encontrada',
+      );
+      expect(enterpriseAccessService.assertCanDeleteEnterprise).toHaveBeenCalled();
+    });
+
     it('lanza 404 si la empresa no existe', async () => {
       enterpriseRepository.findById.mockResolvedValue(null);
 

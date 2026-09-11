@@ -1,4 +1,5 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
+import { AiRequestModule } from '../../entities/ai-request/ai-request.module';
 import { ClientModule } from '../../entities/client/client.module';
 import { InvoiceSeriesModule } from '../../entities/invoice-series/invoice-series.module';
 import { InvoiceModule } from '../../entities/invoice/invoice.module';
@@ -36,6 +37,7 @@ describe('MetricsModule', () => {
         ClientModule,
         SupplierModule,
         InvoiceSeriesModule,
+        AiRequestModule,
       ]),
     );
   });

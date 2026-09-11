@@ -1,4 +1,4 @@
-jest.mock('src/helpers/query-builder/query-builder.service', () => ({
+jest.mock('src/common/helpers/query-builder/query-builder.service', () => ({
   QueryBuilderService: {
     getCount: jest.fn().mockResolvedValue(0),
     getPaginatedResults: jest.fn().mockResolvedValue({
@@ -13,7 +13,7 @@ jest.mock('src/helpers/query-builder/query-builder.service', () => ({
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { QueryBuilderService } from 'src/helpers/query-builder/query-builder.service';
+import { QueryBuilderService } from 'src/common/helpers/query-builder/query-builder.service';
 import { RecurrentEarning } from './recurrent-earning.entity';
 import { RecurrentEarningRepository } from './recurrent-earning-repository.service';
 

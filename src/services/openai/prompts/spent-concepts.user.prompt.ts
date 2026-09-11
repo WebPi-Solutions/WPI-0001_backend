@@ -1,4 +1,4 @@
-import { SpentConcept } from 'src/models/Concept';
+import { SpentConcept } from 'src/common/models/Concept';
 
 /**
  * Datos dinámicos que se interpolan en el prompt de usuario de extracción de conceptos.

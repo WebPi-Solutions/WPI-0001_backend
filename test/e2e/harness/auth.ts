@@ -6,6 +6,7 @@ export const E2E_EMAIL = {
   userB: 'b@e2e.test',
   admin: 'admin@e2e.test',
   outsider: 'outsider@e2e.test',
+  employeeA: 'empleado-a@e2e.test',
   unknown: 'unknown@e2e.test',
 } as const;
 
