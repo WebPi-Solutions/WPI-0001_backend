@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { REQUIRE_ENTERPRISE_PERMISSION_KEY } from 'src/common/decorators/enterprise-permission.decorator';
 import { buildEnterprisePermissionCatalog } from 'src/common/helpers/enterprise-permission/permission.catalog';
 import { CreateEnterpriseRoleDto } from 'src/entities/enterprise-role/dto/create-enterprise-role.dto';
 import { EnterpriseRoleController } from './enterprise-role.controller';
@@ -64,5 +65,26 @@ describe('EnterpriseRoleController', () => {
 
     await controller.deleteById(roleId);
     expect(enterpriseRoleService.deleteById).toHaveBeenCalledWith(roleId);
+  });
+
+  it('declara el permiso de catálogo en cada acción HTTP', () => {
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_ENTERPRISE_PERMISSION_KEY,
+        EnterpriseRoleController.prototype.getPermissionCatalog,
+      ),
+    ).toEqual({ resource: 'enterpriseRoles', action: 'read' });
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_ENTERPRISE_PERMISSION_KEY,
+        EnterpriseRoleController.prototype.create,
+      ),
+    ).toEqual({ resource: 'enterpriseRoles', action: 'write' });
+    expect(
+      Reflect.getMetadata(
+        REQUIRE_ENTERPRISE_PERMISSION_KEY,
+        EnterpriseRoleController.prototype.deleteById,
+      ),
+    ).toEqual({ resource: 'enterpriseRoles', action: 'delete' });
   });
 });

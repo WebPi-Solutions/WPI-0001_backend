@@ -491,6 +491,19 @@ describe('UserService', () => {
         userEnterprises: [{ enterpriseId }],
       });
     });
+
+    it('exige users.read con bypass del propio perfil', async () => {
+      userRepository.findById.mockResolvedValue(updatedUser);
+
+      await service.findById(userId);
+
+      expect(enterpriseAccessService.assertCurrentUserResourcePermission).toHaveBeenCalledWith(
+        updatedUser,
+        'users',
+        'read',
+        { allowSelfBypass: true },
+      );
+    });
   });
 
   describe('findByEmail', () => {
@@ -577,6 +590,19 @@ describe('UserService', () => {
       );
 
       expect(userRepository.updateUserEnterpriseRole).not.toHaveBeenCalled();
+    });
+
+    it('exige users.write sobre el objetivo sin bypass del propio perfil', async () => {
+      await service.updateById(userId, { name: 'Ana' } as User, enterpriseId);
+
+      expect(enterpriseAccessService.assertCurrentUserResourcePermission).toHaveBeenCalledWith(
+        existingUser,
+        'users',
+        'write',
+      );
+      const permissionCall =
+        enterpriseAccessService.assertCurrentUserResourcePermission.mock.calls[0];
+      expect(permissionCall[3]).toBeUndefined();
     });
   });
 

@@ -35,8 +35,8 @@ La suite e2e (`npm run test:e2e`) es independiente: usa `test/jest-e2e.json`, Te
 
 Una ejecución correcta de `npm test` termina con **todas las suites en verde**. A modo de referencia, la última pasada de la suite unitaria reportó:
 
-- **104** suites
-- **1328** tests
+- **114** suites
+- **1495** tests
 - **0** fallos
 
 Tiempos típicos: unos **25–35 segundos** en un portátil reciente.
@@ -82,7 +82,7 @@ Los tests unitarios **no levantan Postgres, Stripe, Firebase, OpenAI ni Dropbox*
 | **Repositorios** | CRUD, conteos de listado, `createQueryBuilder`, SQL de subtotales (SQL y parámetros, no la base real) |
 | **Servicios de infraestructura** | Stripe, OpenAI, OCR, ficheros, Dropbox, Firebase; siempre con el SDK o HTTP mockeados |
 | **Helpers** | `QueryBuilderService` (filtros, paginación, joins) y `EnterpriseAccessService` (contexto, 403, 404 IDOR, bypass admin) |
-| **Guards / interceptors** | `EnterpriseAccessGuard` (skip, require, 403, admin) y serialización `@MapResponse` |
+| **Guards / interceptors** | `EnterpriseAccessGuard` (skip, require, 403, admin), `EnterprisePermissionGuard` (RBAC deny-by-default) y serialización `@MapResponse` |
 | **Middlewares** | Firebase (Bearer, token, usuario conocido/desconocido) y Basic Auth de Swagger |
 | **Módulos** | Metadata de `@Module` y, en `ApiModule` / `EntitiesModule`, el `register()` dinámico **sin** conectar TypeORM |
 | **Transversal** | Decorador `@MapResponse`, interceptor de serialización, `AppService`, `AppModule.configure` (middleware Firebase) |
@@ -94,7 +94,7 @@ Convenciones:
 - Los controllers se montan con `Test.createTestingModule` y el servicio correspondiente mockeado
 - Los repositorios reciben `getRepositoryToken(Entidad)` y, si aplica, un mock de `QueryBuilderService`
 
-La autorización multi-empresa se documenta en [Acceso por empresa](./enterprise-access.md). El RBAC de rol, en [Permisos de rol de empresa](./enterprise-permissions.md). Specs de referencia: `enterprise-access.service.spec.ts`, `enterprise-access.guard.spec.ts`, `enterprise-permission.guard.spec.ts` y `test/e2e/access/permissions.e2e-spec.ts`.
+La autorización multi-empresa se documenta en [Acceso por empresa](./enterprise-access.md). El RBAC de rol, en [Permisos de rol de empresa](./enterprise-permissions.md). Specs de referencia: `enterprise-access.service.spec.ts`, `enterprise-access.guard.spec.ts`, `enterprise-permission.guard.spec.ts`, `permission.evaluator.spec.ts`, `api-route-permissions.spec.ts` (barrido de decoradores en `src/api`) y `test/e2e/access/permissions.e2e-spec.ts`.
 
 ### Qué no cubre (a propósito)
 

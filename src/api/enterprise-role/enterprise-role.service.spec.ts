@@ -201,6 +201,15 @@ describe('EnterpriseRoleService', () => {
         } as CreateEnterpriseRoleDto),
       ).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
     });
+
+    it('persiste un rol sin permisos como objeto vacío', async () => {
+      await expect(
+        service.create(enterpriseId, { role: 'Invitado' }),
+      ).resolves.toMatchObject({
+        role: 'Invitado',
+        permissions: {},
+      });
+    });
   });
 
   describe('updateById / deleteById', () => {
@@ -317,6 +326,25 @@ describe('EnterpriseRoleService', () => {
         raw: [],
       });
       expect(enterpriseRoleRepository.deleteById).toHaveBeenCalledWith(customRole.id);
+    });
+
+    it('permite renombrar el rol Empleado (solo Administrador está congelado)', async () => {
+      await expect(
+        service.updateById(roleId, { role: 'Staff' }),
+      ).resolves.toMatchObject({ role: 'Staff' });
+      expect(enterpriseRoleRepository.updateById).toHaveBeenCalledWith(
+        roleId,
+        expect.objectContaining({ role: 'Staff' }),
+      );
+    });
+
+    it('permite un PATCH del Empleado que conserva el nombre', async () => {
+      await expect(
+        service.updateById(roleId, { role: ENTERPRISE_ROLE_NAME_EMPLOYEE }),
+      ).resolves.toMatchObject({
+        role: ENTERPRISE_ROLE_NAME_EMPLOYEE,
+      });
+      expect(enterpriseRoleRepository.findByEnterpriseIdAndRoleName).not.toHaveBeenCalled();
     });
   });
 

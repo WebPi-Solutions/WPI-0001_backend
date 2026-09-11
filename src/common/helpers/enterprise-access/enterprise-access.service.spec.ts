@@ -241,6 +241,27 @@ describe('EnterpriseAccessService', () => {
       });
     });
 
+    it('si hay dos vínculos de la misma empresa, el último rol pisa el mapa', () => {
+      const regularUser = {
+        id: userId,
+        role: UserRoleTypes.USER,
+        userEnterprises: [
+          {
+            enterpriseId,
+            enterpriseRole: { permissions: { invoices: { read: true } } },
+          },
+          {
+            enterpriseId,
+            enterpriseRole: { permissions: { clients: { write: true } } },
+          },
+        ],
+      } as User;
+
+      expect(service.buildAccessContext(regularUser).permissionsByEnterpriseId).toEqual({
+        [enterpriseId]: { clients: { write: true } },
+      });
+    });
+
     it('resuelve el id de empresa desde la relación anidada si falta enterpriseId', () => {
       const regularUser = {
         id: userId,
@@ -361,6 +382,42 @@ describe('EnterpriseAccessService', () => {
             action: 'read',
           }),
         ).toThrow(ForbiddenException);
+      });
+    });
+
+    it('permite el recurso si el tenant es accesible y el rol concede la acción', () => {
+      const accessContext: AccessContext = {
+        userId,
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId],
+        permissionsByEnterpriseId: {
+          [enterpriseId]: { clients: { read: true } },
+        },
+      };
+      runWithEnterpriseAccessContext(accessContext, () => {
+        expect(() =>
+          service.assertCurrentEntityAccessible(enterpriseId, 'Recurso no encontrado', {
+            resource: 'clients',
+            action: 'read',
+          }),
+        ).not.toThrow();
+      });
+    });
+
+    it('no evalúa RBAC si falta el tenant de la entidad (ya respondió 404)', () => {
+      const accessContext: AccessContext = {
+        userId,
+        isGlobalAdmin: false,
+        allowedEnterpriseIds: [enterpriseId],
+        permissionsByEnterpriseId: { [enterpriseId]: {} },
+      };
+      runWithEnterpriseAccessContext(accessContext, () => {
+        expect(() =>
+          service.assertCurrentEntityAccessible(undefined, 'Recurso no encontrado', {
+            resource: 'clients',
+            action: 'read',
+          }),
+        ).toThrow(HttpException);
       });
     });
 
@@ -720,6 +777,45 @@ describe('EnterpriseAccessService', () => {
             allowedEnterpriseIds: [enterpriseId],
           },
           { id: 'colleague-uuid' },
+          'users',
+          'read',
+        ),
+      ).toThrow(ForbiddenException);
+    });
+
+    it('el propio perfil sigue exigiendo users.write si no hay allowSelfBypass', () => {
+      expect(() =>
+        service.assertCanPerformUserResourcePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId],
+            permissionsByEnterpriseId: { [enterpriseId]: {} },
+          },
+          { id: userId, userEnterprises: [{ enterpriseId }] },
+          'users',
+          'write',
+        ),
+      ).toThrow(buildMissingEnterprisePermissionMessage('users', 'write'));
+    });
+
+    it('no concede por una empresa compartida distinta de aquella donde hay permiso', () => {
+      const otherEnterpriseId = 'otra-empresa';
+      expect(() =>
+        service.assertCanPerformUserResourcePermission(
+          {
+            userId,
+            isGlobalAdmin: false,
+            allowedEnterpriseIds: [enterpriseId, otherEnterpriseId],
+            permissionsByEnterpriseId: {
+              [enterpriseId]: { users: { read: true } },
+              [otherEnterpriseId]: {},
+            },
+          },
+          {
+            id: 'colleague-uuid',
+            userEnterprises: [{ enterpriseId: otherEnterpriseId }],
+          },
           'users',
           'read',
         ),

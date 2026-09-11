@@ -4,6 +4,8 @@ import {
   ENTERPRISE_ROLE_NAME_ADMINISTRATOR,
   ENTERPRISE_ROLE_NAME_EMPLOYEE,
   EnterpriseRolePermissions,
+  PERMISSION_RESOURCES,
+  buildEnterprisePermissionCatalog,
   isCatalogPermissionAction,
   isCatalogPermissionResource,
   isPermissionActionAllowedForResource,
@@ -48,6 +50,18 @@ describe('permission.catalog helpers', () => {
     expect(
       getAllowedPermissionActions('recurso-inventado' as never),
     ).toEqual([]);
+  });
+
+  it('expone el catálogo público con las excepciones de contrato', () => {
+    const catalog = buildEnterprisePermissionCatalog();
+
+    expect(catalog.resources).toEqual([...PERMISSION_RESOURCES]);
+    expect(catalog.actions).toEqual(['read', 'write', 'delete']);
+    expect(catalog.resourceActions.aiRequests).toEqual(['read']);
+    expect(catalog.resourceActions.enterprises).toEqual(['read', 'write']);
+    expect(catalog.resourceActions.invoices).toEqual(['read', 'write', 'delete']);
+    expect(catalog.resources).not.toContain('metrics');
+    expect(catalog.resources).not.toContain('userEnterprises');
   });
 });
 
@@ -108,6 +122,32 @@ describe('permission.evaluator', () => {
       expect(hasEnterprisePermission(permissions, 'spents', 'read')).toBe(true);
       expect(hasEnterprisePermission(permissions, 'spents', 'write')).toBe(false);
     });
+
+    it('el comodín * concede aunque el recurso niegue la misma acción', () => {
+      const permissions = {
+        '*': { read: true },
+        invoices: { read: false, write: true },
+      };
+      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(true);
+      expect(hasEnterprisePermission(permissions, 'invoices', 'write')).toBe(true);
+    });
+
+    it('un * en false no impide una concesión específica del recurso', () => {
+      const permissions = {
+        '*': { read: false },
+        invoices: { read: true },
+      };
+      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(true);
+      expect(hasEnterprisePermission(permissions, 'clients', 'read')).toBe(false);
+    });
+
+    it('valores distintos de true (string, 1) no conceden', () => {
+      const permissions = {
+        invoices: { read: 'true' as unknown as boolean, write: 1 as unknown as boolean },
+      };
+      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(false);
+      expect(hasEnterprisePermission(permissions, 'invoices', 'write')).toBe(false);
+    });
   });
 
   describe('validateEnterpriseRolePermissionsPayload', () => {
@@ -140,6 +180,12 @@ describe('permission.evaluator', () => {
       expect(
         validateEnterpriseRolePermissionsPayload({ invoices: undefined }),
       ).toBeNull();
+      expect(validateEnterpriseRolePermissionsPayload({ invoices: null })).toContain(
+        'acciones',
+      );
+      expect(validateEnterpriseRolePermissionsPayload({ invoices: 1 })).toContain(
+        'acciones',
+      );
     });
 
     it('rechaza acciones que el recurso no admite y el recurso userEnterprises', () => {
@@ -212,6 +258,15 @@ describe('permission.evaluator', () => {
           invoices: ['read'],
         } as unknown as EnterpriseRolePermissions),
       ).toEqual({});
+    });
+
+    it('descarta claves que no son recurso del catálogo ni comodín', () => {
+      expect(
+        implyReadWhenMutationIsGranted({
+          invoices: { write: true },
+          desconocido: { write: true },
+        } as unknown as EnterpriseRolePermissions),
+      ).toEqual({ invoices: { write: true, read: true } });
     });
   });
 
