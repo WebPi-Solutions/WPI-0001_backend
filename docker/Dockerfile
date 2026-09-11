@@ -1,5 +1,6 @@
-# Utiliza una imagen de Node.js como base para tu aplicación Nest.js
-FROM --platform=linux/amd64 node:18-alpine as build
+# Node 20+ es obligatorio: @nestjs/typeorm 11 usa crypto.randomUUID() como global
+# (disponible desde Node 19; en Node 18 provoca ReferenceError: crypto is not defined).
+FROM --platform=linux/amd64 node:20-alpine AS build
 
 # Establece el directorio de trabajo dentro del contenedor
 WORKDIR /usr/src/app

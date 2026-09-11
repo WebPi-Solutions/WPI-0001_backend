@@ -63,10 +63,9 @@ $ npm test
 
 # e2e tests (HTML en coverage-e2e/)
 $ npm run test:e2e
-
-# cobertura unitaria (HTML en coverage/)
-$ npm run test:cov
 ```
+
+La cobertura unitaria la genera `npm test` (`coverage/`). El dataset e2e no es un dump SQL: se inserta en `test/e2e/harness/seed.ts`. Detalle en [docs/tests.md](./docs/tests.md#dataset-e2e-cómo-se-puebla-la-base).
 
 ## Deployment
 

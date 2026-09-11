@@ -15,9 +15,6 @@ npm test
 # Reejecutar al guardar
 npm run test:watch
 
-# Informe de cobertura unitaria (HTML y texto en coverage/)
-npm run test:cov
-
 # E2E (también genera HTML en coverage-e2e/; requiere Docker)
 npm run test:e2e
 
@@ -56,7 +53,7 @@ Un fallo real se ve como `FAIL` en una suite, un `Expected ... Received ...` o u
 
 ### Cobertura
 
-`npm run test:cov` genera `coverage/` (fuera de `src/`, está en `.gitignore`). El HTML está en `coverage/lcov-report/index.html`.
+`npm test` genera `coverage/` (fuera de `src/`, está en `.gitignore`). El HTML está en `coverage/lcov-report/index.html`.
 
 La recolección incluye todo `src/**` salvo `*.spec.ts` y `src/test-utils/**`. El objetivo de la suite **unitaria** es **100%** en statements, branches, functions y lines sobre ese conjunto (producción).
 
@@ -169,10 +166,37 @@ Qué ocurre al lanzarlos:
 
 1. `test/e2e/harness/global-setup.js` arranca `postgres:16-alpine` y escribe la conexión en `test/e2e/harness/.postgres.json` (está en `.gitignore`).
 2. `test/e2e/harness/jest-env.js` fija `DATABASE_*`, `E2E_TEST=true` y `TYPEORM_SYNCHRONIZE=true` **antes** de importar `AppModule`, para que `dotenv` no apunte a develop.
-3. Se compila la app real, se recrea el esquema (`dropSchema` solo con `E2E_TEST`) y se siembra el dataset de `test/e2e/harness/seed.ts`.
-4. Firebase, Stripe, Dropbox, OpenAI y el procesado de PDF se sustituyen por mocks en el harness HTTP. El Bearer token **es el email** del usuario sembrado (`a@e2e.test`, `b@e2e.test`, `admin@e2e.test`, `outsider@e2e.test`).
-5. Jest también corre los `src/**/*.spec.ts` en el mismo proceso para completar el 100% de cobertura (servicios de infraestructura, `catch` con repositorio mockeado, `main.ts`, etc.).
-6. Al terminar, `test/e2e/harness/global-teardown.js` detiene el contenedor.
+3. Se compila la app real y TypeORM recrea el esquema vacío (`synchronize` + `dropSchema` solo con `E2E_TEST`). El contenedor **no** carga `databases/develop.sql` ni `production.sql`.
+4. `startE2eWorld()` en `test/e2e/harness/world.ts` llama a `seedE2eDatabase()` y puebla la base. Ver [Dataset e2e](#dataset-e2e-cómo-se-puebla-la-base).
+5. Firebase, Stripe, Dropbox, OpenAI y el procesado de PDF se sustituyen por mocks en el harness HTTP. El Bearer token **es el email** del usuario sembrado (ver `test/e2e/harness/auth.ts`).
+6. Jest también corre los `src/**/*.spec.ts` en el mismo proceso para completar el 100% de cobertura (servicios de infraestructura, `catch` con repositorio mockeado, `main.ts`, etc.).
+7. Al terminar, `test/e2e/harness/global-teardown.js` detiene el contenedor.
+
+### Dataset e2e: cómo se puebla la base
+
+No hay dump SQL ni fixtures `.sql`. Los datos se insertan en código con `repository.save(...)` de TypeORM.
+
+| Pieza | Dónde |
+|---|---|
+| Contenedor vacío (`postgres:16-alpine`, base `wpi_e2e`) | `test/e2e/harness/global-setup.js` |
+| Esquema (tablas desde las entidades) | TypeORM al arrancar Nest (`E2E_TEST=true`) |
+| Filas de prueba | `seedE2eDatabase()` en [`test/e2e/harness/seed.ts`](../test/e2e/harness/seed.ts) |
+| Quién llama a la semilla | `startE2eWorld()` → `bootstrapE2eWorld()` en `test/e2e/harness/world.ts` |
+| Lectura en los specs | `getE2eSeed()` (misma instancia para toda la suite) |
+| Correos / Bearer | `E2E_EMAIL` en `test/e2e/harness/auth.ts` |
+
+`seedE2eDatabase()` persiste un juego determinista de **dos tenants aislados**:
+
+- **Empresa A** y **Empresa B** (`stripeId` `cus_e2e_a` / `cus_e2e_b`)
+- **Usuario A** (`a@e2e.test`) — rol Administrador de A (`*`)
+- **Usuario B** (`b@e2e.test`) — rol Administrador de B
+- **Admin global** (`admin@e2e.test`) — `users.role === administrator`
+- **Outsider** (`outsider@e2e.test`) — sin empresas
+- **Empleado A** (`empleado-a@e2e.test`) — rol Empleado de A (`permissions: {}`, deny by default)
+- Roles Administrador / Empleado en cada empresa
+- Un recurso de cada tipo en A y en B (cliente, proveedor, serie, factura, presupuesto, gasto, recurrente, festivo, horario, fichaje, vacación, turno, solicitud de IA)
+
+Los tests HTTP usan esos ids (`seed.invoiceA.id`, `seed.holidayB.id`, …). Algunos specs (p. ej. el ciclo CRUD) crean filas extra por la API durante el caso; el dataset base no se vuelve a insertar.
 
 Enfoque HTTP: **control de acceso multi-empresa** y ciclo de vida CRUD. La cobertura al 100% de cada función de servicio se obtiene reejecutando los specs de `src/`. Un spec nuevo de API se coloca en `test/e2e/modules/<recurso>/`; un caso que cruce varios módulos va en `test/e2e/access/`.
 
