@@ -108,6 +108,31 @@ describe('permission.evaluator', () => {
       expect(hasEnterprisePermission(permissions, 'spents', 'read')).toBe(true);
       expect(hasEnterprisePermission(permissions, 'spents', 'write')).toBe(false);
     });
+
+    it('el comodín * gana aunque el recurso niegue la misma acción', () => {
+      const permissions = {
+        '*': { read: true },
+        invoices: { read: false },
+      };
+      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(true);
+    });
+
+    it('si * niega la acción, el recurso puede concederla', () => {
+      const permissions = {
+        '*': { read: false },
+        invoices: { read: true },
+      };
+      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(true);
+      expect(hasEnterprisePermission(permissions, 'clients', 'read')).toBe(false);
+    });
+
+    it('valores no booleanos nunca abren la acción', () => {
+      const permissions = {
+        invoices: { read: 'true' as unknown as boolean, write: 1 as unknown as boolean },
+      };
+      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(false);
+      expect(hasEnterprisePermission(permissions, 'invoices', 'write')).toBe(false);
+    });
   });
 
   describe('validateEnterpriseRolePermissionsPayload', () => {
@@ -133,6 +158,12 @@ describe('permission.evaluator', () => {
       ).toContain('desconocida');
       expect(
         validateEnterpriseRolePermissionsPayload({ invoices: { read: 'yes' } }),
+      ).toContain('booleano');
+      expect(
+        validateEnterpriseRolePermissionsPayload({ invoices: { read: 'true' } }),
+      ).toContain('booleano');
+      expect(
+        validateEnterpriseRolePermissionsPayload({ invoices: { write: 1 } }),
       ).toContain('booleano');
       expect(validateEnterpriseRolePermissionsPayload({ invoices: [] })).toContain(
         'acciones',

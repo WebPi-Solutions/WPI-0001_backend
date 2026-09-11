@@ -236,4 +236,57 @@ describe('EnterprisePermissionGuard', () => {
       ),
     ).toThrow(ForbiddenException);
   });
+
+  it('prefiere query.enterpriseId frente al body', () => {
+    mockRouteMetadata({
+      requiredPermission: { resource: 'clients', action: 'read' },
+    });
+    expect(
+      guard.canActivate(
+        createExecutionContext({
+          accessContext: {
+            ...employeeAccessContext,
+            permissionsByEnterpriseId: {
+              [allowedEnterpriseId]: { clients: { read: true } },
+            },
+          },
+          query: { enterpriseId: allowedEnterpriseId },
+          body: { enterpriseId: 'empresa-del-body' },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('ignora enterpriseId no string (array de query duplicada)', () => {
+    mockRouteMetadata({
+      requiredPermission: { resource: 'clients', action: 'read' },
+    });
+    expect(
+      guard.canActivate(
+        createExecutionContext({
+          query: { enterpriseId: [allowedEnterpriseId, 'otra'] as unknown as string },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('no trata un body no objeto ni userEnterprises vacío como tenant', () => {
+    mockRouteMetadata({
+      requiredPermission: { resource: 'clients', action: 'read' },
+    });
+    expect(
+      guard.canActivate(
+        createExecutionContext({
+          body: 'texto' as unknown as Request['body'],
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        createExecutionContext({
+          body: { userEnterprises: [] },
+        }),
+      ),
+    ).toBe(true);
+  });
 });

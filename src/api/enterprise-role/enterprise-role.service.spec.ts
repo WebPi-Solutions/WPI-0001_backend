@@ -249,11 +249,18 @@ describe('EnterpriseRoleService', () => {
       });
     });
 
-    it('actualiza solo el nombre si no se envían permisos', async () => {
-      await expect(service.updateById(roleId, { role: 'Contable' })).resolves.toMatchObject({
-        role: 'Contable',
-        permissions: EMPLOYEE_ROLE_PERMISSIONS,
+    it('permite renombrar Empleado y conserva permissions {} si se omiten', async () => {
+      await expect(service.updateById(roleId, { role: 'Operario' })).resolves.toMatchObject({
+        role: 'Operario',
+        permissions: {},
       });
+      expect(enterpriseRoleRepository.updateById).toHaveBeenCalledWith(
+        roleId,
+        expect.objectContaining({
+          role: 'Operario',
+          permissions: EMPLOYEE_ROLE_PERMISSIONS,
+        }),
+      );
     });
 
     it('actualiza nombre y permisos de un rol no administrador', async () => {

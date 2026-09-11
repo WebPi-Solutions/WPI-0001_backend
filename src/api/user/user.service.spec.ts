@@ -597,6 +597,19 @@ describe('UserService', () => {
       expect(userRepository.updateById).toHaveBeenCalledWith(userId, { name: 'Ana' });
     });
 
+    it('exige users.write sin allowSelfBypass al actualizar el propio perfil', async () => {
+      await service.updateById(userId, { name: 'Ana' } as User);
+
+      expect(enterpriseAccessService.assertCurrentUserResourcePermission).toHaveBeenCalledWith(
+        existingUser,
+        'users',
+        'write',
+      );
+      expect(
+        enterpriseAccessService.assertCurrentUserResourcePermission.mock.calls[0][3],
+      ).toBeUndefined();
+    });
+
     it('ignora users.role si el caller no es administrador global', async () => {
       await service.updateById(userId, {
         name: 'Ana',
