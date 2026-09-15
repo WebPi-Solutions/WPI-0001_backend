@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Enterprise } from '../enterprise/enterprise.entity';
+import { AiMode } from 'src/common/models/AiMode';
 
 /**
  * Tipos de petición a la API de IA (enum PostgreSQL `ai_request_types`).
@@ -35,6 +36,23 @@ export class AiRequest {
    */
   @Column({ name: 'enterprise_id' })
   enterpriseId: string;
+
+  /**
+   * Modo de IA usado en esta petición (`standard` u OCR, `premium` o PDF).
+   */
+  @ApiProperty({
+    description: 'Modo de IA con el que se realizó la petición',
+    enum: AiMode,
+    example: AiMode.STANDARD,
+  })
+  @Column({
+    name: 'ai_mode',
+    type: 'enum',
+    enum: AiMode,
+    enumName: 'ai_modes',
+    default: AiMode.STANDARD,
+  })
+  aiMode: AiMode;
 
   /**
    * Identificador que agrupa las peticiones del mismo procesamiento (p. ej. un PDF)

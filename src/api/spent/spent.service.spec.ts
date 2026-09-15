@@ -190,7 +190,7 @@ describe('SpentService', () => {
       hasEnterpriseAiAccess: jest.fn().mockResolvedValue(true),
       getEnterpriseAiSettings: jest.fn().mockResolvedValue({
         hasAiAccess: true,
-        hasAiPremium: false,
+        aiMode: 'standard',
       }),
     };
     supplierRepository = {
@@ -233,7 +233,7 @@ describe('SpentService', () => {
       const file = createMulterFile();
       spentRepository.getEnterpriseAiSettings.mockResolvedValue({
         hasAiAccess: false,
-        hasAiPremium: false,
+        aiMode: 'standard',
       });
 
       await expect(service.previewAiSpentFile(file, enterpriseId)).rejects.toMatchObject({
@@ -312,6 +312,7 @@ describe('SpentService', () => {
           completionTokens: 4,
           totalTokens: 12,
           message: 'Texto OCR de prueba',
+          aiMode: 'standard',
         }),
       );
       expect(aiRequestService.create).toHaveBeenNthCalledWith(
@@ -769,7 +770,7 @@ describe('SpentService', () => {
       const file = createMulterFile();
       spentRepository.getEnterpriseAiSettings.mockResolvedValue({
         hasAiAccess: true,
-        hasAiPremium: true,
+        aiMode: 'premium',
       });
 
       const result = await service.previewAiSpentFile(file, enterpriseId);
@@ -804,6 +805,7 @@ describe('SpentService', () => {
         expect.objectContaining({
           type: AiRequestType.GET_SPENT_ISSUER,
           message: '[PDF adjunto: factura-proveedor.pdf (12 bytes)]',
+          aiMode: 'premium',
         }),
       );
     });

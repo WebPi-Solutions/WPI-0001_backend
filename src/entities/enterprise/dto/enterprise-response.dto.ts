@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
+import { AiMode } from 'src/common/models/AiMode';
 
 /**
  * Vista pública de empresa para respuestas HTTP.
@@ -92,15 +93,16 @@ export class EnterpriseResponseDto {
   aiAccess: boolean;
 
   /**
-   * Si la extracción de facturas envía el PDF a OpenAI en lugar del texto OCR
+   * Modo de IA contratado para la extracción de facturas
    */
   @ApiProperty({
     description:
-      'Si es verdadero, se envía el PDF a OpenAI; si es falso, se extrae el texto por OCR y se envía ese texto',
-    example: false,
+      'Modo de IA: `standard` envía el texto OCR; `premium` envía el PDF a OpenAI',
+    enum: AiMode,
+    example: AiMode.STANDARD,
   })
   @Expose()
-  aiPremium: boolean;
+  aiMode: AiMode;
 
   /**
    * Fecha de creación del registro

@@ -5,6 +5,7 @@ import { AiRequest, AiRequestType } from 'src/entities/ai-request/ai-request.ent
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { CreateAiRequestDto } from './dto/create-ai-request.dto';
+import { AiMode } from 'src/common/models/AiMode';
 
 /**
  * Servicio de negocio de peticiones a la API de IA.
@@ -33,9 +34,11 @@ export class AiRequestService {
     this.validateEnterpriseId(enterpriseId);
     this.validateType(createAiRequestDto.type);
     this.validateTokenUsage(createAiRequestDto);
+    const aiMode = this.resolveAiMode(createAiRequestDto.aiMode);
 
     const aiRequestToPersist: Partial<AiRequest> = {
       enterpriseId,
+      aiMode,
       correlationId: createAiRequestDto.correlationId ?? randomUUID(),
       promptTokens: createAiRequestDto.promptTokens,
       completionTokens: createAiRequestDto.completionTokens,
@@ -133,6 +136,25 @@ export class AiRequestService {
       this.logger.error(`Tipo de petición de IA no válido: ${aiRequestType}`);
       throw new HttpException('El tipo de petición de IA no es válido', HttpStatus.BAD_REQUEST);
     }
+  }
+
+  /**
+   * Resuelve el modo de IA de la petición. Si no se informa, usa `standard`.
+   * @param aiMode - Modo recibido en el DTO
+   * @returns Modo válido del enum `ai_modes`
+   */
+  private resolveAiMode(aiMode?: AiMode): AiMode {
+    if (aiMode == null) {
+      return AiMode.STANDARD;
+    }
+
+    const isValidAiMode = Object.values(AiMode).includes(aiMode);
+    if (!isValidAiMode) {
+      this.logger.error(`Modo de IA no válido: ${aiMode}`);
+      throw new HttpException('El modo de IA no es válido', HttpStatus.BAD_REQUEST);
+    }
+
+    return aiMode;
   }
 
   /**

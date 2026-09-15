@@ -1,5 +1,6 @@
 import { invokeTypeOrmMetadataCallbacks } from 'src/test-utils/cover-data-classes';
 import { AiRequest, AiRequestType } from './ai-request/ai-request.entity';
+import { AiMode } from 'src/common/models/AiMode';
 import { Client } from './client/client.entity';
 import { DefaultSchedule } from './default-schedule/default-schedule.entity';
 import { Enterprise } from './enterprise/enterprise.entity';
@@ -37,7 +38,7 @@ describe('Entidades TypeORM', () => {
       logo: 'logo.png',
       stripeId: 'cus_1',
       aiAccess: true,
-      aiPremium: false,
+      aiMode: AiMode.STANDARD,
       createdAt: now,
       updatedAt: now,
       clients: [],
@@ -281,6 +282,7 @@ describe('Entidades TypeORM', () => {
       completionTokens: 2,
       totalTokens: 3,
       type: AiRequestType.GET_SPENT_CONCEPTS,
+      aiMode: AiMode.STANDARD,
       message: 'prompt',
       response: { concepts: [] },
       createdAt: now,
@@ -291,7 +293,7 @@ describe('Entidades TypeORM', () => {
     invokeTypeOrmMetadataCallbacks();
 
     expect(enterprise.aiAccess).toBe(true);
-    expect(enterprise.aiPremium).toBe(false);
+    expect(enterprise.aiMode).toBe(AiMode.STANDARD);
     expect(user.status).toBe(UserStatusTypes.PENDING);
     expect(userEnterprise.defaultScheduleId).toBe('ds-1');
     expect(vacation.name).toBe('Vacaciones');
@@ -308,6 +310,7 @@ describe('Entidades TypeORM', () => {
     expect(signing.action).toBe(SigningAction.END);
     expect(signingUpdate.signingsId).toBe('sig-1');
     expect(aiRequest.type).toBe(AiRequestType.GET_SPENT_CONCEPTS);
+    expect(aiRequest.aiMode).toBe(AiMode.STANDARD);
     expect(defaultSchedule.userEnterpriseLinks).toEqual([]);
     expect(UserRoleTypes.USER).toBe('user');
   });

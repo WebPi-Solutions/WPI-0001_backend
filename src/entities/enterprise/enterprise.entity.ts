@@ -8,6 +8,7 @@ import { DefaultSchedule } from '../default-schedule/default-schedule.entity';
 import { Holiday } from '../holiday/holiday.entity';
 import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 import { AiRequest } from '../ai-request/ai-request.entity';
+import { AiMode } from 'src/common/models/AiMode';
 
 /**
  * Entidad Empresa que representa la tabla enterprises en la base de datos
@@ -77,10 +78,16 @@ export class Enterprise {
   aiAccess: boolean;
 
   /**
-   * Si es verdadero, la extracción de facturas envía el PDF a OpenAI en lugar del texto OCR.
+   * Modo de IA de la empresa (`standard` envía OCR; `premium` envía el PDF a OpenAI).
    */
-  @Column({ name: 'ai_premium', default: false })
-  aiPremium: boolean;
+  @Column({
+    name: 'ai_mode',
+    type: 'enum',
+    enum: AiMode,
+    enumName: 'ai_modes',
+    default: AiMode.STANDARD,
+  })
+  aiMode: AiMode;
 
   /**
    * Fecha en que se creó la empresa en el sistema

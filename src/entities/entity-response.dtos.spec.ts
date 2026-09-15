@@ -1,6 +1,7 @@
 import { QuoteStatus } from './quote/quote.entity';
 import { InvoiceStatus } from './invoice/invoice.entity';
 import { AiRequestType } from './ai-request/ai-request.entity';
+import { AiMode } from 'src/common/models/AiMode';
 import { RecurrentEarningType } from './recurrent-earning/recurrent-earning.entity';
 import { SigningAction } from './signing/signing.entity';
 import { UserRoleTypes, UserStatusTypes } from './user/user.entity';
@@ -43,7 +44,7 @@ function buildEnterprise(): EnterpriseResponseDto {
     bankAccount: 'ES00',
     logo: 'logo.png',
     aiAccess: true,
-    aiPremium: false,
+    aiMode: AiMode.STANDARD,
     createdAt: now,
     updatedAt: now,
   });
@@ -346,6 +347,7 @@ describe('DTO de respuesta de entidades', () => {
       completionTokens: 20,
       totalTokens: 30,
       type: AiRequestType.GET_SPENT_ISSUER,
+      aiMode: AiMode.STANDARD,
       message: 'prompt',
       response: { issuer: 'ACME' },
       createdAt: now,

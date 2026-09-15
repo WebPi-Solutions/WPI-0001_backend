@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as crypto from 'crypto';
 import { AiRequestRepository } from 'src/entities/ai-request/ai-request-repository.service';
 import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
+import { AiMode } from 'src/common/models/AiMode';
 import { AiRequestService } from './ai-request.service';
 import { CreateAiRequestDto } from './dto/create-ai-request.dto';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
@@ -75,9 +76,37 @@ describe('AiRequestService', () => {
         completionTokens: 20,
         totalTokens: 100,
         response: { name: 'Proveedor S.L.' },
+        aiMode: AiMode.STANDARD,
       }),
     );
     expect(createdAiRequest.id).toBe('ai-request-1');
+  });
+
+  it('debe persistir el modo de IA informado', async () => {
+    aiRequestRepository.create.mockImplementation((payload) =>
+      Promise.resolve({ ...payload, id: 'ai-request-1' }),
+    );
+
+    await service.create(
+      'enterprise-1',
+      buildCreateDto({ correlationId: 'correlation-1', aiMode: AiMode.PREMIUM }),
+    );
+
+    expect(aiRequestRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        aiMode: AiMode.PREMIUM,
+      }),
+    );
+  });
+
+  it('debe rechazar un modo de IA no válido', async () => {
+    await expect(
+      service.create('enterprise-1', buildCreateDto({ aiMode: 'ultra' as AiMode })),
+    ).rejects.toMatchObject({
+      status: HttpStatus.BAD_REQUEST,
+      message: 'El modo de IA no es válido',
+    });
+    expect(aiRequestRepository.create).not.toHaveBeenCalled();
   });
 
   it('debe generar un correlationId cuando no se informa', async () => {

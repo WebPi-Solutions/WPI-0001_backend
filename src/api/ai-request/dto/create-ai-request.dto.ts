@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
+import { AiMode } from 'src/common/models/AiMode';
 
 /**
  * Cuerpo para registrar una petición a la API de IA.
@@ -18,6 +19,20 @@ export class CreateAiRequestDto {
   @IsUUID()
   @IsOptional()
   correlationId?: string;
+
+  /**
+   * Modo de IA con el que se realizó la petición.
+   * Si no se informa, se persiste `standard`.
+   */
+  @ApiProperty({
+    description: 'Modo de IA usado (`standard` u OCR, `premium` o PDF)',
+    enum: AiMode,
+    required: false,
+    example: AiMode.STANDARD,
+  })
+  @IsEnum(AiMode)
+  @IsOptional()
+  aiMode?: AiMode;
 
   /**
    * Tokens de prompt

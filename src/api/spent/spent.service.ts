@@ -20,6 +20,7 @@ import { SpentConcept } from 'src/common/models/Concept';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { AiRequestService } from 'src/api/ai-request/ai-request.service';
 import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
+import { AiMode, isPremiumAiMode } from 'src/common/models/AiMode';
 
 /**
  * Origen de la factura para extraer emisor y conceptos con IA.
@@ -215,7 +216,7 @@ export class SpentService {
 
   /**
    * Recibe un PDF de gasto para procesamiento con IA.
-   * Si la empresa tiene IA premium, envía el PDF a OpenAI; si no, extrae el texto por OCR y envía ese texto.
+   * Si la empresa está en modo premium, envía el PDF a OpenAI; si no, extrae el texto por OCR y envía ese texto.
    * Después extrae emisor, busca el proveedor, rellena el histórico y arma spentData.
    * @param file Archivo PDF recibido
    * @param enterpriseId ID de la empresa en la que se busca el proveedor
@@ -237,7 +238,7 @@ export class SpentService {
         );
       }
 
-      const invoiceSource = enterpriseAiSettings.hasAiPremium
+      const invoiceSource = isPremiumAiMode(enterpriseAiSettings.aiMode)
         ? this.buildPremiumPdfInvoiceSource(file)
         : await this.buildOcrInvoiceSource(file);
       const correlationId = randomUUID();
@@ -245,6 +246,7 @@ export class SpentService {
       await this.persistSpentAiRequest({
         enterpriseId,
         correlationId,
+        aiMode: enterpriseAiSettings.aiMode,
         type: AiRequestType.GET_SPENT_ISSUER,
         extractedResult: extractedIssuer,
         response: {
@@ -264,6 +266,7 @@ export class SpentService {
       await this.persistSpentAiRequest({
         enterpriseId,
         correlationId,
+        aiMode: enterpriseAiSettings.aiMode,
         type: AiRequestType.GET_SPENT_CONCEPTS,
         extractedResult: extractedInvoice,
         response: {
@@ -356,11 +359,12 @@ export class SpentService {
 
   /**
    * Persiste una petición de extracción de gasto en `ai_requests`.
-   * @param persistContext Empresa, correlación, tipo, tokens y respuesta a guardar
+   * @param persistContext Empresa, correlación, modo de IA, tipo, tokens y respuesta a guardar
    */
   private async persistSpentAiRequest(persistContext: {
     enterpriseId: string;
     correlationId: string;
+    aiMode: AiMode;
     type: AiRequestType;
     extractedResult: {
       requestMessage: string;
@@ -371,11 +375,12 @@ export class SpentService {
     response: Record<string, unknown>;
   }): Promise<void> {
     this.logger.log(
-      `Registrando petición de IA ${persistContext.type} para la empresa ${persistContext.enterpriseId} (correlación ${persistContext.correlationId})`,
+      `Registrando petición de IA ${persistContext.type} (${persistContext.aiMode}) para la empresa ${persistContext.enterpriseId} (correlación ${persistContext.correlationId})`,
     );
 
     await this.aiRequestService.create(persistContext.enterpriseId, {
       correlationId: persistContext.correlationId,
+      aiMode: persistContext.aiMode,
       type: persistContext.type,
       message: persistContext.extractedResult.requestMessage,
       promptTokens: persistContext.extractedResult.promptTokens,

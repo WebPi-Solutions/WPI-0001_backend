@@ -6,6 +6,7 @@ import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/comm
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { SpentSubtotalsByStatusDto, SpentStatusMetricsDto } from 'src/api/metrics/dto/spent-subtotals-by-status.dto';
 import { Enterprise } from '../enterprise/enterprise.entity';
+import { AiMode, normalizeAiMode } from 'src/common/models/AiMode';
 
 @Injectable()
 export class SpentRepository {
@@ -24,37 +25,37 @@ export class SpentRepository {
   }
 
   /**
-   * Obtiene los flags de IA de la empresa (acceso y flujo premium con PDF).
+   * Obtiene la configuración de IA de la empresa (acceso y modo).
    * @param enterpriseId - ID de la empresa a consultar
-   * @returns Acceso a IA y si debe enviarse el PDF en lugar del OCR
+   * @returns Acceso a IA y modo (`standard` o `premium`)
    */
   async getEnterpriseAiSettings(enterpriseId: string): Promise<{
     hasAiAccess: boolean;
-    hasAiPremium: boolean;
+    aiMode: AiMode;
   }> {
     if (!enterpriseId) {
       this.logger.warn('No se ha indicado empresa al consultar la configuración de IA');
-      return { hasAiAccess: false, hasAiPremium: false };
+      return { hasAiAccess: false, aiMode: AiMode.STANDARD };
     }
 
     const enterprise = await this.spentRepository.manager.findOne(Enterprise, {
       where: { id: enterpriseId },
-      select: ['id', 'aiAccess', 'aiPremium'],
+      select: ['id', 'aiAccess', 'aiMode'],
     });
 
     if (!enterprise) {
       this.logger.warn(
         `No se ha encontrado la empresa ${enterpriseId} al consultar la configuración de IA`,
       );
-      return { hasAiAccess: false, hasAiPremium: false };
+      return { hasAiAccess: false, aiMode: AiMode.STANDARD };
     }
 
     const hasAiAccess = Boolean(enterprise.aiAccess);
-    const hasAiPremium = Boolean(enterprise.aiPremium);
+    const aiMode = normalizeAiMode(enterprise.aiMode);
     this.logger.log(
-      `Configuración de IA de la empresa ${enterpriseId}: acceso=${hasAiAccess ? 'concedido' : 'denegado'}, premium=${hasAiPremium ? 'activo' : 'inactivo'}`,
+      `Configuración de IA de la empresa ${enterpriseId}: acceso=${hasAiAccess ? 'concedido' : 'denegado'}, modo=${aiMode}`,
     );
-    return { hasAiAccess, hasAiPremium };
+    return { hasAiAccess, aiMode };
   }
 
   /**

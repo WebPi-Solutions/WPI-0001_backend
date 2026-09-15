@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
 import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
 import { AiRequestType } from '../ai-request.entity';
+import { AiMode } from 'src/common/models/AiMode';
 
 /**
  * DTO de salida para peticiones a la API de IA (`ai_requests`).
@@ -20,6 +21,17 @@ export class AiRequestResponseDto {
   @ApiProperty({ description: 'UUID de la empresa' })
   @Expose()
   enterpriseId: string;
+
+  /**
+   * Modo de IA usado en la petición
+   */
+  @ApiProperty({
+    description: 'Modo de IA (`standard` o `premium`)',
+    enum: AiMode,
+    example: AiMode.STANDARD,
+  })
+  @Expose()
+  aiMode: AiMode;
 
   /**
    * Identificador de correlación del procesamiento

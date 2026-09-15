@@ -138,13 +138,13 @@ describe('SpentRepository', () => {
 
       expect(managerFindOneMock).toHaveBeenCalledWith(Enterprise, {
         where: { id: 'enterprise-uuid' },
-        select: ['id', 'aiAccess', 'aiPremium'],
+        select: ['id', 'aiAccess', 'aiMode'],
       });
       expect(result).toBe(false);
     });
 
     it('devuelve true cuando la empresa tiene aiAccess activo', async () => {
-      managerFindOneMock.mockResolvedValue({ id: 'enterprise-uuid', aiAccess: true, aiPremium: false });
+      managerFindOneMock.mockResolvedValue({ id: 'enterprise-uuid', aiAccess: true, aiMode: 'standard' });
 
       const result = await spentRepositoryService.hasEnterpriseAiAccess('enterprise-uuid');
 
@@ -152,7 +152,7 @@ describe('SpentRepository', () => {
     });
 
     it('devuelve false cuando la empresa no tiene aiAccess', async () => {
-      managerFindOneMock.mockResolvedValue({ id: 'enterprise-uuid', aiAccess: false, aiPremium: true });
+      managerFindOneMock.mockResolvedValue({ id: 'enterprise-uuid', aiAccess: false, aiMode: 'premium' });
 
       const result = await spentRepositoryService.hasEnterpriseAiAccess('enterprise-uuid');
 
@@ -161,31 +161,31 @@ describe('SpentRepository', () => {
   });
 
   describe('getEnterpriseAiSettings', () => {
-    it('devuelve acceso y premium desactivados si el identificador está vacío', async () => {
+    it('devuelve acceso denegado y modo estándar si el identificador está vacío', async () => {
       const result = await spentRepositoryService.getEnterpriseAiSettings('');
 
-      expect(result).toEqual({ hasAiAccess: false, hasAiPremium: false });
+      expect(result).toEqual({ hasAiAccess: false, aiMode: 'standard' });
       expect(managerFindOneMock).not.toHaveBeenCalled();
     });
 
-    it('devuelve acceso y premium desactivados si la empresa no existe', async () => {
+    it('devuelve acceso denegado y modo estándar si la empresa no existe', async () => {
       managerFindOneMock.mockResolvedValue(null);
 
       const result = await spentRepositoryService.getEnterpriseAiSettings('enterprise-uuid');
 
-      expect(result).toEqual({ hasAiAccess: false, hasAiPremium: false });
+      expect(result).toEqual({ hasAiAccess: false, aiMode: 'standard' });
     });
 
-    it('devuelve los flags de IA de la empresa', async () => {
+    it('devuelve el acceso y el modo de IA de la empresa', async () => {
       managerFindOneMock.mockResolvedValue({
         id: 'enterprise-uuid',
         aiAccess: true,
-        aiPremium: true,
+        aiMode: 'premium',
       });
 
       const result = await spentRepositoryService.getEnterpriseAiSettings('enterprise-uuid');
 
-      expect(result).toEqual({ hasAiAccess: true, hasAiPremium: true });
+      expect(result).toEqual({ hasAiAccess: true, aiMode: 'premium' });
     });
   });
 
