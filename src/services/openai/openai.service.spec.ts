@@ -119,6 +119,86 @@ describe('OpenaiService', () => {
     });
   });
 
+  describe('extractSpentIssuerFromPdf', () => {
+    /**
+     * Respuesta de emisor simulada por OpenAI.
+     * @returns Payload de chat.completions.create
+     */
+    const buildIssuerCompletion = () => ({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              name: 'Proveedor Ejemplo S.L.',
+              nifWithoutCountryPrefix: 'B12345678',
+              nifWithCountryPrefix: 'ESB12345678',
+            }),
+          },
+        },
+      ],
+      usage: { prompt_tokens: 80, completion_tokens: 20, total_tokens: 100 },
+    });
+
+    it('debe enviar el PDF y el mismo prompt de sistema que el flujo OCR', async () => {
+      mockCreateChatCompletion.mockResolvedValue(buildIssuerCompletion());
+      const pdfBuffer = Buffer.from('%PDF-1.4 premium');
+
+      const result = await service.extractSpentIssuerFromPdf(pdfBuffer, 'factura-premium.pdf');
+
+      expect(result.name).toBe('Proveedor Ejemplo S.L.');
+      expect(result.requestMessage).toBe('[PDF adjunto: factura-premium.pdf (16 bytes)]');
+      const completionRequest = mockCreateChatCompletion.mock.calls[0][0] as {
+        messages: Array<{ role: string; content: unknown }>;
+      };
+      const systemPrompt = completionRequest.messages.find((message) => message.role === 'system')
+        ?.content as string;
+      expect(systemPrompt).toContain('nombre FISCAL');
+      expect(systemPrompt).toContain('Recibirás el texto OCR completo');
+      const userContent = completionRequest.messages.find((message) => message.role === 'user')
+        ?.content as Array<{ type: string; file?: { filename?: string; file_data?: string } }>;
+      expect(userContent).toEqual([
+        expect.objectContaining({
+          type: 'file',
+          file: expect.objectContaining({
+            filename: 'factura-premium.pdf',
+            file_data: `data:application/pdf;base64,${pdfBuffer.toString('base64')}`,
+          }),
+        }),
+      ]);
+    });
+
+    it('debe omitir el base64 del PDF en los logs', async () => {
+      mockCreateChatCompletion.mockResolvedValue(buildIssuerCompletion());
+      const loggerLogSpy = jest.spyOn(service['logger'], 'log');
+      const pdfBuffer = Buffer.from('%PDF-log');
+
+      await service.extractSpentIssuerFromPdf(pdfBuffer, 'log.pdf');
+
+      const loggedPayload = loggerLogSpy.mock.calls
+        .map((logCall) => String(logCall[0]))
+        .find((logLine) => logLine.includes('Contenido enviado a OpenAI'));
+      expect(loggedPayload).toBeDefined();
+      expect(loggedPayload).toContain('contenido PDF omitido');
+      expect(loggedPayload).not.toContain(pdfBuffer.toString('base64'));
+      loggerLogSpy.mockRestore();
+    });
+
+    it('debe rechazar un PDF vacío', async () => {
+      await expect(service.extractSpentIssuerFromPdf(Buffer.alloc(0), 'vacio.pdf')).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+      });
+      expect(mockCreateChatCompletion).not.toHaveBeenCalled();
+    });
+
+    it('debe usar factura.pdf si el nombre está vacío', async () => {
+      mockCreateChatCompletion.mockResolvedValue(buildIssuerCompletion());
+
+      const result = await service.extractSpentIssuerFromPdf(Buffer.from('%PDF'), '   ');
+
+      expect(result.requestMessage).toContain('[PDF adjunto: factura.pdf');
+    });
+  });
+
   describe('extractSpentConceptsFromText', () => {
     it('debe devolver los conceptos extraídos y los tokens empleados', async () => {
       mockCreateChatCompletion.mockResolvedValue({
@@ -162,6 +242,7 @@ describe('OpenaiService', () => {
       expect(result.concepts[0].vat).toBe(21);
       expect(result.concepts[0].percentage).toBe(100);
       expect(result.name).toBe('Hosting mensual');
+      expect(result.code).toBeNull();
       expect(result.issuedDate).toBe('2026-06-27');
       expect(result.totalSubtotal).toBe(50);
       expect(result.totalVAT).toBe(10.5);
@@ -188,6 +269,80 @@ describe('OpenaiService', () => {
           ],
         }),
       );
+    });
+
+    it('debe extraer el código de factura cuando el modelo lo devuelve', async () => {
+      mockCreateChatCompletion.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                name: 'Hosting mensual',
+                code: '  FAC-2026-001  ',
+                issuedDate: '2026-06-27',
+                concepts: [],
+                totalSubtotal: 0,
+                totalVAT: 0,
+                totalIRPF: 0,
+                total: 0,
+              }),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      });
+
+      const result = await service.extractSpentConceptsFromText('Factura FAC-2026-001');
+
+      expect(result.code).toBe('FAC-2026-001');
+    });
+
+    it('debe devolver código nulo si el modelo no lo encuentra o lo deja vacío', async () => {
+      mockCreateChatCompletion.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                name: 'Ticket',
+                code: '   ',
+                issuedDate: '2026-06-27',
+                concepts: [],
+                totalSubtotal: 0,
+                totalVAT: 0,
+                totalIRPF: 0,
+                total: 0,
+              }),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      });
+
+      const emptyCodeResult = await service.extractSpentConceptsFromText('Ticket sin número');
+      expect(emptyCodeResult.code).toBeNull();
+
+      mockCreateChatCompletion.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                name: 'Ticket',
+                code: null,
+                issuedDate: '2026-06-27',
+                concepts: [],
+                totalSubtotal: 0,
+                totalVAT: 0,
+                totalIRPF: 0,
+                total: 0,
+              }),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      });
+
+      const nullCodeResult = await service.extractSpentConceptsFromText('Ticket sin número');
+      expect(nullCodeResult.code).toBeNull();
     });
 
     it('debe fijar la imputación a 100 aunque OpenAI devuelva otro porcentaje', async () => {
@@ -264,6 +419,11 @@ describe('OpenaiService', () => {
       expect(systemPrompt).toContain('5.884');
       expect(systemPrompt).toContain('5.885 se vería 5.89');
       expect(systemPrompt).toContain('1,24');
+      expect(systemPrompt).toContain('No lo inventes');
+      expect(systemPrompt).toContain('Invoice number');
+      expect(systemPrompt).toContain('número de factura');
+      expect(systemPrompt).toContain('no añadas nada');
+      expect(systemPrompt).toContain('identificador que desempeñe esa misma función');
       expect(systemPrompt).not.toContain('porcentaje imputable');
       expect(userMessage).toContain('CIF del emisor con prefijo de país: ESB66855701');
       expect(userMessage).toContain('Recarga Tesla');
@@ -458,7 +618,116 @@ describe('OpenaiService', () => {
       });
       expect(mockCreateChatCompletion).not.toHaveBeenCalled();
     });
+  });
 
+  describe('extractSpentConceptsFromPdf', () => {
+    it('debe enviar el PDF con el mismo prompt de sistema y el contexto histórico', async () => {
+      mockCreateChatCompletion.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                name: 'Hosting mensual',
+                issuedDate: '2026-06-27',
+                concepts: [],
+                totalSubtotal: 0,
+                totalVAT: 0,
+                totalIRPF: 0,
+                total: 0,
+              }),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+      });
+      const pdfBuffer = Buffer.from('%PDF-concepts');
+
+      const result = await service.extractSpentConceptsFromPdf(pdfBuffer, 'conceptos.pdf', {
+        issuerNifWithCountryPrefix: 'ESB66855701',
+        historicalSpentNames: ['Recarga Tesla'],
+        historicalConcepts: [
+          {
+            name: 'Hosting',
+            base_price: 50,
+            vat: 21,
+            irpf: 0,
+            quantity: 1,
+            supplied: false,
+            percentage: 100,
+          },
+        ],
+      });
+
+      expect(result.name).toBe('Hosting mensual');
+      expect(result.requestMessage).toContain('CIF del emisor con prefijo de país: ESB66855701');
+      expect(result.requestMessage).toContain('[PDF adjunto: conceptos.pdf');
+      expect(result.requestMessage).not.toContain('Texto OCR de la factura:');
+      const completionRequest = mockCreateChatCompletion.mock.calls[0][0] as {
+        messages: Array<{ role: string; content: unknown }>;
+      };
+      const systemPrompt = completionRequest.messages[0].content as string;
+      expect(systemPrompt).toContain('Recibirás el texto OCR completo');
+      expect(systemPrompt).toContain('Invoice number');
+      const userContent = completionRequest.messages[1].content as Array<{
+        type: string;
+        text?: string;
+        file?: { filename?: string };
+      }>;
+      expect(userContent[0]).toEqual(
+        expect.objectContaining({
+          type: 'file',
+          file: expect.objectContaining({ filename: 'conceptos.pdf' }),
+        }),
+      );
+      expect(userContent[1].type).toBe('text');
+      expect(userContent[1].text).toContain('Recarga Tesla');
+      expect(userContent[1].text).not.toContain('Texto OCR de la factura:');
+    });
+
+    it('debe rechazar un PDF vacío', async () => {
+      await expect(
+        service.extractSpentConceptsFromPdf(Buffer.alloc(0), 'vacio.pdf'),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+      });
+      expect(mockCreateChatCompletion).not.toHaveBeenCalled();
+    });
+
+    it('debe enviar solo el PDF si no hay CIF ni histórico', async () => {
+      mockCreateChatCompletion.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                name: 'Servicio',
+                issuedDate: '2026-01-15',
+                concepts: [],
+                totalSubtotal: 0,
+                totalVAT: 0,
+                totalIRPF: 0,
+                total: 0,
+              }),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 4, completion_tokens: 2, total_tokens: 6 },
+      });
+      const pdfBuffer = Buffer.from('%PDF-sin-contexto');
+
+      const result = await service.extractSpentConceptsFromPdf(pdfBuffer, 'sin-contexto.pdf');
+
+      expect(result.requestMessage).toBe('[PDF adjunto: sin-contexto.pdf (17 bytes)]');
+      expect(result.requestMessage).not.toContain('Texto OCR de la factura:');
+      const completionRequest = mockCreateChatCompletion.mock.calls[0][0] as {
+        messages: Array<{ role: string; content: unknown }>;
+      };
+      const userContent = completionRequest.messages[1].content as Array<{ type: string }>;
+      expect(userContent).toHaveLength(1);
+      expect(userContent[0].type).toBe('file');
+    });
+  });
+
+  describe('extractSpentConceptsFromText (configuración y errores)', () => {
     it('debe usar el modelo definido en OPENAI_SPENTS_PROCESSING_MODEL', async () => {
       const serviceWithCustomModel = await createService({
         spentConceptsModel: 'gpt-5.6-terra',
@@ -797,6 +1066,56 @@ describe('OpenaiService', () => {
           'HTTP vacío',
         ),
       ).toThrow('HTTP vacío');
+    });
+
+    it('omite el binario del PDF en logs y rechaza un buffer nulo', () => {
+      const privateService = service as unknown as {
+        sanitizeMessagesForLog: (messages: unknown[]) => unknown;
+        requirePdfInvoiceFile: (pdfBuffer: Buffer | null, fileName: string) => unknown;
+      };
+
+      const sanitizedMessages = privateService.sanitizeMessagesForLog([
+        { role: 'system' },
+        { role: 'user', content: 'texto plano' },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'contexto' },
+            { type: 'file' },
+            { type: 'file', file: { filename: 'factura.pdf' } },
+          ],
+        },
+      ]);
+
+      expect(sanitizedMessages).toEqual([
+        { role: 'system' },
+        { role: 'user', content: 'texto plano' },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'contexto' },
+            {
+              type: 'file',
+              file: {
+                filename: undefined,
+                file_id: undefined,
+                file_data: '[contenido PDF omitido, 0 caracteres en base64]',
+              },
+            },
+            {
+              type: 'file',
+              file: {
+                filename: 'factura.pdf',
+                file_id: undefined,
+                file_data: '[contenido PDF omitido, 0 caracteres en base64]',
+              },
+            },
+          ],
+        },
+      ]);
+      expect(() => privateService.requirePdfInvoiceFile(null, 'factura.pdf')).toThrow(
+        'No se ha podido leer el contenido del PDF para analizarlo con IA',
+      );
     });
   });
 });

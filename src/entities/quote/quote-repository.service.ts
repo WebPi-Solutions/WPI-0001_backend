@@ -214,6 +214,7 @@ export class QuoteRepository {
       total: createEmptyMetrics(),
       draft: createEmptyMetrics(),
       issued: createEmptyMetrics(),
+      ordered: createEmptyMetrics(),
       converted: createEmptyMetrics(),
       rejected: createEmptyMetrics(),
     };
@@ -233,7 +234,7 @@ export class QuoteRepository {
     }
 
     metrics.total.subtotal = Math.round(metrics.total.subtotal * 100) / 100;
-    const statusKeys = ['draft', 'issued', 'converted', 'rejected'] as const;
+    const statusKeys = ['draft', 'issued', 'ordered', 'converted', 'rejected'] as const;
     statusKeys.forEach((key) => {
       metrics[key].subtotal = Math.round(metrics[key].subtotal * 100) / 100;
     });

@@ -203,6 +203,7 @@ async function bootstrapE2eWorld(): Promise<void> {
       }),
       extractSpentConceptsFromText: jest.fn().mockResolvedValue({
         name: 'Concepto',
+        code: null,
         issuedDate: '2026-01-01',
         concepts: [],
         totalSubtotal: 0,
@@ -214,6 +215,29 @@ async function bootstrapE2eWorld(): Promise<void> {
         totalTokens: 2,
         requestMessage: 'ocr',
       }),
+      extractSpentIssuerFromPdf: jest.fn().mockResolvedValue({
+        name: 'Proveedor E2E',
+        nifWithoutCountryPrefix: 'B00000000',
+        nifWithCountryPrefix: '',
+        promptTokens: 1,
+        completionTokens: 1,
+        totalTokens: 2,
+        requestMessage: '[PDF adjunto: factura.pdf (1 bytes)]',
+      }),
+      extractSpentConceptsFromPdf: jest.fn().mockResolvedValue({
+        name: 'Concepto',
+        code: null,
+        issuedDate: '2026-01-01',
+        concepts: [],
+        totalSubtotal: 0,
+        totalVAT: 0,
+        totalIRPF: 0,
+        total: 0,
+        promptTokens: 1,
+        completionTokens: 1,
+        totalTokens: 2,
+        requestMessage: '[PDF adjunto: factura.pdf (1 bytes)]',
+      }),
     })
     .overrideProvider(FileService)
     .useValue({
@@ -224,6 +248,11 @@ async function bootstrapE2eWorld(): Promise<void> {
         message: 'ok',
       }),
       validatePdfFile: jest.fn(),
+      describeAiSpentPdf: jest.fn().mockReturnValue({
+        originalName: 'gasto.pdf',
+        sizeInMegabytes: 0.1,
+        message: 'ok',
+      }),
     })
     .compile();
 

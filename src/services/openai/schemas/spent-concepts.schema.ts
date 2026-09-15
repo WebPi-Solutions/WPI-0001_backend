@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 
 /**
- * Formato JSON estricto para extraer nombre, fecha, conceptos y totales de un gasto desde texto OCR.
+ * Formato JSON estricto para extraer nombre, código, fecha, conceptos y totales de un gasto desde texto OCR.
  */
 export const spentConceptsResponseFormat: OpenAI.ResponseFormatJSONSchema = {
   type: 'json_schema',
@@ -11,12 +11,26 @@ export const spentConceptsResponseFormat: OpenAI.ResponseFormatJSONSchema = {
     schema: {
       type: 'object',
       additionalProperties: false,
-      required: ['name', 'issuedDate', 'concepts', 'totalSubtotal', 'totalVAT', 'totalIRPF', 'total'],
+      required: [
+        'name',
+        'code',
+        'issuedDate',
+        'concepts',
+        'totalSubtotal',
+        'totalVAT',
+        'totalIRPF',
+        'total',
+      ],
       properties: {
         name: {
           type: 'string',
           description:
             'Nombre corto del gasto extraído de los conceptos de esta factura. Los nombres históricos solo se usan como estilo si el contenido es de la misma línea; si no, el nombre debe describir esta factura',
+        },
+        code: {
+          type: ['string', 'null'],
+          description:
+            'Número de factura de este documento («número de factura», «factura», Invoice number u otro identificador equivalente). Null si no existe. No inventar ni copiar códigos históricos',
         },
         issuedDate: {
           type: 'string',

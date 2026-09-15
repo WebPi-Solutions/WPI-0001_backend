@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { Client } from './client.entity';
+import { Client, ClientType } from './client.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
@@ -49,8 +49,8 @@ export class ClientRepository {
   }
 
   /**
-   * Conteos para tarjetas del listado: total, personas físicas y empresas.
-   * Tres llamadas a {@link count}; el tipo fuerza `individual` o `company`.
+   * Conteos para tarjetas del listado: total, particulares y empresas.
+   * Tres llamadas a {@link count}; el tipo fuerza `particular` o `company`.
    *
    * @param enterpriseId - Empresa
    * @param filter - Filtros de la vista (sin `enterpriseId`)
@@ -62,8 +62,8 @@ export class ClientRepository {
     const base: Record<string, unknown> = { enterpriseId, ...filter };
     const [total, individuals, companies] = await Promise.all([
       this.count(base as Record<string, any>),
-      this.count({ ...base, type: 'individual' } as Record<string, any>),
-      this.count({ ...base, type: 'company' } as Record<string, any>),
+      this.count({ ...base, type: ClientType.PARTICULAR } as Record<string, any>),
+      this.count({ ...base, type: ClientType.COMPANY } as Record<string, any>),
     ]);
     return { total, individuals, companies };
   }

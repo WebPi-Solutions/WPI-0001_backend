@@ -43,6 +43,7 @@ function buildEnterprise(): EnterpriseResponseDto {
     bankAccount: 'ES00',
     logo: 'logo.png',
     aiAccess: true,
+    aiPremium: false,
     createdAt: now,
     updatedAt: now,
   });
@@ -98,6 +99,7 @@ describe('DTO de respuesta de entidades', () => {
     const spent = coverDtoClass(SpentResponseDto, {
       id: 'spent-1',
       supplierId: 'sup-1',
+      code: 'FAC-2026-001',
       name: 'Material',
       issuedDate: now,
       collectionDate: now,
@@ -124,6 +126,7 @@ describe('DTO de respuesta de entidades', () => {
     expect(client.type).toBe('company');
     expect(spent.concepts[0].percentage).toBe(100);
     expect(spent.supplier?.name).toBe('Proveedor');
+    expect(spent.code).toBe('FAC-2026-001');
   });
 
   it('debe instanciar cotización, factura e ingreso recurrente', () => {

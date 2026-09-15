@@ -56,6 +56,36 @@ describe('Presupuestos (e2e) — control de acceso', () => {
     expect(response.status).toBe(200);
   });
 
+  it('el usuario A puede editar un presupuesto ya emitido', async () => {
+    const seed = getE2eSeed();
+    const created = await http()
+      .post('/quotes')
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        clientId: seed.clientA.id,
+        name: 'Presupuesto para editar emitido',
+        issuedDate: '2026-03-01',
+        formalizationDate: '2026-03-15',
+        status: 'draft',
+        concepts: [],
+      });
+    expect(created.status).toBe(201);
+
+    const issued = await http()
+      .patch(`/quotes/${created.body.id}/status`)
+      .query({ status: 'issued' })
+      .set(authHeader(E2E_EMAIL.userA));
+    expect(issued.status).toBe(200);
+
+    const updated = await http()
+      .patch(`/quotes/${created.body.id}`)
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ name: 'Presupuesto emitido actualizado' });
+    expect(updated.status).toBe(200);
+    expect(updated.body.name).toBe('Presupuesto emitido actualizado');
+    expect(updated.body.status).toBe('issued');
+  });
+
   it('el usuario A no cambia el estado del presupuesto de B', async () => {
     const seed = getE2eSeed();
     expectIdorHidden(

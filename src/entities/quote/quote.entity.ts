@@ -6,6 +6,7 @@ import { Invoice } from '../invoice/invoice.entity';
 export enum QuoteStatus {
   DRAFT = 'draft',
   ISSUED = 'issued',
+  ORDERED = 'ordered',
   CONVERTED = 'converted',
   REJECTED = 'rejected'
 }
@@ -53,7 +54,7 @@ export class Quote {
   concepts: Concept[];
 
   /**
-   * Estado actual de la cotización (ej., 'pendiente', 'convertida', 'rechazada')
+   * Estado actual de la cotización (`draft`, `issued`, `ordered`, `converted`, `rejected`)
    */
   @Column()
   status: QuoteStatus;

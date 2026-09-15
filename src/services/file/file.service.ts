@@ -105,6 +105,28 @@ export class FileService {
   }
 
   /**
+   * Valida el PDF y devuelve metadatos sin ejecutar OCR.
+   * Se usa cuando la empresa tiene IA premium y el documento se envía tal cual a OpenAI.
+   * @param file Archivo PDF recibido
+   * @returns Nombre, tamaño y mensaje de confirmación
+   */
+  describeAiSpentPdf(file: MulterFile): Omit<ProcessedAiSpentPdfResult, 'extractedText'> {
+    this.validatePdfFile(file);
+
+    const originalName = file.originalname;
+    const sizeInMegabytes = this.convertBytesToMegabytes(file.size);
+    this.logger.log(
+      `Archivo recibido para extracción premium de gastos con IA. Nombre: ${originalName}. Tamaño: ${sizeInMegabytes} MB`,
+    );
+
+    return {
+      originalName,
+      sizeInMegabytes,
+      message: 'Archivo recibido correctamente',
+    };
+  }
+
+  /**
    * Valida que el archivo exista, sea un PDF y tenga contenido.
    * @param file Archivo a validar
    */

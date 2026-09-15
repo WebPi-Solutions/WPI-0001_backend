@@ -1,6 +1,6 @@
 /**
  * DTO para métricas de importe imponible (subtotal) por estado de presupuesto
- * Desglosado por tipos: total, draft, issued, converted, rejected
+ * Desglosado por tipos: total, draft, issued, ordered, converted, rejected
  */
 export interface QuoteStatusMetricsDto {
   /**
@@ -32,6 +32,11 @@ export interface QuoteSubtotalsByStatusDto {
    * Presupuestos emitidos
    */
   issued: QuoteStatusMetricsDto;
+
+  /**
+   * Presupuestos en estado pedido
+   */
+  ordered: QuoteStatusMetricsDto;
 
   /**
    * Presupuestos convertidos a factura

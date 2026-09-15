@@ -92,6 +92,17 @@ export class EnterpriseResponseDto {
   aiAccess: boolean;
 
   /**
+   * Si la extracción de facturas envía el PDF a OpenAI en lugar del texto OCR
+   */
+  @ApiProperty({
+    description:
+      'Si es verdadero, se envía el PDF a OpenAI; si es falso, se extrae el texto por OCR y se envía ese texto',
+    example: false,
+  })
+  @Expose()
+  aiPremium: boolean;
+
+  /**
    * Fecha de creación del registro
    */
   @ApiProperty({ description: 'Fecha de creación del registro' })

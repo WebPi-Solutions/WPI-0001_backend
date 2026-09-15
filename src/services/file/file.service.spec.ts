@@ -250,4 +250,29 @@ describe('FileService', () => {
       await expect(service.getNumberOfPages(Buffer.from('pdf'))).resolves.toBe(4);
     });
   });
+
+  describe('describeAiSpentPdf', () => {
+    it('devuelve metadatos del PDF sin ejecutar OCR', () => {
+      const file = createMulterFile();
+
+      const result = service.describeAiSpentPdf(file);
+
+      expect(result).toEqual({
+        originalName: 'factura-proveedor.pdf',
+        sizeInMegabytes: 2.5,
+        message: 'Archivo recibido correctamente',
+      });
+      expect(ocrService.extractTextFromImage).not.toHaveBeenCalled();
+    });
+
+    it('rechaza un archivo que no sea PDF', () => {
+      const imageFile = createMulterFile({
+        originalname: 'imagen.png',
+        mimetype: 'image/png',
+      });
+
+      expect(() => service.describeAiSpentPdf(imageFile)).toThrow(HttpException);
+      expect(ocrService.extractTextFromImage).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -5,6 +5,15 @@ import { Quote } from '../quote/quote.entity';
 import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 
 /**
+ * Tipo de cliente persistido en `clients.type`.
+ * El valor `particular` sustituye al antiguo `individual`.
+ */
+export enum ClientType {
+  COMPANY = 'company',
+  PARTICULAR = 'particular',
+}
+
+/**
  * Entidad Cliente que representa la tabla clients en la base de datos
  * Almacena información sobre clientes asociados con empresas
  */
@@ -53,7 +62,7 @@ export class Client {
   address: string;
 
   /**
-   * Tipo de cliente
+   * Tipo de cliente (`company` o `particular`)
    */
   @Column({ nullable: true })
   type: string;

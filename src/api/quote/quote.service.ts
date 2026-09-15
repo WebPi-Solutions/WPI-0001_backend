@@ -107,11 +107,6 @@ export class QuoteService {
 
     this.assertQuoteAccessible(quoteToUpdate, 'write');
 
-    if(quoteToUpdate.status !== QuoteStatus.DRAFT) {
-      this.logger.error(`No se puede actualizar la cotización ${id} porque ya ha sido emitida`);
-      throw new HttpException(`No se puede actualizar la cotización ${id} porque ya ha sido emitida`, HttpStatus.BAD_REQUEST);
-    }
-
     // Rellena el resto de la cotización con los datos de la cotización guardada en base de datos. (Evita errores de validación al no tener campos)
     quote = {
       ...quoteToUpdate,

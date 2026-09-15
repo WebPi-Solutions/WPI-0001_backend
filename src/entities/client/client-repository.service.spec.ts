@@ -154,6 +154,17 @@ describe('ClientRepository', () => {
       );
 
       expect(QueryBuilderService.getCount).toHaveBeenCalledTimes(3);
+      expect(QueryBuilderService.getCount).toHaveBeenNthCalledWith(
+        2,
+        typeOrmRepositoryMock,
+        'client',
+        expect.objectContaining({
+          enterpriseId: 'enterprise-uuid',
+          name_ilike: 'acme',
+          type: 'particular',
+        }),
+        undefined,
+      );
       expect(result).toEqual({ total: 10, individuals: 4, companies: 6 });
     });
 

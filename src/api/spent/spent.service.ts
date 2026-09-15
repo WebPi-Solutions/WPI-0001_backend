@@ -13,13 +13,35 @@ import {
   SpentAiSuggestedSupplierDto,
 } from './dto/spent-ai-file-preview-response.dto';
 import { FileService } from 'src/services/file/file.service';
-import { ExtractedSpentConceptsResult, ExtractedSpentIssuerResult, OpenaiService } from 'src/services/openai/openai.service';
+import { ExtractedSpentConceptsResult, ExtractedSpentIssuerResult, OpenaiService, SpentConceptsExtractionContext } from 'src/services/openai/openai.service';
 import { SupplierRepository } from 'src/entities/supplier/supplier-repository.service';
 import { Supplier } from 'src/entities/supplier/supplier.entity';
 import { SpentConcept } from 'src/common/models/Concept';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { AiRequestService } from 'src/api/ai-request/ai-request.service';
 import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
+
+/**
+ * Origen de la factura para extraer emisor y conceptos con IA.
+ * En premium el documento es el PDF; en el flujo estándar es el texto OCR.
+ */
+interface AiSpentInvoiceExtractionSource {
+  /** Nombre original del archivo */
+  originalName: string;
+  /** Tamaño del archivo en megabytes */
+  sizeInMegabytes: number;
+  /** Mensaje de confirmación de la recepción */
+  message: string;
+  /** Extrae el emisor del documento */
+  extractIssuer: () => Promise<ExtractedSpentIssuerResult>;
+  /**
+   * Extrae conceptos y totales del documento.
+   * @param extractionContext CIF e histórico del proveedor
+   */
+  extractConcepts: (
+    extractionContext: SpentConceptsExtractionContext,
+  ) => Promise<ExtractedSpentConceptsResult>;
+}
 
 /**
  * Servicio de gastos: orquesta repositorio, almacenamiento, archivos y extracción con IA.
@@ -193,7 +215,8 @@ export class SpentService {
 
   /**
    * Recibe un PDF de gasto para procesamiento con IA.
-   * Delega OCR, extracción del emisor, búsqueda del proveedor, conceptos históricos y armado de spentData.
+   * Si la empresa tiene IA premium, envía el PDF a OpenAI; si no, extrae el texto por OCR y envía ese texto.
+   * Después extrae emisor, busca el proveedor, rellena el histórico y arma spentData.
    * @param file Archivo PDF recibido
    * @param enterpriseId ID de la empresa en la que se busca el proveedor
    * @returns Datos del archivo y spentData listo para crear el gasto
@@ -205,8 +228,8 @@ export class SpentService {
     this.logger.log('Iniciando recepción de PDF para subida de gastos con IA');
 
     try {
-      const hasEnterpriseAiAccess = await this.spentRepository.hasEnterpriseAiAccess(enterpriseId);
-      if (!hasEnterpriseAiAccess) {
+      const enterpriseAiSettings = await this.spentRepository.getEnterpriseAiSettings(enterpriseId);
+      if (!enterpriseAiSettings.hasAiAccess) {
         this.logger.warn(`La empresa ${enterpriseId} no tiene acceso a las funciones de IA`);
         throw new HttpException(
           'La empresa no tiene acceso a las funciones de IA',
@@ -214,11 +237,11 @@ export class SpentService {
         );
       }
 
-      const processedFile = await this.fileService.processAiSpentPdf(file);
+      const invoiceSource = enterpriseAiSettings.hasAiPremium
+        ? this.buildPremiumPdfInvoiceSource(file)
+        : await this.buildOcrInvoiceSource(file);
       const correlationId = randomUUID();
-      const extractedIssuer = await this.openaiService.extractSpentIssuerFromText(
-        processedFile.extractedText,
-      );
+      const extractedIssuer = await invoiceSource.extractIssuer();
       await this.persistSpentAiRequest({
         enterpriseId,
         correlationId,
@@ -234,13 +257,10 @@ export class SpentService {
       const historicalExtractionContext = existingSupplier
         ? await this.getHistoricalExtractionContextFromSupplier(existingSupplier.id)
         : { historicalConcepts: [], historicalSpentNames: [] };
-      const extractedInvoice = await this.openaiService.extractSpentConceptsFromText(
-        processedFile.extractedText,
-        {
-          ...historicalExtractionContext,
-          issuerNifWithCountryPrefix: extractedIssuer.nifWithCountryPrefix,
-        },
-      );
+      const extractedInvoice = await invoiceSource.extractConcepts({
+        ...historicalExtractionContext,
+        issuerNifWithCountryPrefix: extractedIssuer.nifWithCountryPrefix,
+      });
       await this.persistSpentAiRequest({
         enterpriseId,
         correlationId,
@@ -248,6 +268,7 @@ export class SpentService {
         extractedResult: extractedInvoice,
         response: {
           name: extractedInvoice.name,
+          code: extractedInvoice.code,
           issuedDate: extractedInvoice.issuedDate,
           concepts: extractedInvoice.concepts,
           totalSubtotal: extractedInvoice.totalSubtotal,
@@ -260,15 +281,15 @@ export class SpentService {
         extractedInvoice,
         existingSupplier,
         extractedIssuer,
-        processedFile.originalName,
+        invoiceSource.originalName,
       );
 
       this.logger.log(`spentData generado para el frontend:\n${JSON.stringify(spentData, null, 2)}`);
 
       return {
-        originalName: processedFile.originalName,
-        sizeInMegabytes: processedFile.sizeInMegabytes,
-        message: processedFile.message,
+        originalName: invoiceSource.originalName,
+        sizeInMegabytes: invoiceSource.sizeInMegabytes,
+        message: invoiceSource.message,
         spentData,
       };
     } catch (error) {
@@ -283,6 +304,54 @@ export class SpentService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Prepara la extracción enviando el PDF a OpenAI, sin OCR.
+   * @param file Archivo PDF recibido
+   * @returns Origen de extracción premium
+   */
+  private buildPremiumPdfInvoiceSource(file: MulterFile): AiSpentInvoiceExtractionSource {
+    const pdfMetadata = this.fileService.describeAiSpentPdf(file);
+    this.logger.log(
+      `Extracción premium: se envía el PDF ${pdfMetadata.originalName} a OpenAI sin OCR`,
+    );
+
+    return {
+      ...pdfMetadata,
+      extractIssuer: () =>
+        this.openaiService.extractSpentIssuerFromPdf(file.buffer, pdfMetadata.originalName),
+      extractConcepts: (extractionContext) =>
+        this.openaiService.extractSpentConceptsFromPdf(
+          file.buffer,
+          pdfMetadata.originalName,
+          extractionContext,
+        ),
+    };
+  }
+
+  /**
+   * Extrae el texto OCR del PDF y lo envía a OpenAI.
+   * @param file Archivo PDF recibido
+   * @returns Origen de extracción estándar
+   */
+  private async buildOcrInvoiceSource(file: MulterFile): Promise<AiSpentInvoiceExtractionSource> {
+    const processedFile = await this.fileService.processAiSpentPdf(file);
+    this.logger.log(
+      `Extracción estándar: se envía a OpenAI el texto OCR de ${processedFile.originalName}`,
+    );
+
+    return {
+      originalName: processedFile.originalName,
+      sizeInMegabytes: processedFile.sizeInMegabytes,
+      message: processedFile.message,
+      extractIssuer: () => this.openaiService.extractSpentIssuerFromText(processedFile.extractedText),
+      extractConcepts: (extractionContext) =>
+        this.openaiService.extractSpentConceptsFromText(
+          processedFile.extractedText,
+          extractionContext,
+        ),
+    };
   }
 
   /**
@@ -432,6 +501,7 @@ export class SpentService {
 
     return {
       name: spentName,
+      code: extractedInvoice.code ?? null,
       issuedDate,
       collectionDate: issuedDate,
       declarationDate: issuedDate,

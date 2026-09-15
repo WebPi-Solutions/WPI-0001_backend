@@ -19,26 +19,42 @@ export class SpentRepository {
    * @returns `true` si la empresa existe y `aiAccess` está activo; `false` en caso contrario
    */
   async hasEnterpriseAiAccess(enterpriseId: string): Promise<boolean> {
+    const aiSettings = await this.getEnterpriseAiSettings(enterpriseId);
+    return aiSettings.hasAiAccess;
+  }
+
+  /**
+   * Obtiene los flags de IA de la empresa (acceso y flujo premium con PDF).
+   * @param enterpriseId - ID de la empresa a consultar
+   * @returns Acceso a IA y si debe enviarse el PDF en lugar del OCR
+   */
+  async getEnterpriseAiSettings(enterpriseId: string): Promise<{
+    hasAiAccess: boolean;
+    hasAiPremium: boolean;
+  }> {
     if (!enterpriseId) {
-      this.logger.warn('No se ha indicado empresa al consultar el acceso a IA');
-      return false;
+      this.logger.warn('No se ha indicado empresa al consultar la configuración de IA');
+      return { hasAiAccess: false, hasAiPremium: false };
     }
 
     const enterprise = await this.spentRepository.manager.findOne(Enterprise, {
       where: { id: enterpriseId },
-      select: ['id', 'aiAccess'],
+      select: ['id', 'aiAccess', 'aiPremium'],
     });
 
     if (!enterprise) {
-      this.logger.warn(`No se ha encontrado la empresa ${enterpriseId} al consultar el acceso a IA`);
-      return false;
+      this.logger.warn(
+        `No se ha encontrado la empresa ${enterpriseId} al consultar la configuración de IA`,
+      );
+      return { hasAiAccess: false, hasAiPremium: false };
     }
 
     const hasAiAccess = Boolean(enterprise.aiAccess);
+    const hasAiPremium = Boolean(enterprise.aiPremium);
     this.logger.log(
-      `Acceso a IA de la empresa ${enterpriseId}: ${hasAiAccess ? 'concedido' : 'denegado'}`,
+      `Configuración de IA de la empresa ${enterpriseId}: acceso=${hasAiAccess ? 'concedido' : 'denegado'}, premium=${hasAiPremium ? 'activo' : 'inactivo'}`,
     );
-    return hasAiAccess;
+    return { hasAiAccess, hasAiPremium };
   }
 
   /**

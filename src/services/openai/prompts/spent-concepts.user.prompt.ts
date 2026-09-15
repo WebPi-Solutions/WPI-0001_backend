@@ -4,8 +4,13 @@ import { SpentConcept } from 'src/common/models/Concept';
  * Datos dinámicos que se interpolan en el prompt de usuario de extracción de conceptos.
  */
 export interface SpentConceptsUserPromptContext {
-  /** Texto OCR de la factura */
+  /** Texto OCR de la factura. Vacío si la factura se envía como PDF */
   extractedText: string;
+  /**
+   * Si es verdadero, no se interpola el texto OCR: la factura va como PDF adjunto.
+   * El resto del prompt (CIF e histórico) se mantiene.
+   */
+  omitExtractedText?: boolean;
   /** CIF/NIF del emisor con prefijo de país */
   issuerNifWithCountryPrefix: string;
   /** Nombres de las últimas facturas del proveedor, como referencia de estilo si esta factura es de la misma línea */
@@ -43,6 +48,10 @@ export function buildSpentConceptsUserPrompt(
       'Conceptos completos de las últimas facturas del proveedor. Úsalos como ejemplo de formato (name, base_price, quantity, vat, irpf y supplied):',
       JSON.stringify(buildHistoricalConceptsPromptPayload(promptContext.historicalConcepts)),
     );
+  }
+
+  if (promptContext.omitExtractedText) {
+    return messageParts.join('\n');
   }
 
   if (messageParts.length === 0) {

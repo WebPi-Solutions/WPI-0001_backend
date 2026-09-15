@@ -69,13 +69,14 @@ export class ClientResponseDto {
   address: string | null;
 
   /**
-   * Tipo de cliente (`company` o `individual`)
+   * Tipo de cliente (`company` o `particular`)
    */
   @ApiProperty({
-    description: 'Tipo de cliente',
+    description: 'Tipo de cliente (`company` o `particular`)',
     required: false,
     nullable: true,
     example: 'company',
+    enum: ['company', 'particular'],
   })
   @Expose()
   type: string | null;

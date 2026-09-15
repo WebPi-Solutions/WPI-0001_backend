@@ -77,6 +77,12 @@ export class Enterprise {
   aiAccess: boolean;
 
   /**
+   * Si es verdadero, la extracción de facturas envía el PDF a OpenAI en lugar del texto OCR.
+   */
+  @Column({ name: 'ai_premium', default: false })
+  aiPremium: boolean;
+
+  /**
    * Fecha en que se creó la empresa en el sistema
    */
   @CreateDateColumn({ name: 'created_at' })

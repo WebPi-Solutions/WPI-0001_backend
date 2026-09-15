@@ -138,13 +138,13 @@ describe('SpentRepository', () => {
 
       expect(managerFindOneMock).toHaveBeenCalledWith(Enterprise, {
         where: { id: 'enterprise-uuid' },
-        select: ['id', 'aiAccess'],
+        select: ['id', 'aiAccess', 'aiPremium'],
       });
       expect(result).toBe(false);
     });
 
     it('devuelve true cuando la empresa tiene aiAccess activo', async () => {
-      managerFindOneMock.mockResolvedValue({ id: 'enterprise-uuid', aiAccess: true });
+      managerFindOneMock.mockResolvedValue({ id: 'enterprise-uuid', aiAccess: true, aiPremium: false });
 
       const result = await spentRepositoryService.hasEnterpriseAiAccess('enterprise-uuid');
 
@@ -152,11 +152,40 @@ describe('SpentRepository', () => {
     });
 
     it('devuelve false cuando la empresa no tiene aiAccess', async () => {
-      managerFindOneMock.mockResolvedValue({ id: 'enterprise-uuid', aiAccess: false });
+      managerFindOneMock.mockResolvedValue({ id: 'enterprise-uuid', aiAccess: false, aiPremium: true });
 
       const result = await spentRepositoryService.hasEnterpriseAiAccess('enterprise-uuid');
 
       expect(result).toBe(false);
+    });
+  });
+
+  describe('getEnterpriseAiSettings', () => {
+    it('devuelve acceso y premium desactivados si el identificador está vacío', async () => {
+      const result = await spentRepositoryService.getEnterpriseAiSettings('');
+
+      expect(result).toEqual({ hasAiAccess: false, hasAiPremium: false });
+      expect(managerFindOneMock).not.toHaveBeenCalled();
+    });
+
+    it('devuelve acceso y premium desactivados si la empresa no existe', async () => {
+      managerFindOneMock.mockResolvedValue(null);
+
+      const result = await spentRepositoryService.getEnterpriseAiSettings('enterprise-uuid');
+
+      expect(result).toEqual({ hasAiAccess: false, hasAiPremium: false });
+    });
+
+    it('devuelve los flags de IA de la empresa', async () => {
+      managerFindOneMock.mockResolvedValue({
+        id: 'enterprise-uuid',
+        aiAccess: true,
+        aiPremium: true,
+      });
+
+      const result = await spentRepositoryService.getEnterpriseAiSettings('enterprise-uuid');
+
+      expect(result).toEqual({ hasAiAccess: true, hasAiPremium: true });
     });
   });
 

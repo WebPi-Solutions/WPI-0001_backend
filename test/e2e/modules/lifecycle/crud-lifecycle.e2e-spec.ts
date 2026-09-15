@@ -254,6 +254,7 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
       .send({
         supplierId: seed.supplierA.id,
         name: 'Gasto tmp',
+        code: 'FAC-TMP-1',
         issuedDate: '2026-05-01',
         collectionDate: '2026-05-15',
         declarationDate: '2026-05-01',
@@ -261,6 +262,7 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
         concepts: [],
       });
     expect(spent.status).toBe(201);
+    expect(spent.body.code).toBe('FAC-TMP-1');
     expect(
       (
         await http()

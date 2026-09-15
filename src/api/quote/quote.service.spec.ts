@@ -254,16 +254,26 @@ describe('QuoteService', () => {
       expect(quoteRepository.updateById).not.toHaveBeenCalled();
     });
 
-    it('impide editar una cotización que ya ha sido emitida', async () => {
-      quoteRepository.findById.mockResolvedValue(buildQuote({ status: QuoteStatus.ISSUED }));
+    it('permite editar una cotización que ya ha sido emitida', async () => {
+      mockPersistentDataSources();
+      const issuedQuote = buildQuote({ status: QuoteStatus.ISSUED });
+      const updatedQuote = buildQuote({ status: QuoteStatus.ISSUED, name: 'Nueva' });
+      quoteRepository.findById.mockResolvedValue(issuedQuote);
+      quoteRepository.updateById.mockResolvedValue(updatedQuote);
 
       await expect(
-        service.updateById(quoteId, buildQuote({ name: 'Nueva' })),
-      ).rejects.toMatchObject({
-        status: HttpStatus.BAD_REQUEST,
-        message: `No se puede actualizar la cotización ${quoteId} porque ya ha sido emitida`,
-      });
-      expect(quoteRepository.updateById).not.toHaveBeenCalled();
+        service.updateById(quoteId, { name: 'Nueva' } as Quote),
+      ).resolves.toEqual(updatedQuote);
+      expect(quoteRepository.updateById).toHaveBeenCalledWith(
+        quoteId,
+        expect.objectContaining({
+          id: quoteId,
+          name: 'Nueva',
+          status: QuoteStatus.ISSUED,
+          clientName: 'Cliente Demo',
+          issuerName: 'Empresa Demo',
+        }),
+      );
     });
 
     it('actualiza un borrador llamando a setQuotePersistentData y al repositorio', async () => {
@@ -346,6 +356,24 @@ describe('QuoteService', () => {
         }),
       );
       expect(updatedQuote.status).toBe(QuoteStatus.ISSUED);
+    });
+
+    it('solo actualiza el estado al pasar de emitida a pedido', async () => {
+      const issuedQuote = buildQuote({ status: QuoteStatus.ISSUED });
+      quoteRepository.findById.mockResolvedValue(issuedQuote);
+      quoteRepository.updateById.mockResolvedValue({
+        ...issuedQuote,
+        status: QuoteStatus.ORDERED,
+      });
+
+      await expect(
+        service.updateStatusById(quoteId, QuoteStatus.ORDERED),
+      ).resolves.toEqual(expect.objectContaining({ status: QuoteStatus.ORDERED }));
+      expect(clientRepository.findById).not.toHaveBeenCalled();
+      expect(quoteRepository.updateById).toHaveBeenCalledWith(quoteId, {
+        ...issuedQuote,
+        status: QuoteStatus.ORDERED,
+      });
     });
 
     it('solo actualiza el estado al pasar de emitida a convertida', async () => {

@@ -39,6 +39,8 @@ export interface ExtractedSpentIssuerResult extends OpenAiTokenUsage {
 export interface ExtractedSpentConceptsResult extends OpenAiTokenUsage {
   /** Nombre del gasto, extraído de los conceptos de la factura actual */
   name: string;
+  /** Código o número de factura del proveedor, o null si no aparece en el documento */
+  code: string | null;
   /** Fecha de emisión de la factura (YYYY-MM-DD) */
   issuedDate: string;
   /** Conceptos de gasto reconocidos en el texto */
@@ -85,6 +87,8 @@ interface SpentIssuerModelResponse {
 interface SpentConceptsModelResponse {
   /** Nombre del gasto */
   name: string;
+  /** Código o número de factura, o null si no aparece */
+  code: string | null;
   /** Fecha de emisión (YYYY-MM-DD) */
   issuedDate: string;
   /** Lista de conceptos extraídos */
@@ -115,7 +119,22 @@ interface StructuredChatCompletionResult {
 type SpentChatCompletionRequest = OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming;
 
 /**
- * Servicio de OpenAI: extrae emisor y conceptos de gasto a partir del texto OCR de un PDF.
+ * Contenido del mensaje de usuario: texto OCR o partes (PDF + texto auxiliar).
+ */
+type SpentExtractionUserContent = string | OpenAI.Chat.Completions.ChatCompletionContentPart[];
+
+/**
+ * PDF de factura listo para enviarse a OpenAI.
+ */
+interface SpentInvoicePdfFile {
+  /** Nombre del archivo adjunto */
+  fileName: string;
+  /** Contenido binario del PDF */
+  fileBuffer: Buffer;
+}
+
+/**
+ * Servicio de OpenAI: extrae emisor y conceptos de gasto a partir del texto OCR o del PDF.
  */
 @Injectable()
 export class OpenaiService {
@@ -175,32 +194,27 @@ export class OpenaiService {
       'No se ha podido extraer texto del PDF para analizarlo con IA',
     );
 
-    try {
-      const completionResult = await this.executeStructuredChatCompletion(
-        this.buildStructuredRequestPayload(
-          normalizedText,
-          spentIssuerSystemPrompt,
-          spentIssuerResponseFormat,
-        ),
-        'Extracción de emisor del gasto',
-      );
-      const issuer = this.parseSpentIssuerFromModelContent(completionResult.rawContent);
+    return this.extractSpentIssuerFromUserContent(normalizedText, normalizedText);
+  }
 
-      this.logger.log(`Emisor extraído por OpenAI:\n${JSON.stringify(issuer, null, 2)}`);
-      this.logTokenUsage('extracción de emisor', completionResult.tokenUsage);
+  /**
+   * Extrae el nombre y el CIF/NIF del emisor enviando el PDF a OpenAI.
+   * Usa el mismo prompt de sistema que el flujo OCR.
+   * @param pdfBuffer Contenido binario del PDF
+   * @param fileName Nombre original del archivo
+   * @returns Datos del emisor y tokens empleados en la petición
+   */
+  async extractSpentIssuerFromPdf(
+    pdfBuffer: Buffer,
+    fileName: string,
+  ): Promise<ExtractedSpentIssuerResult> {
+    const pdfFile = this.requirePdfInvoiceFile(pdfBuffer, fileName);
+    const requestMessage = this.buildPdfAttachmentRequestMessage(pdfFile, '');
 
-      return {
-        ...issuer,
-        ...completionResult.tokenUsage,
-        requestMessage: normalizedText,
-      };
-    } catch (error) {
-      this.rethrowOpenAiHttpException(
-        error,
-        'Error al extraer el emisor del gasto con OpenAI',
-        'Error al extraer el emisor del gasto con IA',
-      );
-    }
+    return this.extractSpentIssuerFromUserContent(
+      this.buildPdfUserContent(pdfFile, ''),
+      requestMessage,
+    );
   }
 
   /**
@@ -219,23 +233,102 @@ export class OpenaiService {
       'No se ha recibido texto OCR para extraer conceptos con OpenAI',
       'No se ha podido extraer texto del PDF para analizarlo con IA',
     );
+
+    return this.extractSpentConceptsFromUserContent(normalizedText, extractionContext, false);
+  }
+
+  /**
+   * Extrae los conceptos y los totales enviando el PDF a OpenAI.
+   * Usa el mismo prompt de sistema y el mismo contexto (CIF e histórico) que el flujo OCR.
+   * @param pdfBuffer Contenido binario del PDF
+   * @param fileName Nombre original del archivo
+   * @param extractionContext Conceptos históricos y CIF del emisor con prefijo de país
+   * @returns Conceptos, totales de factura y tokens empleados en la petición
+   */
+  async extractSpentConceptsFromPdf(
+    pdfBuffer: Buffer,
+    fileName: string,
+    extractionContext: SpentConceptsExtractionContext = {},
+  ): Promise<ExtractedSpentConceptsResult> {
+    const pdfFile = this.requirePdfInvoiceFile(pdfBuffer, fileName);
+
+    return this.extractSpentConceptsFromUserContent(pdfFile, extractionContext, true);
+  }
+
+  /**
+   * Ejecuta la extracción del emisor con el contenido de usuario ya preparado.
+   * @param userContent Texto OCR o PDF adjunto
+   * @param requestMessage Texto persistido en `ai_requests` (sin el binario del PDF)
+   * @returns Datos del emisor y tokens empleados
+   */
+  private async extractSpentIssuerFromUserContent(
+    userContent: SpentExtractionUserContent,
+    requestMessage: string,
+  ): Promise<ExtractedSpentIssuerResult> {
+    try {
+      const completionResult = await this.executeStructuredChatCompletion(
+        this.buildStructuredRequestPayload(
+          userContent,
+          spentIssuerSystemPrompt,
+          spentIssuerResponseFormat,
+        ),
+        'Extracción de emisor del gasto',
+      );
+      const issuer = this.parseSpentIssuerFromModelContent(completionResult.rawContent);
+
+      this.logger.log(`Emisor extraído por OpenAI:\n${JSON.stringify(issuer, null, 2)}`);
+      this.logTokenUsage('extracción de emisor', completionResult.tokenUsage);
+
+      return {
+        ...issuer,
+        ...completionResult.tokenUsage,
+        requestMessage,
+      };
+    } catch (error) {
+      this.rethrowOpenAiHttpException(
+        error,
+        'Error al extraer el emisor del gasto con OpenAI',
+        'Error al extraer el emisor del gasto con IA',
+      );
+    }
+  }
+
+  /**
+   * Ejecuta la extracción de conceptos con texto OCR o con el PDF adjunto.
+   * @param invoiceContent Texto OCR o archivo PDF
+   * @param extractionContext Conceptos históricos y CIF del emisor
+   * @param sendPdfInsteadOfOcrText Si es verdadero, el documento va como PDF y no como OCR
+   * @returns Conceptos, totales y tokens empleados
+   */
+  private async extractSpentConceptsFromUserContent(
+    invoiceContent: string | SpentInvoicePdfFile,
+    extractionContext: SpentConceptsExtractionContext,
+    sendPdfInsteadOfOcrText: boolean,
+  ): Promise<ExtractedSpentConceptsResult> {
     const normalizedContext = this.normalizeSpentConceptsExtractionContext(extractionContext);
 
     this.logger.debug(
       `Contexto de extracción de conceptos enviado a OpenAI: ${JSON.stringify(normalizedContext)}`,
     );
 
-    const requestMessage = buildSpentConceptsUserPrompt({
-      extractedText: normalizedText,
+    const requestText = buildSpentConceptsUserPrompt({
+      extractedText: sendPdfInsteadOfOcrText ? '' : (invoiceContent as string),
+      omitExtractedText: sendPdfInsteadOfOcrText,
       issuerNifWithCountryPrefix: normalizedContext.issuerNifWithCountryPrefix,
       historicalSpentNames: normalizedContext.historicalSpentNames,
       historicalConcepts: normalizedContext.historicalConcepts,
     });
+    const userContent: SpentExtractionUserContent = sendPdfInsteadOfOcrText
+      ? this.buildPdfUserContent(invoiceContent as SpentInvoicePdfFile, requestText)
+      : requestText;
+    const requestMessage = sendPdfInsteadOfOcrText
+      ? this.buildPdfAttachmentRequestMessage(invoiceContent as SpentInvoicePdfFile, requestText)
+      : requestText;
 
     try {
       const completionResult = await this.executeStructuredChatCompletion(
         this.buildStructuredRequestPayload(
-          requestMessage,
+          userContent,
           spentConceptsSystemPrompt,
           spentConceptsResponseFormat,
         ),
@@ -291,13 +384,13 @@ export class OpenaiService {
 
   /**
    * Construye el cuerpo de una petición estructurada de extracción.
-   * @param extractedText Texto OCR que se envía como mensaje de usuario
+   * @param userContent Texto OCR o partes de mensaje (PDF + texto auxiliar)
    * @param systemPrompt Instrucciones de sistema
    * @param responseFormat Schema JSON estricto de la respuesta
    * @returns Parámetros de `chat.completions.create`
    */
   private buildStructuredRequestPayload(
-    extractedText: string,
+    userContent: SpentExtractionUserContent,
     systemPrompt: string,
     responseFormat: OpenAI.ResponseFormatJSONSchema,
   ): SpentChatCompletionRequest {
@@ -311,7 +404,7 @@ export class OpenaiService {
         },
         {
           role: 'user',
-          content: extractedText,
+          content: userContent,
         },
       ],
       response_format: responseFormat,
@@ -362,7 +455,11 @@ export class OpenaiService {
     operationName: string,
   ): void {
     this.logger.log(
-      `Contenido enviado a OpenAI (${operationName}):\n${JSON.stringify(requestPayload.messages, null, 2)}`,
+      `Contenido enviado a OpenAI (${operationName}):\n${JSON.stringify(
+        this.sanitizeMessagesForLog(requestPayload.messages),
+        null,
+        2,
+      )}`,
     );
   }
 
@@ -425,7 +522,7 @@ export class OpenaiService {
     rawContent: string,
   ): Pick<
     ExtractedSpentConceptsResult,
-    'name' | 'issuedDate' | 'concepts' | 'totalSubtotal' | 'totalVAT' | 'totalIRPF' | 'total'
+    'name' | 'code' | 'issuedDate' | 'concepts' | 'totalSubtotal' | 'totalVAT' | 'totalIRPF' | 'total'
   > {
     const parsedResponse = this.parseJsonFromModelContent<SpentConceptsModelResponse>(
       rawContent,
@@ -442,6 +539,7 @@ export class OpenaiService {
 
     return {
       name: typeof parsedResponse.name === 'string' ? parsedResponse.name.trim() : '',
+      code: this.normalizeOptionalExtractedCode(parsedResponse.code),
       issuedDate: this.normalizeIssuedDate(parsedResponse.issuedDate),
       concepts: parsedResponse.concepts.map((concept, conceptIndex) =>
         this.mapToSpentConcept(concept, conceptIndex),
@@ -527,6 +625,21 @@ export class OpenaiService {
   }
 
   /**
+   * Normaliza el código de factura extraído por el modelo.
+   * Vacío, solo espacios o un valor no textual se tratan como ausencia.
+   * @param codeValue Código recibido del modelo
+   * @returns Código recortado o `null`
+   */
+  private normalizeOptionalExtractedCode(codeValue: unknown): string | null {
+    if (typeof codeValue !== 'string') {
+      return null;
+    }
+
+    const trimmedCode = codeValue.trim();
+    return trimmedCode.length > 0 ? trimmedCode : null;
+  }
+
+  /**
    * Formatea una fecha como YYYY-MM-DD en hora local.
    * @param date Fecha a formatear
    * @returns Fecha en formato ISO de día
@@ -560,12 +673,12 @@ export class OpenaiService {
   private refineSpanishConceptBasePrices(
     extractedInvoice: Pick<
       ExtractedSpentConceptsResult,
-      'name' | 'issuedDate' | 'concepts' | 'totalSubtotal' | 'totalVAT' | 'totalIRPF' | 'total'
+      'name' | 'code' | 'issuedDate' | 'concepts' | 'totalSubtotal' | 'totalVAT' | 'totalIRPF' | 'total'
     >,
     issuerNifWithCountryPrefix: string,
   ): Pick<
     ExtractedSpentConceptsResult,
-    'name' | 'issuedDate' | 'concepts' | 'totalSubtotal' | 'totalVAT' | 'totalIRPF' | 'total'
+    'name' | 'code' | 'issuedDate' | 'concepts' | 'totalSubtotal' | 'totalVAT' | 'totalIRPF' | 'total'
   > {
     if (!this.isSpanishIssuerNif(issuerNifWithCountryPrefix)) {
       return extractedInvoice;
@@ -788,6 +901,113 @@ export class OpenaiService {
     }
 
     return normalizedText;
+  }
+
+  /**
+   * Valida el buffer del PDF y normaliza el nombre del archivo.
+   * @param pdfBuffer Contenido binario del PDF
+   * @param fileName Nombre original del archivo
+   * @returns PDF listo para adjuntar a OpenAI
+   */
+  private requirePdfInvoiceFile(pdfBuffer: Buffer, fileName: string): SpentInvoicePdfFile {
+    if (!pdfBuffer || pdfBuffer.length === 0) {
+      this.logger.error('No se ha recibido el contenido del PDF para extraerlo con OpenAI');
+      throw new HttpException(
+        'No se ha podido leer el contenido del PDF para analizarlo con IA',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const normalizedFileName = fileName?.trim() || 'factura.pdf';
+    return {
+      fileName: normalizedFileName,
+      fileBuffer: pdfBuffer,
+    };
+  }
+
+  /**
+   * Construye las partes del mensaje de usuario con el PDF y el texto auxiliar (CIF e histórico).
+   * @param pdfFile PDF de la factura
+   * @param accompanyingText Texto del prompt que no es el documento (puede ir vacío)
+   * @returns Partes de contenido para Chat Completions
+   */
+  private buildPdfUserContent(
+    pdfFile: SpentInvoicePdfFile,
+    accompanyingText: string,
+  ): OpenAI.Chat.Completions.ChatCompletionContentPart[] {
+    const contentParts: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
+      {
+        type: 'file',
+        file: {
+          filename: pdfFile.fileName,
+          file_data: `data:application/pdf;base64,${pdfFile.fileBuffer.toString('base64')}`,
+        },
+      },
+    ];
+
+    const trimmedAccompanyingText = accompanyingText.trim();
+    if (trimmedAccompanyingText) {
+      contentParts.push({
+        type: 'text',
+        text: trimmedAccompanyingText,
+      });
+    }
+
+    return contentParts;
+  }
+
+  /**
+   * Texto persistido y registrado de una petición premium, sin el binario del PDF.
+   * @param pdfFile PDF adjunto
+   * @param accompanyingText Texto auxiliar del prompt
+   * @returns Mensaje de petición sin base64
+   */
+  private buildPdfAttachmentRequestMessage(
+    pdfFile: SpentInvoicePdfFile,
+    accompanyingText: string,
+  ): string {
+    const attachmentMarker = `[PDF adjunto: ${pdfFile.fileName} (${pdfFile.fileBuffer.length} bytes)]`;
+    const trimmedAccompanyingText = accompanyingText.trim();
+    if (!trimmedAccompanyingText) {
+      return attachmentMarker;
+    }
+
+    return `${trimmedAccompanyingText}\n${attachmentMarker}`;
+  }
+
+  /**
+   * Omite el base64 del PDF en los logs para no volcar el fichero completo.
+   * @param messages Mensajes de la petición a OpenAI
+   * @returns Mensajes listos para registrar
+   */
+  private sanitizeMessagesForLog(
+    messages: SpentChatCompletionRequest['messages'],
+  ): unknown {
+    return messages.map((message) => {
+      const messageContent = 'content' in message ? message.content : undefined;
+      if (!Array.isArray(messageContent)) {
+        return message;
+      }
+
+      return {
+        ...message,
+        content: messageContent.map((contentPart) => {
+          if (contentPart.type !== 'file') {
+            return contentPart;
+          }
+
+          const fileDataLength = contentPart.file?.file_data?.length ?? 0;
+          return {
+            type: 'file',
+            file: {
+              filename: contentPart.file?.filename,
+              file_id: contentPart.file?.file_id,
+              file_data: `[contenido PDF omitido, ${fileDataLength} caracteres en base64]`,
+            },
+          };
+        }),
+      };
+    });
   }
 
   /**

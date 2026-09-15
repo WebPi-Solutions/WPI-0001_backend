@@ -37,6 +37,7 @@ describe('Entidades TypeORM', () => {
       logo: 'logo.png',
       stripeId: 'cus_1',
       aiAccess: true,
+      aiPremium: false,
       createdAt: now,
       updatedAt: now,
       clients: [],
@@ -164,6 +165,7 @@ describe('Entidades TypeORM', () => {
     const spent = Object.assign(new Spent(), {
       id: 'spent-1',
       supplierId: supplier.id,
+      code: 'FAC-2026-001',
       name: 'Material',
       issuedDate: now,
       collectionDate: now,
@@ -289,6 +291,7 @@ describe('Entidades TypeORM', () => {
     invokeTypeOrmMetadataCallbacks();
 
     expect(enterprise.aiAccess).toBe(true);
+    expect(enterprise.aiPremium).toBe(false);
     expect(user.status).toBe(UserStatusTypes.PENDING);
     expect(userEnterprise.defaultScheduleId).toBe('ds-1');
     expect(vacation.name).toBe('Vacaciones');
@@ -297,6 +300,7 @@ describe('Entidades TypeORM', () => {
     expect(client.type).toBe('company');
     expect(supplier.spents).toEqual([]);
     expect(spent.file).toBe(true);
+    expect(spent.code).toBe('FAC-2026-001');
     expect(invoiceSeries.series).toBe('A');
     expect(quote.status).toBe(QuoteStatus.DRAFT);
     expect(recurrentEarning.type).toBe(RecurrentEarningType.YEARLY);

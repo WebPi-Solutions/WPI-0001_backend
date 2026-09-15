@@ -21,6 +21,12 @@ export class Spent {
   supplierId: string;
 
   /**
+   * Código opcional del gasto (referencia interna o de la factura del proveedor)
+   */
+  @Column({ nullable: true })
+  code: string | null;
+
+  /**
    * Nombre del gasto
    */
   @Column()

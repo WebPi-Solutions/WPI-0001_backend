@@ -104,6 +104,7 @@ describe('MapResponseInterceptor', () => {
         {
           id: 'spent-1',
           supplierId: 'sup-1',
+          code: 'FAC-2026-001',
           name: 'Gasto test',
           issuedDate: new Date('2026-02-01'),
           collectionDate: new Date('2026-02-01'),
@@ -141,6 +142,7 @@ describe('MapResponseInterceptor', () => {
         const response = mapped as { items: SpentResponseDto[]; total: number };
         expect(response.total).toBe(1);
         expect(response.items[0].supplierId).toBe('sup-1');
+        expect(response.items[0].code).toBe('FAC-2026-001');
         expect(response.items[0].file).toBe(true);
         expect(response.items[0].concepts[0].percentage).toBe(100);
         expect(response.items[0].supplier?.name).toBe('Proveedor SL');

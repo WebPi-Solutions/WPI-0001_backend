@@ -128,7 +128,7 @@ export class MetricsController {
    * aplicando los mismos filtros que la vista de presupuestos.
    * @param enterpriseId - ID de la empresa
    * @param filter - Filtros en formato JSON (status, client.id, fechas, name_ilike, client.name_ilike)
-   * @returns Subtotales y conteos por estado (total, draft, issued, converted, rejected)
+   * @returns Subtotales y conteos por estado (total, draft, issued, ordered, converted, rejected)
    */
   @Get('quotes/subtotals-by-status')
   @RequirePermission('quotes', 'read')

@@ -22,10 +22,16 @@ describe('SpentService', () => {
     deleteFile: jest.Mock;
     moveFile: jest.Mock;
   };
-  let fileService: { processAiSpentPdf: jest.Mock; validatePdfFile: jest.Mock };
+  let fileService: {
+    processAiSpentPdf: jest.Mock;
+    validatePdfFile: jest.Mock;
+    describeAiSpentPdf: jest.Mock;
+  };
   let openaiService: {
     extractSpentIssuerFromText: jest.Mock;
     extractSpentConceptsFromText: jest.Mock;
+    extractSpentIssuerFromPdf: jest.Mock;
+    extractSpentConceptsFromPdf: jest.Mock;
   };
   let spentRepository: {
     create: jest.Mock;
@@ -36,6 +42,7 @@ describe('SpentService', () => {
     getSpentFilePath: jest.Mock;
     findLatestBySupplierId: jest.Mock;
     hasEnterpriseAiAccess: jest.Mock;
+    getEnterpriseAiSettings: jest.Mock;
   };
   let supplierRepository: { findByNifAndEnterpriseId: jest.Mock; findById: jest.Mock };
   let aiRequestService: { create: jest.Mock };
@@ -53,6 +60,7 @@ describe('SpentService', () => {
     ({
       id: spentId,
       supplierId: 'supplier-id',
+      code: 'FAC-2026-001',
       name: 'Hosting mensual',
       file: false,
       supplier: { id: 'supplier-id', enterpriseId },
@@ -96,6 +104,11 @@ describe('SpentService', () => {
         message: 'Archivo recibido correctamente',
       }),
       validatePdfFile: jest.fn(),
+      describeAiSpentPdf: jest.fn().mockReturnValue({
+        originalName: 'factura-proveedor.pdf',
+        sizeInMegabytes: 2.5,
+        message: 'Archivo recibido correctamente',
+      }),
     };
     openaiService = {
       extractSpentIssuerFromText: jest.fn().mockResolvedValue({
@@ -109,6 +122,7 @@ describe('SpentService', () => {
       }),
       extractSpentConceptsFromText: jest.fn().mockResolvedValue({
         name: 'Hosting mensual',
+        code: null,
         issuedDate: '2026-06-27',
         concepts: [
           {
@@ -130,6 +144,39 @@ describe('SpentService', () => {
         totalTokens: 15,
         requestMessage: 'Texto OCR de prueba',
       }),
+      extractSpentIssuerFromPdf: jest.fn().mockResolvedValue({
+        name: 'Proveedor S.L.',
+        nifWithoutCountryPrefix: 'B12345678',
+        nifWithCountryPrefix: '',
+        promptTokens: 8,
+        completionTokens: 4,
+        totalTokens: 12,
+        requestMessage: '[PDF adjunto: factura-proveedor.pdf (12 bytes)]',
+      }),
+      extractSpentConceptsFromPdf: jest.fn().mockResolvedValue({
+        name: 'Hosting mensual',
+        code: null,
+        issuedDate: '2026-06-27',
+        concepts: [
+          {
+            name: 'Hosting mensual',
+            base_price: 50,
+            vat: 21,
+            irpf: 0,
+            quantity: 1,
+            supplied: false,
+            percentage: 100,
+          },
+        ],
+        totalSubtotal: 50,
+        totalVAT: 10.5,
+        totalIRPF: 0,
+        total: 60.5,
+        promptTokens: 10,
+        completionTokens: 5,
+        totalTokens: 15,
+        requestMessage: '[PDF adjunto: factura-proveedor.pdf (12 bytes)]',
+      }),
     };
 
     spentRepository = {
@@ -141,6 +188,10 @@ describe('SpentService', () => {
       getSpentFilePath: jest.fn().mockReturnValue(dropboxPath),
       findLatestBySupplierId: jest.fn().mockResolvedValue([]),
       hasEnterpriseAiAccess: jest.fn().mockResolvedValue(true),
+      getEnterpriseAiSettings: jest.fn().mockResolvedValue({
+        hasAiAccess: true,
+        hasAiPremium: false,
+      }),
     };
     supplierRepository = {
       findByNifAndEnterpriseId: jest.fn().mockResolvedValue(null),
@@ -180,14 +231,18 @@ describe('SpentService', () => {
   describe('previewAiSpentFile', () => {
     it('debe rechazar el flujo si la empresa no tiene acceso a IA', async () => {
       const file = createMulterFile();
-      spentRepository.hasEnterpriseAiAccess.mockResolvedValue(false);
+      spentRepository.getEnterpriseAiSettings.mockResolvedValue({
+        hasAiAccess: false,
+        hasAiPremium: false,
+      });
 
       await expect(service.previewAiSpentFile(file, enterpriseId)).rejects.toMatchObject({
         status: HttpStatus.FORBIDDEN,
         message: 'La empresa no tiene acceso a las funciones de IA',
       });
-      expect(spentRepository.hasEnterpriseAiAccess).toHaveBeenCalledWith(enterpriseId);
+      expect(spentRepository.getEnterpriseAiSettings).toHaveBeenCalledWith(enterpriseId);
       expect(fileService.processAiSpentPdf).not.toHaveBeenCalled();
+      expect(fileService.describeAiSpentPdf).not.toHaveBeenCalled();
       expect(openaiService.extractSpentIssuerFromText).not.toHaveBeenCalled();
       expect(openaiService.extractSpentConceptsFromText).not.toHaveBeenCalled();
       expect(aiRequestService.create).not.toHaveBeenCalled();
@@ -203,6 +258,7 @@ describe('SpentService', () => {
       expect(result.message).toBe('Archivo recibido correctamente');
       expect(result.spentData).toEqual({
         name: 'Hosting mensual',
+        code: null,
         issuedDate: '2026-06-27',
         collectionDate: '2026-06-27',
         declarationDate: '2026-06-27',
@@ -226,6 +282,9 @@ describe('SpentService', () => {
         },
       });
       expect(fileService.processAiSpentPdf).toHaveBeenCalledWith(file);
+      expect(fileService.describeAiSpentPdf).not.toHaveBeenCalled();
+      expect(openaiService.extractSpentIssuerFromPdf).not.toHaveBeenCalled();
+      expect(openaiService.extractSpentConceptsFromPdf).not.toHaveBeenCalled();
       expect(openaiService.extractSpentIssuerFromText).toHaveBeenCalledWith('Texto OCR de prueba');
       expect(supplierRepository.findByNifAndEnterpriseId).toHaveBeenCalledWith(
         'B12345678',
@@ -618,6 +677,34 @@ describe('SpentService', () => {
       expect(result.spentData.name).toBe('Gasto');
     });
 
+    it('incluye el código extraído por OpenAI cuando existe', async () => {
+      const file = createMulterFile();
+      openaiService.extractSpentConceptsFromText.mockResolvedValue({
+        name: 'Hosting mensual',
+        code: 'FAC-2026-001',
+        issuedDate: '2026-06-27',
+        concepts: [],
+        totalSubtotal: 0,
+        totalVAT: 0,
+        totalIRPF: 0,
+        total: 0,
+        promptTokens: 10,
+        completionTokens: 5,
+        totalTokens: 15,
+        requestMessage: 'Texto OCR de prueba',
+      });
+
+      const result = await service.previewAiSpentFile(file, enterpriseId);
+
+      expect(result.spentData.code).toBe('FAC-2026-001');
+      expect(aiRequestService.create.mock.calls[1][1].response).toEqual(
+        expect.objectContaining({
+          name: 'Hosting mensual',
+          code: 'FAC-2026-001',
+        }),
+      );
+    });
+
     it('omite nombres históricos vacíos y conceptos incompletos del proveedor', async () => {
       const file = createMulterFile();
       supplierRepository.findByNifAndEnterpriseId.mockResolvedValue({
@@ -676,6 +763,49 @@ describe('SpentService', () => {
       fileService.processAiSpentPdf.mockRejectedValue(new Error('OCR caído'));
 
       await expect(service.previewAiSpentFile(file, enterpriseId)).rejects.toThrow('OCR caído');
+    });
+
+    it('debe enviar el PDF a OpenAI sin OCR cuando la empresa tiene IA premium', async () => {
+      const file = createMulterFile();
+      spentRepository.getEnterpriseAiSettings.mockResolvedValue({
+        hasAiAccess: true,
+        hasAiPremium: true,
+      });
+
+      const result = await service.previewAiSpentFile(file, enterpriseId);
+
+      expect(result.originalName).toBe('factura-proveedor.pdf');
+      expect(result.sizeInMegabytes).toBe(2.5);
+      expect(result.spentData.name).toBe('Hosting mensual');
+      expect(fileService.describeAiSpentPdf).toHaveBeenCalledWith(file);
+      expect(fileService.processAiSpentPdf).not.toHaveBeenCalled();
+      expect(openaiService.extractSpentIssuerFromText).not.toHaveBeenCalled();
+      expect(openaiService.extractSpentConceptsFromText).not.toHaveBeenCalled();
+      expect(openaiService.extractSpentIssuerFromPdf).toHaveBeenCalledWith(
+        file.buffer,
+        'factura-proveedor.pdf',
+      );
+      expect(openaiService.extractSpentConceptsFromPdf).toHaveBeenCalledWith(
+        file.buffer,
+        'factura-proveedor.pdf',
+        {
+          historicalConcepts: [],
+          historicalSpentNames: [],
+          issuerNifWithCountryPrefix: '',
+        },
+      );
+      expect(openaiService.extractSpentIssuerFromPdf.mock.invocationCallOrder[0]).toBeLessThan(
+        openaiService.extractSpentConceptsFromPdf.mock.invocationCallOrder[0],
+      );
+      expect(aiRequestService.create).toHaveBeenCalledTimes(2);
+      expect(aiRequestService.create).toHaveBeenNthCalledWith(
+        1,
+        enterpriseId,
+        expect.objectContaining({
+          type: AiRequestType.GET_SPENT_ISSUER,
+          message: '[PDF adjunto: factura-proveedor.pdf (12 bytes)]',
+        }),
+      );
     });
   });
 

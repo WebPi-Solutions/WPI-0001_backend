@@ -23,6 +23,18 @@ export class SpentResponseDto {
   supplierId: string;
 
   /**
+   * Código opcional del gasto
+   */
+  @ApiProperty({
+    description: 'Código opcional del gasto (referencia interna o de la factura del proveedor)',
+    required: false,
+    nullable: true,
+    example: 'FAC-2026-001',
+  })
+  @Expose()
+  code: string | null;
+
+  /**
    * Nombre del gasto
    */
   @ApiProperty({ description: 'Nombre del gasto' })

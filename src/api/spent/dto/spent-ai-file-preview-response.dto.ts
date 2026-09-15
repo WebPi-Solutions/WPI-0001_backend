@@ -48,6 +48,17 @@ export class SpentAiPreviewSpentDataDto {
   name: string;
 
   /**
+   * Código o número de factura del proveedor, si aparece en el documento.
+   */
+  @ApiProperty({
+    description: 'Código o número de factura extraído, o null si no aparece en el documento',
+    required: false,
+    nullable: true,
+    example: 'FAC-2026-001',
+  })
+  code: string | null;
+
+  /**
    * Fecha de emisión de la factura.
    */
   @ApiProperty({

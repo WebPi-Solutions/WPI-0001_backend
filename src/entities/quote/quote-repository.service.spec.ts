@@ -388,6 +388,7 @@ describe('QuoteRepository', () => {
       expect(metrics.issued).toEqual({ count: 2, subtotal: 10.13 });
       expect(metrics.converted).toEqual({ count: 1, subtotal: 5.13 });
       expect(metrics.draft).toEqual({ count: 1, subtotal: 2 });
+      expect(metrics.ordered).toEqual({ count: 0, subtotal: 0 });
       expect(metrics.rejected).toEqual({ count: 0, subtotal: 0 });
       expect(metrics.total.count).toBe(7);
       expect(metrics.total.subtotal).toBe(18.25);
@@ -400,6 +401,7 @@ describe('QuoteRepository', () => {
         total: { count: 0, subtotal: 0 },
         draft: { count: 0, subtotal: 0 },
         issued: { count: 0, subtotal: 0 },
+        ordered: { count: 0, subtotal: 0 },
         converted: { count: 0, subtotal: 0 },
         rejected: { count: 0, subtotal: 0 },
       });
