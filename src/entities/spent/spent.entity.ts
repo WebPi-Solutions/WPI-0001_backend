@@ -1,6 +1,6 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Supplier } from '../supplier/supplier.entity';
-import { SpentConcept } from 'src/common/models/Concept';
+import { SpentConcept } from '../spent-concept/spent-concept.entity';
 
 /**
  * Entidad Gasto que representa la tabla spents en la base de datos
@@ -51,13 +51,6 @@ export class Spent {
   declarationDate: Date;
 
   /**
-   * Array JSON que almacena los conceptos o ítems incluidos en este gasto
-   * Cada concepto incluye un campo percentage para indicar el % imputable a la empresa
-   */
-  @Column({ type: 'jsonb', default: '[]' })
-  concepts: SpentConcept[];
-
-  /**
    * Estado actual del gasto (ej., 'pagado', 'pendiente', etc.)
    */
   @Column()
@@ -87,4 +80,10 @@ export class Spent {
   @ManyToOne(() => Supplier, supplier => supplier.spents)
   @JoinColumn({ name: 'supplier_id' })
   supplier: Supplier;
-} 
+
+  /**
+   * Líneas de concepto persistidas en `spent_concepts`
+   */
+  @OneToMany(() => SpentConcept, (spentConcept) => spentConcept.spent)
+  spentConcepts: SpentConcept[];
+}

@@ -3,6 +3,7 @@ import { InvoiceStatus } from './invoice/invoice.entity';
 import {
   AiMode,
   AiRequestType,
+  OrderStatus,
   PaymentMethod,
   RecurrentEarningType,
   SigningAction,
@@ -17,9 +18,14 @@ import { ClientResponseDto } from './client/dto/client-response.dto';
 import { SpentResponseDto } from './spent/dto/spent-response.dto';
 import { SupplierResponseDto } from './supplier/dto/supplier-response.dto';
 import { QuoteResponseDto } from './quote/dto/quote-response.dto';
+import { QuoteConceptResponseDto } from './quote-concept/dto/quote-concept-response.dto';
+import { OrderResponseDto } from './order/dto/order-response.dto';
+import { OrderConceptResponseDto } from './order-concept/dto/order-concept-response.dto';
 import { InvoiceResponseDto } from './invoice/dto/invoice-response.dto';
 import { InvoiceConceptResponseDto } from './invoice-concept/dto/invoice-concept-response.dto';
 import { InvoiceConceptSerialResponseDto } from './invoice-concept-serial/dto/invoice-concept-serial-response.dto';
+import { SpentConceptResponseDto } from './spent-concept/dto/spent-concept-response.dto';
+import { SpentConceptSerialResponseDto } from './spent-concept-serial/dto/spent-concept-serial-response.dto';
 import { VacationResponseDto } from './vacation/dto/vacation-response.dto';
 import { WorkScheduleResponseDto } from './work-schedule/dto/work-schedule-response.dto';
 import { DefaultScheduleResponseDto } from './default-schedule/dto/default-schedule-response.dto';
@@ -111,15 +117,20 @@ describe('DTO de respuesta de entidades', () => {
       issuedDate: now,
       collectionDate: now,
       declarationDate: now,
-      concepts: [
+      spentConcepts: [
         {
+          id: 'sc-1',
+          spentId: 'spent-1',
+          itemId: null,
+          position: 0,
           name: 'Papel',
-          base_price: 10,
+          basePrice: 10,
           vat: 21,
           irpf: 0,
           quantity: 1,
-          supplied: false,
-          percentage: 100,
+          ean: null,
+          createdAt: now,
+          updatedAt: now,
         },
       ],
       status: 'paid',
@@ -132,7 +143,7 @@ describe('DTO de respuesta de entidades', () => {
     expect(series.series).toBe('A');
     expect(client.type).toBe('company');
     expect(client.paymentMethod).toBe(PaymentMethod.CARD);
-    expect(spent.concepts[0].percentage).toBe(100);
+    expect(spent.spentConcepts?.[0].basePrice).toBe(10);
     expect(spent.supplier?.name).toBe('Proveedor');
     expect(spent.code).toBe('FAC-2026-001');
     const itemCategory = coverDtoClass(ItemCategoryResponseDto, {
@@ -189,8 +200,21 @@ describe('DTO de respuesta de entidades', () => {
       name: 'Presupuesto',
       issuedDate: now,
       formalizationDate: now,
-      concepts: [
-        { name: 'Horas', base_price: 50, vat: 21, irpf: 15, quantity: 2, supplied: false },
+      quoteConcepts: [
+        {
+          id: 'qc-1',
+          quoteId: 'quote-1',
+          itemId: 'item-1',
+          position: 0,
+          name: 'Horas',
+          basePrice: 50,
+          vat: 21,
+          irpf: 15,
+          quantity: 2,
+          ean: null,
+          createdAt: now,
+          updatedAt: now,
+        },
       ],
       status: QuoteStatus.ISSUED,
       clientName: 'Cliente',
@@ -202,6 +226,40 @@ describe('DTO de respuesta de entidades', () => {
       createdAt: now,
       updatedAt: now,
       client,
+    });
+    const order = coverDtoClass(OrderResponseDto, {
+      id: 'order-1',
+      clientId: 'client-1',
+      quoteId: 'quote-1',
+      name: 'Pedido',
+      date: now,
+      orderConcepts: [
+        {
+          id: 'oc-1',
+          orderId: 'order-1',
+          itemId: 'item-1',
+          position: 0,
+          name: 'Horas',
+          basePrice: 50,
+          vat: 21,
+          irpf: 15,
+          quantity: 2,
+          ean: null,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      status: OrderStatus.AWAITING_RECEIPT,
+      clientName: 'Cliente',
+      clientNif: '12345678Z',
+      clientAddress: 'Dir',
+      issuerName: 'Webpi',
+      issuerNif: 'B123',
+      issuerAddress: 'Calle 1',
+      createdAt: now,
+      updatedAt: now,
+      client,
+      quote,
     });
     const series = coverDtoClass(InvoiceSeriesResponseDto, {
       id: 'series-1',
@@ -231,7 +289,6 @@ describe('DTO de respuesta de entidades', () => {
           vat: 21,
           irpf: 15,
           quantity: 2,
-          supplied: false,
           ean: null,
           createdAt: now,
           updatedAt: now,
@@ -269,10 +326,17 @@ describe('DTO de respuesta de entidades', () => {
     });
 
     expect(quote.status).toBe(QuoteStatus.ISSUED);
+    expect(quote.quoteConcepts?.[0].basePrice).toBe(50);
+    expect(order.status).toBe(OrderStatus.AWAITING_RECEIPT);
+    expect(order.orderConcepts?.[0].basePrice).toBe(50);
     expect(invoice.seriesNumber).toBe(12);
     expect(invoice.invoiceConcepts[0].basePrice).toBe(50);
     const invoiceConcept = coverDtoClass(InvoiceConceptResponseDto, invoice.invoiceConcepts[0]);
     expect(invoiceConcept.name).toBe('Horas');
+    const quoteConcept = coverDtoClass(QuoteConceptResponseDto, quote.quoteConcepts[0]);
+    expect(quoteConcept.name).toBe('Horas');
+    const orderConcept = coverDtoClass(OrderConceptResponseDto, order.orderConcepts[0]);
+    expect(orderConcept.name).toBe('Horas');
     const invoiceConceptSerial = coverDtoClass(InvoiceConceptSerialResponseDto, {
       id: 'ics-1',
       invoiceConceptId: 'ic-1',
@@ -281,6 +345,29 @@ describe('DTO de respuesta de entidades', () => {
       updatedAt: now,
     });
     expect(invoiceConceptSerial.serialNumber).toBe('SN-1');
+    const spentConcept = coverDtoClass(SpentConceptResponseDto, {
+      id: 'sc-1',
+      spentId: 'spent-1',
+      itemId: null,
+      position: 0,
+      name: 'Papel',
+      basePrice: 10,
+      vat: 21,
+      irpf: 0,
+      quantity: 1,
+      ean: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(spentConcept.name).toBe('Papel');
+    const spentConceptSerial = coverDtoClass(SpentConceptSerialResponseDto, {
+      id: 'scs-1',
+      spentConceptId: 'sc-1',
+      serialNumber: 'SN-SPENT-1',
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(spentConceptSerial.serialNumber).toBe('SN-SPENT-1');
     expect(recurrent.invoices?.[0].id).toBe('inv-1');
   });
 

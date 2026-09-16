@@ -23,6 +23,8 @@ import { ItemCategoryResponseDto } from 'src/entities/item-category/dto/item-cat
 import { ItemResponseDto } from 'src/entities/item/dto/item-response.dto';
 import { InvoiceConceptResponseDto } from 'src/entities/invoice-concept/dto/invoice-concept-response.dto';
 import { InvoiceConceptSerialResponseDto } from 'src/entities/invoice-concept-serial/dto/invoice-concept-serial-response.dto';
+import { SpentConceptResponseDto } from 'src/entities/spent-concept/dto/spent-concept-response.dto';
+import { SpentConceptSerialResponseDto } from 'src/entities/spent-concept-serial/dto/spent-concept-serial-response.dto';
 import { UserEnterpriseResponseDto } from 'src/entities/user/dto/user-enterprise-response.dto';
 import { ActiveBillingSubscriptionResponseDto } from 'src/api/billing/dto/active-billing-subscription-response.dto';
 import { BillingPerUnitProductWithPricesResponseDto } from 'src/api/billing/dto/billing-per-unit-product-with-prices-response.dto';
@@ -76,6 +78,8 @@ describe('Superficie de producción (e2e) — DTOs, entidades y Swagger', () => 
     coverDtoClass(ItemResponseDto, { id: 'it1', name: 'Art' });
     coverDtoClass(InvoiceConceptResponseDto, { id: 'ic1', name: 'Linea', basePrice: 10 });
     coverDtoClass(InvoiceConceptSerialResponseDto, { id: 'ics1', serialNumber: 'SN-1' });
+    coverDtoClass(SpentConceptResponseDto, { id: 'sc1', name: 'Linea', basePrice: 10 });
+    coverDtoClass(SpentConceptSerialResponseDto, { id: 'scs1', serialNumber: 'SN-SPENT-1' });
     coverDtoClass(UserEnterpriseResponseDto, { id: 'ue1' });
     coverDtoClass(ActiveBillingSubscriptionResponseDto, {
       subscriptionId: 'sub',

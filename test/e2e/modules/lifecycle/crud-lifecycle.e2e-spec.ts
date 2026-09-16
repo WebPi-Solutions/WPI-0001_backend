@@ -331,6 +331,7 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
         name: 'Artículo con serie tmp',
         itemCategoryId: seed.itemCategoryA.id,
         serialNumber: true,
+        stock: true,
         pricePvp: 10,
       });
     expect(serialTrackedItem.status).toBe(201);
@@ -342,7 +343,6 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
         invoiceId: invoice.body.id,
         itemId: serialTrackedItem.body.id,
         quantity: 2,
-        supplied: true,
       });
     expect(invoiceConcept.status).toBe(201);
     expect(
@@ -421,9 +421,33 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
         issuedDate: '2026-05-01',
         formalizationDate: '2026-05-20',
         status: 'draft',
-        concepts: [],
       });
     expect(quote.status).toBe(201);
+    const quoteConcept = await http()
+      .post('/quote-concepts')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        quoteId: quote.body.id,
+        itemId: seed.itemA.id,
+        name: 'Línea tmp',
+      });
+    expect(quoteConcept.status).toBe(201);
+    expect(
+      (
+        await http()
+          .patch(`/quote-concepts/${quoteConcept.body.id}`)
+          .set(authHeader(E2E_EMAIL.userA))
+          .send({ name: 'Línea tmp 2' })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await http()
+          .delete(`/quote-concepts/${quoteConcept.body.id}`)
+          .set(authHeader(E2E_EMAIL.userA))
+      ).status,
+    ).toBe(200);
     expect(
       (
         await http()
@@ -444,10 +468,58 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
         collectionDate: '2026-05-15',
         declarationDate: '2026-05-01',
         status: 'paid',
-        concepts: [],
       });
     expect(spent.status).toBe(201);
     expect(spent.body.code).toBe('FAC-TMP-1');
+    const spentConcept = await http()
+      .post('/spent-concepts')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        spentId: spent.body.id,
+        itemId: seed.itemA.id,
+        quantity: 2,
+      });
+    expect(spentConcept.status).toBe(201);
+    expect(
+      (
+        await http()
+          .patch(`/spent-concepts/${spentConcept.body.id}`)
+          .set(authHeader(E2E_EMAIL.userA))
+          .send({ name: 'Línea gasto tmp 2' })
+      ).status,
+    ).toBe(200);
+    const spentConceptSerial = await http()
+      .post('/spent-concept-serials')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        spentConceptId: spentConcept.body.id,
+        serialNumber: 'SN-SPENT-TMP-1',
+      });
+    expect(spentConceptSerial.status).toBe(201);
+    expect(
+      (
+        await http()
+          .patch(`/spent-concept-serials/${spentConceptSerial.body.id}`)
+          .set(authHeader(E2E_EMAIL.userA))
+          .send({ serialNumber: 'SN-SPENT-TMP-2' })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await http()
+          .delete(`/spent-concept-serials/${spentConceptSerial.body.id}`)
+          .set(authHeader(E2E_EMAIL.userA))
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await http()
+          .delete(`/spent-concepts/${spentConcept.body.id}`)
+          .set(authHeader(E2E_EMAIL.userA))
+      ).status,
+    ).toBe(200);
     expect(
       (
         await http()

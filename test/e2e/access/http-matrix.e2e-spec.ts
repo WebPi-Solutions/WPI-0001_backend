@@ -15,7 +15,12 @@ const TENANT_LIST_PATHS = [
   '/invoice-concepts',
   '/invoice-concept-serials',
   '/quotes',
+  '/quote-concepts',
+  '/orders',
+  '/order-concepts',
   '/spents',
+  '/spent-concepts',
+  '/spent-concept-serials',
   '/invoice-series',
   '/holidays',
   '/default-schedules',
@@ -68,6 +73,9 @@ function extraQueryForPath(path: string, seed?: E2eSeed): Record<string, string>
   }
   if (path === '/invoice-concept-serials' && seed) {
     return { invoiceConceptId: seed.invoiceConceptA.id };
+  }
+  if (path === '/spent-concept-serials' && seed) {
+    return { spentConceptId: seed.spentConceptA.id };
   }
   return {};
 }
@@ -138,6 +146,10 @@ describe('Matriz HTTP de acceso (e2e)', () => {
       '/invoice-series',
       '/invoice-concepts',
       '/invoice-concept-serials',
+      '/quote-concepts',
+      '/order-concepts',
+      '/spent-concepts',
+      '/spent-concept-serials',
       '/users',
     ];
     for (const path of paths) {
@@ -160,7 +172,12 @@ describe('Matriz HTTP de acceso (e2e)', () => {
       `/invoice-concepts/${seed.invoiceConceptA.id}`,
       `/invoice-concept-serials/${seed.invoiceConceptSerialA.id}`,
       `/quotes/${seed.quoteA.id}`,
+      `/quote-concepts/${seed.quoteConceptA.id}`,
+      `/orders/${seed.orderA.id}`,
+      `/order-concepts/${seed.orderConceptA.id}`,
       `/spents/${seed.spentA.id}`,
+      `/spent-concepts/${seed.spentConceptA.id}`,
+      `/spent-concept-serials/${seed.spentConceptSerialA.id}`,
       `/enterprises/${seed.enterpriseA.id}`,
       `/users/${seed.userA.id}`,
       `/holidays/${seed.holidayA.id}`,
@@ -225,7 +242,12 @@ const BY_ID_RESOLVES_TENANT: Array<{
   { name: 'concepto de factura', ownPath: (seed) => `/invoice-concepts/${seed.invoiceConceptA.id}`, foreignPath: (seed) => `/invoice-concepts/${seed.invoiceConceptB.id}` },
   { name: 'número de serie de concepto', ownPath: (seed) => `/invoice-concept-serials/${seed.invoiceConceptSerialA.id}`, foreignPath: (seed) => `/invoice-concept-serials/${seed.invoiceConceptSerialB.id}` },
   { name: 'presupuesto', ownPath: (seed) => `/quotes/${seed.quoteA.id}`, foreignPath: (seed) => `/quotes/${seed.quoteB.id}` },
+  { name: 'concepto de presupuesto', ownPath: (seed) => `/quote-concepts/${seed.quoteConceptA.id}`, foreignPath: (seed) => `/quote-concepts/${seed.quoteConceptB.id}` },
+  { name: 'pedido', ownPath: (seed) => `/orders/${seed.orderA.id}`, foreignPath: (seed) => `/orders/${seed.orderB.id}` },
+  { name: 'concepto de pedido', ownPath: (seed) => `/order-concepts/${seed.orderConceptA.id}`, foreignPath: (seed) => `/order-concepts/${seed.orderConceptB.id}` },
   { name: 'gasto', ownPath: (seed) => `/spents/${seed.spentA.id}`, foreignPath: (seed) => `/spents/${seed.spentB.id}` },
+  { name: 'concepto de gasto', ownPath: (seed) => `/spent-concepts/${seed.spentConceptA.id}`, foreignPath: (seed) => `/spent-concepts/${seed.spentConceptB.id}` },
+  { name: 'número de serie de concepto de gasto', ownPath: (seed) => `/spent-concept-serials/${seed.spentConceptSerialA.id}`, foreignPath: (seed) => `/spent-concept-serials/${seed.spentConceptSerialB.id}` },
   { name: 'serie', ownPath: (seed) => `/invoice-series/${seed.seriesA.id}`, foreignPath: (seed) => `/invoice-series/${seed.seriesB.id}` },
   { name: 'recurrente', ownPath: (seed) => `/recurrent-earnings/${seed.recurrentA.id}`, foreignPath: (seed) => `/recurrent-earnings/${seed.recurrentB.id}` },
   { name: 'ia', ownPath: (seed) => `/ai-requests/${seed.aiRequestA.id}`, foreignPath: (seed) => `/ai-requests/${seed.aiRequestB.id}` },

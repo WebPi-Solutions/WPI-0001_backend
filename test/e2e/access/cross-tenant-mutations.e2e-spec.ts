@@ -54,6 +54,15 @@ describe('Aislamiento multi-empresa (e2e) — mutaciones cruzadas', () => {
     expectIdorHidden(response.status);
   });
 
+  it('el usuario A no retargetea su pedido al presupuesto de B', async () => {
+    const seed = getE2eSeed();
+    const response = await http()
+      .patch(`/orders/${seed.orderA.id}`)
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ quoteId: seed.quoteB.id, clientId: seed.clientB.id });
+    expectIdorHidden(response.status);
+  });
+
   it('el usuario A no retargetea su gasto al proveedor de B', async () => {
     const seed = getE2eSeed();
     const response = await http()

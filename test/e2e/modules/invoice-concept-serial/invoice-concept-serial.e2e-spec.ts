@@ -276,6 +276,7 @@ describe('Números de serie de conceptos de factura (e2e) — reglas de negocio'
         name: 'Con serie',
         itemCategoryId: seed.itemCategoryA.id,
         serialNumber: true,
+        stock: true,
         pricePvp: 8,
       });
     expect(serialTrackedItem.status).toBe(201);
@@ -334,6 +335,7 @@ describe('Números de serie de conceptos de factura (e2e) — reglas de negocio'
         name: 'Serie emitida',
         itemCategoryId: seed.itemCategoryA.id,
         serialNumber: true,
+        stock: true,
         pricePvp: 8,
       });
     expect(serialTrackedItem.status).toBe(201);

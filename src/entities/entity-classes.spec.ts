@@ -2,6 +2,7 @@ import { invokeTypeOrmMetadataCallbacks } from 'src/test-utils/cover-data-classe
 import {
   AiMode,
   AiRequestType,
+  OrderStatus,
   PaymentMethod,
   RecurrentEarningType,
   SigningAction,
@@ -17,11 +18,16 @@ import { InvoiceConceptSerial } from './invoice-concept-serial/invoice-concept-s
 import { InvoiceSeries } from './invoice-series/invoice-series.entity';
 import { Item } from './item/item.entity';
 import { ItemCategory } from './item-category/item-category.entity';
+import { Order } from './order/order.entity';
+import { OrderConcept } from './order-concept/order-concept.entity';
 import { Quote, QuoteStatus } from './quote/quote.entity';
+import { QuoteConcept } from './quote-concept/quote-concept.entity';
 import { RecurrentEarning } from './recurrent-earning/recurrent-earning.entity';
 import { Signing } from './signing/signing.entity';
 import { SigningUpdate } from './signing/signing-update.entity';
 import { Spent } from './spent/spent.entity';
+import { SpentConcept } from './spent-concept/spent-concept.entity';
+import { SpentConceptSerial } from './spent-concept-serial/spent-concept-serial.entity';
 import { Supplier } from './supplier/supplier.entity';
 import { EnterpriseRole } from './enterprise-role/enterprise-role.entity';
 import { UserEnterprise } from './user/user-enterprise.entity';
@@ -155,6 +161,7 @@ describe('Entidades TypeORM', () => {
       enterprise,
       invoices: [],
       quotes: [],
+      orders: [],
       recurrentEarnings: [],
     });
     const supplier = Object.assign(new Supplier(), {
@@ -207,9 +214,9 @@ describe('Entidades TypeORM', () => {
       issuedDate: now,
       collectionDate: now,
       declarationDate: now,
-      concepts: [],
       status: 'paid',
       file: true,
+      spentConcepts: [],
       createdAt: now,
       updatedAt: now,
       supplier,
@@ -231,7 +238,6 @@ describe('Entidades TypeORM', () => {
       name: 'Presupuesto',
       issuedDate: now,
       formalizationDate: now,
-      concepts: [],
       status: QuoteStatus.DRAFT,
       clientName: client.name,
       clientNif: client.nif,
@@ -243,6 +249,27 @@ describe('Entidades TypeORM', () => {
       updatedAt: now,
       client,
       invoices: [],
+      orders: [],
+      quoteConcepts: [],
+    });
+    const order = Object.assign(new Order(), {
+      id: 'order-1',
+      clientId: client.id,
+      quoteId: quote.id,
+      name: 'Pedido',
+      date: now,
+      status: OrderStatus.AWAITING_RECEIPT,
+      clientName: client.name,
+      clientNif: client.nif,
+      clientAddress: client.address,
+      issuerName: enterprise.name,
+      issuerNif: enterprise.nif,
+      issuerAddress: enterprise.address,
+      createdAt: now,
+      updatedAt: now,
+      client,
+      quote,
+      orderConcepts: [],
     });
     const recurrentEarning = Object.assign(new RecurrentEarning(), {
       id: 're-1',
@@ -295,7 +322,6 @@ describe('Entidades TypeORM', () => {
       vat: 21,
       irpf: 0,
       quantity: 1,
-      supplied: false,
       ean: '8412345678901',
       createdAt: now,
       updatedAt: now,
@@ -313,6 +339,67 @@ describe('Entidades TypeORM', () => {
     });
     invoiceConcept.serials = [invoiceConceptSerial];
     invoice.invoiceConcepts = [invoiceConcept];
+    const quoteConcept = Object.assign(new QuoteConcept(), {
+      id: 'qc-1',
+      quoteId: quote.id,
+      itemId: item.id,
+      position: 0,
+      name: 'Tornillo',
+      basePrice: 1.5,
+      vat: 21,
+      irpf: 0,
+      quantity: 1,
+      ean: '8412345678901',
+      createdAt: now,
+      updatedAt: now,
+      quote,
+      item,
+    });
+    quote.quoteConcepts = [quoteConcept];
+    const orderConcept = Object.assign(new OrderConcept(), {
+      id: 'oc-1',
+      orderId: order.id,
+      itemId: item.id,
+      position: 0,
+      name: 'Tornillo',
+      basePrice: 1.5,
+      vat: 21,
+      irpf: 0,
+      quantity: 1,
+      ean: '8412345678901',
+      createdAt: now,
+      updatedAt: now,
+      order,
+      item,
+    });
+    order.orderConcepts = [orderConcept];
+    const spentConcept = Object.assign(new SpentConcept(), {
+      id: 'sc-1',
+      spentId: spent.id,
+      itemId: item.id,
+      position: 0,
+      name: 'Papel',
+      basePrice: 10,
+      vat: 21,
+      irpf: 0,
+      quantity: 1,
+      ean: null,
+      createdAt: now,
+      updatedAt: now,
+      spent,
+      item,
+      serials: [],
+    });
+    const spentConceptSerial = Object.assign(new SpentConceptSerial(), {
+      id: 'scs-1',
+      spentConceptId: spentConcept.id,
+      serialNumber: 'SN-SPENT-001',
+      createdAt: now,
+      updatedAt: now,
+      spentConcept,
+    });
+    spentConcept.serials = [spentConceptSerial];
+    spent.spentConcepts = [spentConcept];
     const signing = Object.assign(new Signing(), {
       id: 'sig-1',
       userEnterpriseId: userEnterprise.id,
@@ -371,8 +458,11 @@ describe('Entidades TypeORM', () => {
     expect(enterprise.itemCategories).toEqual([itemCategory]);
     expect(spent.file).toBe(true);
     expect(spent.code).toBe('FAC-2026-001');
+    expect(spent.spentConcepts[0].name).toBe('Papel');
+    expect(spent.spentConcepts[0].serials[0].serialNumber).toBe('SN-SPENT-001');
     expect(invoiceSeries.series).toBe('A');
     expect(quote.status).toBe(QuoteStatus.DRAFT);
+    expect(order.status).toBe(OrderStatus.AWAITING_RECEIPT);
     expect(recurrentEarning.type).toBe(RecurrentEarningType.YEARLY);
     expect(invoice.status).toBe(InvoiceStatus.PAID);
     expect(invoice.invoiceConcepts[0].name).toBe('Tornillo');

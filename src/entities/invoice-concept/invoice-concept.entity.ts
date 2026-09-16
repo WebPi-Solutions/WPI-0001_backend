@@ -83,12 +83,6 @@ export class InvoiceConcept {
   quantity: number;
 
   /**
-   * Indica si la línea está marcada como suplido
-   */
-  @Column({ type: 'boolean', nullable: false, default: false })
-  supplied: boolean;
-
-  /**
    * EAN congelado (del artículo o informado a mano)
    */
   @Column({ name: 'ean', type: 'varchar', nullable: true })

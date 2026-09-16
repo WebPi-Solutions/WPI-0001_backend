@@ -1,7 +1,8 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Client } from '../client/client.entity';
-import { Concept } from 'src/common/models/Concept';
 import { Invoice } from '../invoice/invoice.entity';
+import { Order } from '../order/order.entity';
+import { QuoteConcept } from '../quote-concept/quote-concept.entity';
 
 export enum QuoteStatus {
   DRAFT = 'draft',
@@ -46,12 +47,6 @@ export class Quote {
    */
   @Column({ name: 'formalization_date', type: 'date' })
   formalizationDate: Date;
-
-  /**
-   * Array JSON que almacena los conceptos o ítems incluidos en esta cotización
-   */
-  @Column({ type: 'jsonb', default: '[]' })
-  concepts: Concept[];
 
   /**
    * Estado actual de la cotización (`draft`, `issued`, `ordered`, `converted`, `rejected`)
@@ -119,4 +114,16 @@ export class Quote {
    */
   @OneToMany(() => Invoice, invoice => invoice.quote)
   invoices: Invoice[];
+
+  /**
+   * Relación con Pedidos - Los pedidos generados a partir de esta cotización
+   */
+  @OneToMany(() => Order, (order) => order.quote)
+  orders: Order[];
+
+  /**
+   * Líneas de concepto persistidas en `quote_concepts`
+   */
+  @OneToMany(() => QuoteConcept, (quoteConcept) => quoteConcept.quote)
+  quoteConcepts: QuoteConcept[];
 }

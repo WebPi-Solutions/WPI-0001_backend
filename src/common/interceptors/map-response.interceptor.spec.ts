@@ -54,7 +54,6 @@ describe('MapResponseInterceptor', () => {
           vat: 21,
           irpf: 15,
           quantity: 1,
-          supplied: false,
           ean: null,
         },
       ],
@@ -123,15 +122,15 @@ describe('MapResponseInterceptor', () => {
           issuedDate: new Date('2026-02-01'),
           collectionDate: new Date('2026-02-01'),
           declarationDate: new Date('2026-02-01'),
-          concepts: [
+          spentConcepts: [
             {
+              id: 'sc-1',
+              spentId: 'spent-1',
               name: 'Luz',
-              base_price: 50,
+              basePrice: 50,
               vat: 21,
               irpf: 0,
               quantity: 1,
-              supplied: false,
-              percentage: 100,
             },
           ],
           status: 'paid',
@@ -158,7 +157,7 @@ describe('MapResponseInterceptor', () => {
         expect(response.items[0].supplierId).toBe('sup-1');
         expect(response.items[0].code).toBe('FAC-2026-001');
         expect(response.items[0].file).toBe(true);
-        expect(response.items[0].concepts[0].percentage).toBe(100);
+        expect(response.items[0].spentConcepts?.[0].basePrice).toBe(50);
         expect(response.items[0].supplier?.name).toBe('Proveedor SL');
         expect((response.items[0].supplier as unknown as { spents?: unknown }).spents).toBeUndefined();
         done();

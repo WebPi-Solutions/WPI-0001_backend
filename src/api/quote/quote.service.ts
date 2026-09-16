@@ -28,7 +28,8 @@ export class QuoteService {
 
     await this.assertQuoteTenantAccessible(quote);
     quote = await this.setQuotePersistentData(quote);
-    
+    this.stripQuoteConceptRelation(quote);
+
     try {
       const newQuote = await this.quoteRepository.create(quote);
       this.logger.log(`Cotización creada exitosamente con ID: ${newQuote.id}`);
@@ -73,7 +74,7 @@ export class QuoteService {
     
     const relationsWithClient = this.enterpriseAccessService.mergeRelationNames(
       relations,
-      ['client'],
+      ['client', 'quoteConcepts'],
     );
     const quote = await this.quoteRepository.findById(id, relationsWithClient);
     
@@ -115,6 +116,7 @@ export class QuoteService {
     // Revalida el cliente tras el merge: el cuerpo puede apuntar a un cliente de otra empresa.
     await this.assertQuoteTenantAccessible(quote);
     quote = await this.setQuotePersistentData(quote);
+    this.stripQuoteConceptRelation(quote);
     
     try {
       const updatedQuote = await this.quoteRepository.updateById(id, quote);
@@ -240,6 +242,14 @@ export class QuoteService {
     }
 
     return quote;
+  }
+
+  /**
+   * Quita la colección de líneas del payload de presupuesto: se persisten por `/quote-concepts`.
+   * @param quote - Presupuesto a persistir
+   */
+  private stripQuoteConceptRelation(quote: Quote): void {
+    delete (quote as { quoteConcepts?: unknown }).quoteConcepts;
   }
 
   /**

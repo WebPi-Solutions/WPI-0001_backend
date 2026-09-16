@@ -9,5 +9,10 @@ export {
   isValidPaymentMethod,
   PaymentMethod,
 } from './payment-method.enum';
+export {
+  DEFAULT_ORDER_STATUS,
+  isValidOrderStatus,
+  OrderStatus,
+} from './order-status.enum';
 export { RecurrentEarningType } from './recurrent-earning-type.enum';
 export { SigningAction } from './signing-action.enum';

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
-import { SpentConceptResponseDto } from 'src/common/dto/concept-response.dto';
+import { SpentConceptResponseDto } from 'src/entities/spent-concept/dto/spent-concept-response.dto';
 import { SupplierResponseDto } from 'src/entities/supplier/dto/supplier-response.dto';
 
 /**
@@ -63,15 +63,16 @@ export class SpentResponseDto {
   declarationDate: Date;
 
   /**
-   * Líneas de concepto con porcentaje imputable
+   * Líneas de concepto persistidas en `spent_concepts`
    */
   @ApiProperty({
     description: 'Conceptos del gasto',
     type: [SpentConceptResponseDto],
+    required: false,
   })
   @Expose()
   @Type(() => SpentConceptResponseDto)
-  concepts: SpentConceptResponseDto[];
+  spentConcepts?: SpentConceptResponseDto[];
 
   /**
    * Estado del gasto

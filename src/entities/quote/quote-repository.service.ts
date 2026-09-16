@@ -4,7 +4,6 @@ import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryBuilderService, QueryFilterOptions } from 'src/common/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
-import { Concept } from 'src/common/models/Concept';
 import { QuoteSubtotalsByStatusDto, QuoteStatusMetricsDto } from 'src/api/metrics/dto/quote-subtotals-by-status.dto';
 
 @Injectable()
@@ -84,9 +83,6 @@ export class QuoteRepository {
     // Verifica que el estado de la cotización sea válido
     this.verifyQuoteStatus(quote);
 
-    // Verifica que los conceptos sean válidos
-    this.validateConcepts(quote.concepts);
-
     // Obtiene la cotización a actualizar
     const quoteToUpdate = await this.quoteRepository.findOne({ where: { id } });
 
@@ -118,30 +114,6 @@ export class QuoteRepository {
     }
   }
 
-  private validateConcepts(concepts: Concept[]): void {
-    // concepts.forEach(concept => {
-    //   if(!Object.values(ConceptVats).some(vat => vat.value === concept.vat)) {
-    //     this.logger.error(`El IVA del concepto no es válido: ${concept.vat}`);
-    //     throw new HttpException(`El IVA del concepto no es válido: ${concept.vat}`, HttpStatus.BAD_REQUEST);
-    //   }
-
-    //   if(!Object.values(ConceptIrpfs).some(irpf => irpf.value === concept.irpf)) {
-    //     this.logger.error(`El IRPF del concepto no es válido: ${concept.irpf}`);
-    //     throw new HttpException(`El IRPF del concepto no es válido: ${concept.irpf}`, HttpStatus.BAD_REQUEST);
-    //   }
-
-    //   if(concept.quantity <= 0) {
-    //     this.logger.error(`La cantidad del concepto no es válida: ${concept.quantity}`);
-    //     throw new HttpException(`La cantidad del concepto no es válida: ${concept.quantity}`, HttpStatus.BAD_REQUEST);
-    //   }
-
-    //   if(concept.base_price <= 0) {
-    //     this.logger.error(`El precio base del concepto no es válido: ${concept.base_price}`);
-    //     throw new HttpException(`El precio base del concepto no es válido: ${concept.base_price}`, HttpStatus.BAD_REQUEST);
-    //   }
-    // });
-  }
-
   /**
    * Obtiene cotizaciones emitidas con sus conceptos en un rango de fechas para cálculo de métricas
    * @param startDate - Fecha de inicio (inclusive)
@@ -156,12 +128,7 @@ export class QuoteRepository {
     const result = await this.quoteRepository
       .createQueryBuilder('quote')
       .leftJoin('quote.client', 'client')
-      .select([
-        'quote.concepts',
-        'quote.id',
-        'quote.issuedDate',
-        'quote.name'
-      ])
+      .leftJoinAndSelect('quote.quoteConcepts', 'quoteConcepts')
       .where('quote.status != :status', { status: QuoteStatus.DRAFT })
       .andWhere('quote.issuedDate >= :startDate', { startDate })
       .andWhere('quote.issuedDate <= :endDate', { endDate })
@@ -194,8 +161,9 @@ export class QuoteRepository {
         q.status,
         COUNT(*)::int AS count,
         ROUND(CAST(SUM(
-          (SELECT COALESCE(SUM((elem->>'base_price')::numeric * COALESCE((elem->>'quantity')::int, 1)), 0)
-           FROM jsonb_array_elements(COALESCE(q.concepts, '[]'::jsonb)) elem)
+          (SELECT COALESCE(SUM(qc.base_price * qc.quantity), 0)
+           FROM quote_concepts qc
+           WHERE qc.quote_id = q.id)
         ) AS numeric), 2) AS subtotal
       FROM quotes q
       INNER JOIN clients c ON q.client_id = c.id

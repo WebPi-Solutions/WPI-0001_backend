@@ -5,7 +5,7 @@ import { Item } from 'src/entities/item/item.entity';
 import { ItemCategoryRepository } from 'src/entities/item-category/item-category-repository.service';
 import { ItemCategory } from 'src/entities/item-category/item-category.entity';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
-import { ItemService } from './item.service';
+import { ITEM_SERIAL_NUMBER_REQUIRES_STOCK_MESSAGE, ItemService } from './item.service';
 
 describe('ItemService', () => {
   let service: ItemService;
@@ -276,6 +276,30 @@ describe('ItemService', () => {
       });
     });
 
+    it('rechaza número de serie activo con el stock deshabilitado', async () => {
+      itemCategoryRepository.findById.mockResolvedValue(buildItemCategory());
+
+      await expect(
+        service.create(buildItem({ serialNumber: true, stock: false }), enterpriseId),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: ITEM_SERIAL_NUMBER_REQUIRES_STOCK_MESSAGE,
+      });
+      expect(itemRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('rechaza número de serie activo cuando el stock se omite (default false)', async () => {
+      itemCategoryRepository.findById.mockResolvedValue(buildItemCategory());
+
+      await expect(
+        service.create(buildItem({ serialNumber: true }), enterpriseId),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: ITEM_SERIAL_NUMBER_REQUIRES_STOCK_MESSAGE,
+      });
+      expect(itemRepository.create).not.toHaveBeenCalled();
+    });
+
     it('rechaza un indicador de stock que no es booleano', async () => {
       itemCategoryRepository.findById.mockResolvedValue(buildItemCategory());
 
@@ -515,6 +539,45 @@ describe('ItemService', () => {
           serialNumber: false,
           stock: false,
         }),
+      );
+    });
+
+    it('rechaza activar el número de serie si el stock resultante queda deshabilitado', async () => {
+      itemRepository.findById.mockResolvedValue(buildItem({ serialNumber: false, stock: false }));
+      itemCategoryRepository.findById.mockResolvedValue(buildItemCategory());
+
+      await expect(
+        service.updateById(itemId, { serialNumber: true } as Item),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: ITEM_SERIAL_NUMBER_REQUIRES_STOCK_MESSAGE,
+      });
+      expect(itemRepository.updateById).not.toHaveBeenCalled();
+    });
+
+    it('rechaza desactivar el stock si el número de serie sigue activo', async () => {
+      itemRepository.findById.mockResolvedValue(buildItem({ serialNumber: true, stock: true }));
+      itemCategoryRepository.findById.mockResolvedValue(buildItemCategory());
+
+      await expect(
+        service.updateById(itemId, { stock: false } as Item),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: ITEM_SERIAL_NUMBER_REQUIRES_STOCK_MESSAGE,
+      });
+      expect(itemRepository.updateById).not.toHaveBeenCalled();
+    });
+
+    it('permite activar el número de serie junto con el stock', async () => {
+      itemRepository.findById.mockResolvedValue(buildItem({ serialNumber: false, stock: false }));
+      itemCategoryRepository.findById.mockResolvedValue(buildItemCategory());
+      itemRepository.updateById.mockResolvedValue(buildItem({ serialNumber: true, stock: true }));
+
+      await service.updateById(itemId, { serialNumber: true, stock: true } as Item);
+
+      expect(itemRepository.updateById).toHaveBeenCalledWith(
+        itemId,
+        expect.objectContaining({ serialNumber: true, stock: true }),
       );
     });
 

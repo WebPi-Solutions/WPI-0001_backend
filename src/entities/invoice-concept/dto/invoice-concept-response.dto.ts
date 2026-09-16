@@ -75,13 +75,6 @@ export class InvoiceConceptResponseDto {
   quantity: number;
 
   /**
-   * Si la línea está suplida
-   */
-  @ApiProperty({ description: 'Si la línea está marcada como suplido' })
-  @Expose()
-  supplied: boolean;
-
-  /**
    * EAN congelado
    */
   @ApiProperty({

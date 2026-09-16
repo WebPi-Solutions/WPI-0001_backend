@@ -27,9 +27,16 @@ export class ItemController {
   @RequirePermission('items', 'write')
   @RequireEnterpriseId()
   @MapResponse(ItemResponseDto)
-  @ApiOperation({ summary: 'Crear un artículo' })
+  @ApiOperation({
+    summary: 'Crear un artículo',
+    description: 'El número de serie solo puede activarse si el stock también está habilitado.',
+  })
   @ApiOkResponse({ type: ItemResponseDto, description: 'Artículo creado (vista pública).' })
   @ApiResponse({ status: 201, description: 'El artículo ha sido creado correctamente.' })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos. El número de serie requiere stock habilitado.',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async create(
@@ -140,9 +147,16 @@ export class ItemController {
   @Patch(':id')
   @RequirePermission('items', 'write')
   @MapResponse(ItemResponseDto)
-  @ApiOperation({ summary: 'Actualizar un artículo por su id' })
+  @ApiOperation({
+    summary: 'Actualizar un artículo por su id',
+    description: 'El número de serie solo puede activarse si el stock también está habilitado.',
+  })
   @ApiOkResponse({ type: ItemResponseDto, description: 'Artículo actualizado (vista pública).' })
   @ApiResponse({ status: 200, description: 'El artículo ha sido actualizado correctamente.' })
+  @ApiResponse({
+    status: 400,
+    description: 'Datos inválidos. El número de serie requiere stock habilitado.',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async updateById(@Param('id') id: string, @Body() item: Item): Promise<Item> {

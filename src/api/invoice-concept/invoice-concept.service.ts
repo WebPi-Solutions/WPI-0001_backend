@@ -345,7 +345,6 @@ export class InvoiceConceptService {
       vat: snapshotFields.vat,
       irpf: snapshotFields.irpf,
       quantity: snapshotFields.quantity,
-      supplied: snapshotFields.supplied,
       ean: snapshotFields.ean,
     };
     return persistencePayload;
@@ -379,7 +378,6 @@ export class InvoiceConceptService {
     this.assignIfDefined(persistencePayload, 'vat', snapshotFields.vat);
     this.assignIfDefined(persistencePayload, 'irpf', snapshotFields.irpf);
     this.assignIfDefined(persistencePayload, 'quantity', snapshotFields.quantity);
-    this.assignIfDefined(persistencePayload, 'supplied', snapshotFields.supplied);
     if (invoiceConcept.ean !== undefined) {
       persistencePayload.ean = snapshotFields.ean ?? null;
     }
@@ -446,7 +444,6 @@ export class InvoiceConceptService {
     vat?: number;
     irpf?: number;
     quantity?: number;
-    supplied?: boolean;
     ean?: string | null;
   } {
     const resolvedName = this.resolveLineName(
@@ -467,10 +464,6 @@ export class InvoiceConceptService {
       quantity: this.resolveDefaultedIntegerField(
         invoiceConcept.quantity,
         1,
-        applyCreateDefaults,
-      ),
-      supplied: this.resolveDefaultedBooleanField(
-        invoiceConcept.supplied,
         applyCreateDefaults,
       ),
       ean: this.resolveLineEan(invoiceConcept.ean, resolvedItem, applyCreateDefaults),
@@ -601,31 +594,6 @@ export class InvoiceConceptService {
     }
     const fieldLabel = defaultValue === 21 ? 'El IVA' : defaultValue === 1 ? 'La cantidad' : 'El IRPF';
     return this.parseNonNegativeInteger(fieldValue, fieldLabel);
-  }
-
-  /**
-   * Booleano `supplied` con default false.
-   * @param fieldValue - Valor recibido
-   * @param applyCreateDefaults - Si el omitido debe convertirse en false
-   * @returns Booleano persistible
-   */
-  private resolveDefaultedBooleanField(
-    fieldValue: boolean | null | undefined,
-    applyCreateDefaults: boolean,
-  ): boolean | undefined {
-    if (fieldValue === undefined) {
-      return applyCreateDefaults ? false : undefined;
-    }
-    if (fieldValue === null) {
-      return false;
-    }
-    if (typeof fieldValue !== 'boolean') {
-      throw new HttpException(
-        'El indicador de suplido debe ser un valor booleano',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    return fieldValue;
   }
 
   /**

@@ -141,7 +141,7 @@ export class SpentRepository {
         createdAt: 'DESC',
       },
       take: limit,
-      select: ['id', 'name', 'issuedDate', 'concepts', 'createdAt'],
+      relations: ['spentConcepts'],
     });
   }
 
@@ -202,9 +202,10 @@ export class SpentRepository {
     const result = await this.spentRepository
       .createQueryBuilder('spent')
       .leftJoin('spent.supplier', 'supplier')
+      .leftJoinAndSelect('spent.spentConcepts', 'spentConcept')
       .select([
-        'spent.concepts',
-        'spent.id'
+        'spent.id',
+        'spentConcept',
       ])
       .where('spent.declarationDate >= :startDate', { startDate })
       .andWhere('spent.declarationDate <= :endDate', { endDate })
@@ -219,7 +220,7 @@ export class SpentRepository {
    * Obtiene los importes imponibles (subtotales) de gastos desglosados por estado
    * mediante consulta SQL con agregación en base de datos (GROUP BY status).
    * Aplica los mismos filtros que la vista de gastos.
-   * El subtotal por concepto se calcula como: base_price * quantity * (percentage/100).
+   * El subtotal por concepto se calcula como: base_price * quantity.
    * @param enterpriseId - ID de la empresa
    * @param filter - Filtros aplicados (status, supplier.id, fechas, búsquedas)
    * @returns Subtotales y conteos por estado (total, pending, paid, partially_paid, cancelled)
@@ -238,10 +239,10 @@ export class SpentRepository {
         COUNT(*)::int AS count,
         ROUND(CAST(SUM(
           (SELECT COALESCE(SUM(
-            (elem->>'base_price')::numeric * COALESCE((elem->>'quantity')::int, 1)
-            * COALESCE((elem->>'percentage')::numeric, 100) / 100
+            sc.base_price * COALESCE(sc.quantity, 1)
           ), 0)
-           FROM jsonb_array_elements(COALESCE(s.concepts, '[]'::jsonb)) elem)
+           FROM spent_concepts sc
+           WHERE sc.spent_id = s.id)
         ) AS numeric), 2) AS subtotal
       FROM spents s
       INNER JOIN suppliers sup ON s.supplier_id = sup.id

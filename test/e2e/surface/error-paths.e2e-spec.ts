@@ -48,7 +48,6 @@ describe('Ramas de error de dominio (e2e)', () => {
         issuedDate: '2026-05-01',
         formalizationDate: '2026-05-20',
         status: 'accepted',
-        concepts: [],
       });
     expect(missingQuoteClient.status).toBe(400);
 
@@ -61,7 +60,6 @@ describe('Ramas de error de dominio (e2e)', () => {
         issuedDate: '2026-05-01',
         formalizationDate: '2026-05-20',
         status: 'accepted',
-        concepts: [],
       });
     expect(unknownQuoteClient.status).toBe(404);
 
@@ -74,7 +72,6 @@ describe('Ramas de error de dominio (e2e)', () => {
         collectionDate: '2026-05-15',
         declarationDate: '2026-05-01',
         status: 'paid',
-        concepts: [],
       });
     expect(missingSpentSupplier.status).toBe(400);
 
@@ -88,7 +85,6 @@ describe('Ramas de error de dominio (e2e)', () => {
         collectionDate: '2026-05-15',
         declarationDate: '2026-05-01',
         status: 'paid',
-        concepts: [],
       });
     expect(unknownSpentSupplier.status).toBe(404);
 

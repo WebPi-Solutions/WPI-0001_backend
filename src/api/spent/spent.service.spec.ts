@@ -432,34 +432,30 @@ describe('SpentService', () => {
         {
           id: 'spent-1',
           name: 'Recarga Tesla',
-          concepts: [
+          spentConcepts: [
             {
               name: '58.5360 kWh',
-              base_price: 19.84,
+              basePrice: 19.84,
               vat: 21,
               irpf: 0,
               quantity: 1,
-              supplied: true,
-              percentage: 100,
             },
             {
               name: '',
-              base_price: 10,
+              basePrice: 10,
             },
           ],
         },
         {
           id: 'spent-2',
           name: 'Recarga tesla',
-          concepts: [
+          spentConcepts: [
             {
               name: '32.4460 kWh',
-              base_price: 11.0,
+              basePrice: 11.0,
               vat: 21,
               irpf: 0,
               quantity: 1,
-              supplied: true,
-              percentage: 100,
             },
           ],
         },
@@ -717,16 +713,16 @@ describe('SpentService', () => {
         {
           id: 'spent-vacio',
           name: '   ',
-          concepts: undefined,
+          spentConcepts: undefined,
         },
         {
           id: 'spent-sin-nombre',
-          concepts: [undefined, { name: '  ' }, { name: 'Luz' }],
+          spentConcepts: [undefined, { name: '  ' }, { name: 'Luz' }],
         },
         {
           id: 'spent-numeros',
           name: 'Factura luz',
-          concepts: [
+          spentConcepts: [
             {
               name: 'Potencia',
             },
@@ -857,6 +853,20 @@ describe('SpentService', () => {
       expect(spentRepository.create).toHaveBeenCalledWith(payload);
     });
 
+    it('no persiste spentConcepts ni el JSONB legado concepts', async () => {
+      const payload = buildSpent({
+        spentConcepts: [{ id: 'linea' }] as unknown as Spent['spentConcepts'],
+      }) as Spent & { concepts?: unknown };
+      payload.concepts = [{ name: 'legado' }];
+      spentRepository.create.mockResolvedValue(payload);
+
+      await service.create(payload);
+
+      expect(payload.spentConcepts).toBeUndefined();
+      expect(payload.concepts).toBeUndefined();
+      expect(spentRepository.create).toHaveBeenCalledWith(payload);
+    });
+
     it('relanza el error de persistencia', async () => {
       const payload = buildSpent();
       spentRepository.create.mockRejectedValue(new Error('duplicado'));
@@ -901,7 +911,11 @@ describe('SpentService', () => {
       spentRepository.findById.mockResolvedValue(spent);
 
       await expect(service.findById(spentId, ['supplier'])).resolves.toEqual(spent);
-      expect(spentRepository.findById).toHaveBeenCalledWith(spentId, ['supplier']);
+      expect(spentRepository.findById).toHaveBeenCalledWith(spentId, [
+        'supplier',
+        'spentConcepts',
+        'spentConcepts.serials',
+      ]);
     });
 
     it('lanza 404 cuando no existe y no se piden relaciones', async () => {

@@ -43,6 +43,7 @@ describe('SpentRepository', () => {
     where: jest.Mock;
     andWhere: jest.Mock;
     leftJoin: jest.Mock;
+    leftJoinAndSelect: jest.Mock;
     innerJoin: jest.Mock;
     innerJoinAndSelect: jest.Mock;
     select: jest.Mock;
@@ -80,6 +81,7 @@ describe('SpentRepository', () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       leftJoin: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       innerJoin: jest.fn().mockReturnThis(),
       innerJoinAndSelect: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
@@ -308,7 +310,7 @@ describe('SpentRepository', () => {
           createdAt: 'DESC',
         },
         take: 3,
-        select: ['id', 'name', 'issuedDate', 'concepts', 'createdAt'],
+        relations: ['spentConcepts'],
       });
       expect(result).toEqual(latestSpents);
     });
@@ -395,6 +397,7 @@ describe('SpentRepository', () => {
 
       expect(typeOrmRepositoryMock.createQueryBuilder).toHaveBeenCalledWith('spent');
       expect(queryBuilder.leftJoin).toHaveBeenCalledWith('spent.supplier', 'supplier');
+      expect(queryBuilder.leftJoinAndSelect).toHaveBeenCalledWith('spent.spentConcepts', 'spentConcept');
       expect(queryBuilder.where).toHaveBeenCalledWith('spent.declarationDate >= :startDate', {
         startDate,
       });

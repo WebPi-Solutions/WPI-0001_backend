@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
-import { ConceptResponseDto } from 'src/common/dto/concept-response.dto';
 import { ClientResponseDto } from 'src/entities/client/dto/client-response.dto';
+import { QuoteConceptResponseDto } from 'src/entities/quote-concept/dto/quote-concept-response.dto';
 import { QuoteStatus } from '../quote.entity';
 
 /**
@@ -45,15 +45,16 @@ export class QuoteResponseDto {
   formalizationDate: Date;
 
   /**
-   * Líneas de concepto
+   * Líneas de concepto persistidas en `quote_concepts`
    */
   @ApiProperty({
-    description: 'Conceptos de la cotización',
-    type: [ConceptResponseDto],
+    description: 'Conceptos del presupuesto',
+    type: [QuoteConceptResponseDto],
+    required: false,
   })
   @Expose()
-  @Type(() => ConceptResponseDto)
-  concepts: ConceptResponseDto[];
+  @Type(() => QuoteConceptResponseDto)
+  quoteConcepts?: QuoteConceptResponseDto[];
 
   /**
    * Estado de la cotización

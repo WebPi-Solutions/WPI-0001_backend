@@ -265,23 +265,19 @@ export class MetricsService {
     let totalIrpf = 0;
 
     for (const spent of spents) {
-      if (spent.concepts && Array.isArray(spent.concepts)) {
-        for (const concept of spent.concepts) {
+      if (spent.spentConcepts && Array.isArray(spent.spentConcepts)) {
+        for (const concept of spent.spentConcepts) {
           const quantity = concept.quantity || 1;
-          const basePrice = concept.base_price || 0;
+          const basePrice = concept.basePrice || 0;
           const vatPercentage = concept.vat || 0;
           const irpfPercentage = concept.irpf || 0;
-          const percentage = concept.percentage !== undefined ? concept.percentage : 100; // Por defecto 100%
 
-          // Calcular subtotal (base_price * quantity * percentage/100)
-          const conceptSubtotal = (basePrice * quantity * percentage) / 100;
+          const conceptSubtotal = basePrice * quantity;
           totalSubtotal += conceptSubtotal;
 
-          // Calcular IVA (subtotal * vat%)
           const conceptVat = (conceptSubtotal * vatPercentage) / 100;
           totalVat += conceptVat;
 
-          // Calcular IRPF (subtotal * irpf%)
           const conceptIrpf = (conceptSubtotal * irpfPercentage) / 100;
           totalIrpf += conceptIrpf;
         }
@@ -428,16 +424,14 @@ export class MetricsService {
       let monthIrpf = 0;
 
       for (const spent of spents) {
-        if (spent.concepts && Array.isArray(spent.concepts)) {
-          for (const concept of spent.concepts) {
+        if (spent.spentConcepts && Array.isArray(spent.spentConcepts)) {
+          for (const concept of spent.spentConcepts) {
             const quantity = concept.quantity || 1;
-            const basePrice = concept.base_price || 0;
+            const basePrice = concept.basePrice || 0;
             const vatPercentage = concept.vat || 0;
             const irpfPercentage = concept.irpf || 0;
-            const percentage = concept.percentage !== undefined ? concept.percentage : 100; // Por defecto 100%
 
-            // Calcular subtotal con percentage aplicado
-            const conceptSubtotal = (basePrice * quantity * percentage) / 100;
+            const conceptSubtotal = basePrice * quantity;
             monthSubtotal += conceptSubtotal;
             monthVat += (conceptSubtotal * vatPercentage) / 100;
             monthIrpf += (conceptSubtotal * irpfPercentage) / 100;

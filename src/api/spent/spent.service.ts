@@ -80,6 +80,7 @@ export class SpentService {
     this.logger.log(`Datos del gasto a crear:`, JSON.stringify(spent, null, 2));
 
     await this.assertSpentTenantAccessible(spent);
+    this.stripSpentConceptRelation(spent);
 
     try {
       const newSpent = await this.spentRepository.create(spent);
@@ -125,7 +126,7 @@ export class SpentService {
     
     const relationsWithSupplier = this.enterpriseAccessService.mergeRelationNames(
       relations,
-      ['supplier'],
+      ['supplier', 'spentConcepts', 'spentConcepts.serials'],
     );
     const spent = await this.spentRepository.findById(id, relationsWithSupplier);
     
@@ -161,6 +162,7 @@ export class SpentService {
     } as Spent;
     // Revalida el proveedor tras el merge: el cuerpo puede apuntar a un proveedor de otra empresa.
     await this.assertSpentTenantAccessible(mergedSpent);
+    this.stripSpentConceptRelation(spent);
     
     try {
       const updatedSpent = await this.spentRepository.updateById(id, spent);
@@ -598,7 +600,7 @@ export class SpentService {
     const historicalConcepts: SpentConcept[] = [];
 
     for (const spent of spents) {
-      for (const concept of spent.concepts ?? []) {
+      for (const concept of spent.spentConcepts ?? []) {
         const mappedConcept = this.mapToHistoricalSpentConcept(concept);
         if (!mappedConcept) {
           continue;
@@ -614,10 +616,12 @@ export class SpentService {
   /**
    * Normaliza un concepto histórico a los campos usados por la extracción con IA.
    * No incluye imputación: OpenAI no la extrae y el frontend la ajusta después.
-   * @param concept Concepto almacenado en un gasto
+   * @param concept Concepto persistido en `spent_concepts`
    * @returns Concepto listo para el prompt, o null si no tiene nombre
    */
-  private mapToHistoricalSpentConcept(concept: SpentConcept): SpentConcept | null {
+  private mapToHistoricalSpentConcept(
+    concept: { name?: string; basePrice?: number; vat?: number; irpf?: number; quantity?: number } | null | undefined,
+  ): SpentConcept | null {
     const conceptName = concept?.name?.trim();
     if (!conceptName) {
       return null;
@@ -625,11 +629,11 @@ export class SpentService {
 
     const mappedConcept = new SpentConcept();
     mappedConcept.name = conceptName;
-    mappedConcept.base_price = Number(concept.base_price) || 0;
+    mappedConcept.base_price = Number(concept.basePrice) || 0;
     mappedConcept.vat = Number(concept.vat) || 0;
     mappedConcept.irpf = Number(concept.irpf) || 0;
     mappedConcept.quantity = Number(concept.quantity) || 1;
-    mappedConcept.supplied = Boolean(concept.supplied);
+    mappedConcept.supplied = false;
 
     return mappedConcept;
   }
@@ -798,6 +802,15 @@ export class SpentService {
       this.logger.error(`Error al cambiar la carpeta de Dropbox del gasto ${spentId}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Quita la colección de líneas del payload de gasto: se persisten por `/spent-concepts`.
+   * @param spent - Gasto a persistir
+   */
+  private stripSpentConceptRelation(spent: Spent): void {
+    delete (spent as { spentConcepts?: unknown }).spentConcepts;
+    delete (spent as { concepts?: unknown }).concepts;
   }
 
   /**

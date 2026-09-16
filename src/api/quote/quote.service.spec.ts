@@ -134,14 +134,17 @@ describe('QuoteService', () => {
     });
 
     it('omite los datos persistentes cuando la cotización está en borrador', async () => {
-      const draftQuote = buildQuote({ status: QuoteStatus.DRAFT });
+      const draftQuote = buildQuote({
+        status: QuoteStatus.DRAFT,
+        quoteConcepts: [{ name: 'Ignorada' }] as Quote['quoteConcepts'],
+      });
       clientRepository.findById.mockResolvedValue(buildClient());
       quoteRepository.create.mockResolvedValue(draftQuote);
 
       await expect(service.create(draftQuote)).resolves.toEqual(draftQuote);
       expect(clientRepository.findById).toHaveBeenCalledWith(clientId);
       expect(enterpriseRepository.findById).not.toHaveBeenCalled();
-      expect(quoteRepository.create).toHaveBeenCalledWith(draftQuote);
+      expect(quoteRepository.create.mock.calls[0][0]).not.toHaveProperty('quoteConcepts');
     });
 
     it('copia los datos de cliente y emisor cuando no está en borrador', async () => {
@@ -230,7 +233,7 @@ describe('QuoteService', () => {
       quoteRepository.findById.mockResolvedValue(existingQuote);
 
       await expect(service.findById(quoteId, ['client'])).resolves.toEqual(existingQuote);
-      expect(quoteRepository.findById).toHaveBeenCalledWith(quoteId, ['client']);
+      expect(quoteRepository.findById).toHaveBeenCalledWith(quoteId, ['client', 'quoteConcepts']);
     });
 
     it('lanza 404 si la cotización no existe', async () => {

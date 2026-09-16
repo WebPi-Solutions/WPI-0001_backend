@@ -9,6 +9,12 @@ import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/en
 import { PermissionAction } from 'src/common/helpers/enterprise-permission/permission.catalog';
 
 /**
+ * Mensaje HTTP cuando se pide número de serie con el stock desactivado.
+ */
+export const ITEM_SERIAL_NUMBER_REQUIRES_STOCK_MESSAGE =
+  'El número de serie requiere que el stock esté habilitado';
+
+/**
  * Servicio de API de artículos.
  * El tenant no vive en `item`: se resuelve a través de `itemCategory.enterpriseId`.
  */
@@ -41,6 +47,10 @@ export class ItemService {
       item,
       itemCategory.itemCategoryId,
       true,
+    );
+    this.assertSerialNumberRequiresStock(
+      Boolean(payloadForPersistence.serialNumber),
+      Boolean(payloadForPersistence.stock),
     );
 
     try {
@@ -150,6 +160,10 @@ export class ItemService {
       item,
       resolvedItemCategory.itemCategoryId,
       false,
+    );
+    this.assertSerialNumberRequiresStock(
+      payloadForPersistence.serialNumber ?? Boolean(existingItem.serialNumber),
+      payloadForPersistence.stock ?? Boolean(existingItem.stock),
     );
 
     try {
@@ -405,6 +419,21 @@ export class ItemService {
       return false;
     }
     return fieldValue;
+  }
+
+  /**
+   * Rechaza un artículo con número de serie activo y stock deshabilitado.
+   * @param serialNumber - Indicador de serie resultante
+   * @param stock - Indicador de stock resultante
+   */
+  private assertSerialNumberRequiresStock(serialNumber: boolean, stock: boolean): void {
+    if (serialNumber && !stock) {
+      this.logger.error('Número de serie activo con el stock deshabilitado');
+      throw new HttpException(
+        ITEM_SERIAL_NUMBER_REQUIRES_STOCK_MESSAGE,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   /**

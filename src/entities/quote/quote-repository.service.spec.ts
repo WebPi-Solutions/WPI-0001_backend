@@ -41,6 +41,7 @@ describe('QuoteRepository', () => {
     where: jest.Mock;
     andWhere: jest.Mock;
     leftJoin: jest.Mock;
+    leftJoinAndSelect: jest.Mock;
     innerJoin: jest.Mock;
     innerJoinAndSelect: jest.Mock;
     select: jest.Mock;
@@ -76,6 +77,7 @@ describe('QuoteRepository', () => {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       leftJoin: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       innerJoin: jest.fn().mockReturnThis(),
       innerJoinAndSelect: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
@@ -213,7 +215,6 @@ describe('QuoteRepository', () => {
       const thrownError = await expectHttpException(
         quoteRepositoryService.updateById('missing-id', {
           status: QuoteStatus.ISSUED,
-          concepts: [],
         } as Quote),
       );
 
@@ -225,7 +226,6 @@ describe('QuoteRepository', () => {
       const thrownError = await expectHttpException(
         quoteRepositoryService.updateById('quote-uuid', {
           status: 'invalid' as QuoteStatus,
-          concepts: [],
         } as Quote),
       );
 
@@ -242,7 +242,6 @@ describe('QuoteRepository', () => {
       const payload = {
         status: QuoteStatus.ISSUED,
         name: 'Nuevo',
-        concepts: [],
       } as Quote;
       const reloadedQuote = { ...existingQuote, ...payload } as Quote;
 
@@ -292,6 +291,10 @@ describe('QuoteRepository', () => {
 
       expect(typeOrmRepositoryMock.createQueryBuilder).toHaveBeenCalledWith('quote');
       expect(queryBuilder.leftJoin).toHaveBeenCalledWith('quote.client', 'client');
+      expect(queryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+        'quote.quoteConcepts',
+        'quoteConcepts',
+      );
       expect(queryBuilder.where).toHaveBeenCalledWith('quote.status != :status', {
         status: QuoteStatus.DRAFT,
       });
@@ -325,6 +328,8 @@ describe('QuoteRepository', () => {
 
       const [sql, parameters] = getLastQueryCall();
       expect(sql).toContain('c.enterprise_id = $1');
+      expect(sql).toContain('FROM quote_concepts qc');
+      expect(sql).not.toContain('jsonb_array_elements');
       expect(sql).not.toContain('q.status IN');
       expect(parameters).toEqual([enterpriseId]);
     });

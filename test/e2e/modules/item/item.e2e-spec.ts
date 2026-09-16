@@ -172,3 +172,82 @@ describe('Artículos (e2e) — control de acceso', () => {
     expectIdorHidden((await http().delete(itemPath).set(authHeader(E2E_EMAIL.outsider))).status);
   });
 });
+
+describe('Artículos (e2e) — número de serie exige stock', () => {
+  beforeAll(async () => {
+    await startE2eWorld();
+  });
+
+  it('rechaza crear un artículo con número de serie y stock deshabilitado', async () => {
+    const seed = getE2eSeed();
+    const response = await http()
+      .post('/items')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        name: 'Serie sin stock',
+        itemCategoryId: seed.itemCategoryA.id,
+        serialNumber: true,
+        stock: false,
+      });
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      'El número de serie requiere que el stock esté habilitado',
+    );
+  });
+
+  it('rechaza crear un artículo con número de serie si el stock se omite', async () => {
+    const seed = getE2eSeed();
+    const response = await http()
+      .post('/items')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        name: 'Serie omitiendo stock',
+        itemCategoryId: seed.itemCategoryA.id,
+        serialNumber: true,
+      });
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      'El número de serie requiere que el stock esté habilitado',
+    );
+  });
+
+  it('crea un artículo con número de serie y stock habilitados', async () => {
+    const seed = getE2eSeed();
+    const created = await http()
+      .post('/items')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        name: 'Serie con stock',
+        itemCategoryId: seed.itemCategoryA.id,
+        serialNumber: true,
+        stock: true,
+      });
+    expect(created.status).toBe(201);
+    expect(created.body.serialNumber).toBe(true);
+    expect(created.body.stock).toBe(true);
+
+    await http().delete(`/items/${created.body.id}`).set(authHeader(E2E_EMAIL.userA));
+  });
+
+  it('rechaza desactivar el stock de un artículo que sigue con número de serie', async () => {
+    const seed = getE2eSeed();
+    const response = await http()
+      .patch(`/items/${seed.itemA.id}`)
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ stock: false });
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe(
+      'El número de serie requiere que el stock esté habilitado',
+    );
+
+    const stillTracked = await http()
+      .get(`/items/${seed.itemA.id}`)
+      .set(authHeader(E2E_EMAIL.userA));
+    expect(stillTracked.status).toBe(200);
+    expect(stillTracked.body.serialNumber).toBe(true);
+    expect(stillTracked.body.stock).toBe(true);
+  });
+});

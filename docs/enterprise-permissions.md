@@ -56,7 +56,7 @@ También se expone en `GET /enterprise-roles/catalog`.
 
 **Recursos:**
 
-`clients`, `suppliers`, `invoices`, `quotes`, `invoiceSeries`, `recurrentEarnings`, `spents`, `itemCategories`, `items`, `users`, `enterpriseRoles`, `enterprises`, `signings`, `vacations`, `holidays`, `workSchedules`, `defaultSchedules`, `billing`, `aiRequests`.
+`clients`, `suppliers`, `invoices`, `quotes`, `orders`, `invoiceSeries`, `recurrentEarnings`, `spents`, `itemCategories`, `items`, `users`, `enterpriseRoles`, `enterprises`, `signings`, `vacations`, `holidays`, `workSchedules`, `defaultSchedules`, `billing`, `aiRequests`.
 
 No hay recurso `userEnterprises`: el vínculo se crea o edita en el alta/edición de usuario (`users.write`). El kiosco NFC (`GET /user-enterprises/card/:cardId`) exige `signings.read`.
 

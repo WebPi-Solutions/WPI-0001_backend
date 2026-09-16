@@ -50,7 +50,6 @@ describe('MetricsService', () => {
           quantity: 2,
           vat: 21,
           irpf: 15,
-          supplied: false,
         },
       ],
       ...overrides,
@@ -66,15 +65,13 @@ describe('MetricsService', () => {
       id: 'spent-uuid',
       name: 'Gasto de prueba',
       issuedDate: new Date('2026-01-15T00:00:00.000Z'),
-      concepts: [
+      spentConcepts: [
         {
           name: 'Hosting',
-          base_price: 100,
+          basePrice: 100,
           quantity: 1,
           vat: 21,
           irpf: 0,
-          supplied: false,
-          percentage: 50,
         },
       ],
       ...overrides,
@@ -269,7 +266,6 @@ describe('MetricsService', () => {
               quantity: 1,
               vat: 10,
               irpf: 0,
-              supplied: false,
             } as Invoice['invoiceConcepts'][number],
           ],
         }),
@@ -302,7 +298,6 @@ describe('MetricsService', () => {
               basePrice: 40,
               vat: 21,
               irpf: 0,
-              supplied: false,
             } as Invoice['invoiceConcepts'][number],
           ],
         }),
@@ -322,7 +317,6 @@ describe('MetricsService', () => {
             {
               name: 'Vacío',
               quantity: 2,
-              supplied: false,
             } as Invoice['invoiceConcepts'][number],
           ],
         }),
@@ -372,7 +366,7 @@ describe('MetricsService', () => {
       expect(spentRepository.getSpentsForMetrics).not.toHaveBeenCalled();
     });
 
-    it('aplica el percentage del concepto al subtotal, IVA e IRPF', async () => {
+    it('calcula subtotal, IVA e IRPF a partir de las líneas persistidas', async () => {
       spentRepository.getSpentsForMetrics.mockResolvedValue([buildSpent()]);
 
       const metrics = await service.getSpentMetrics(periodStart, periodEnd, enterpriseId);
@@ -382,25 +376,24 @@ describe('MetricsService', () => {
         periodEnd,
         enterpriseId,
       );
-      expect(metrics.subtotal).toBe(50);
-      expect(metrics.vat).toBe(10.5);
+      expect(metrics.subtotal).toBe(100);
+      expect(metrics.vat).toBe(21);
       expect(metrics.irpf).toBe(0);
-      expect(metrics.total).toBe(60.5);
+      expect(metrics.total).toBe(121);
       expect(metrics.spentCount).toBe(1);
     });
 
-    it('usa percentage 100 cuando el concepto no lo informa', async () => {
+    it('usa quantity 1 y precios informados cuando no hay defaults extra', async () => {
       spentRepository.getSpentsForMetrics.mockResolvedValue([
         buildSpent({
-          concepts: [
+          spentConcepts: [
             {
-              name: 'Sin percentage',
-              base_price: 80,
+              name: 'Sin extras',
+              basePrice: 80,
               quantity: 1,
               vat: 10,
               irpf: 0,
-              supplied: false,
-            } as Spent['concepts'][number],
+            } as Spent['spentConcepts'][number],
           ],
         }),
       ]);
@@ -415,11 +408,10 @@ describe('MetricsService', () => {
     it('usa quantity 1 y precios 0 cuando faltan en el concepto', async () => {
       spentRepository.getSpentsForMetrics.mockResolvedValue([
         buildSpent({
-          concepts: [
+          spentConcepts: [
             {
               name: 'Incompleto',
-              supplied: false,
-            } as Spent['concepts'][number],
+            } as Spent['spentConcepts'][number],
           ],
         }),
       ]);
@@ -434,14 +426,14 @@ describe('MetricsService', () => {
     it('cuenta gastos sin conceptos y no altera los importes', async () => {
       spentRepository.getSpentsForMetrics.mockResolvedValue([
         buildSpent(),
-        buildSpent({ id: 'sin-conceptos', concepts: undefined }),
-        buildSpent({ id: 'no-array', concepts: 'invalido' as unknown as Spent['concepts'] }),
+        buildSpent({ id: 'sin-conceptos', spentConcepts: undefined }),
+        buildSpent({ id: 'no-array', spentConcepts: 'invalido' as unknown as Spent['spentConcepts'] }),
       ]);
 
       const metrics = await service.getSpentMetrics(periodStart, periodEnd, enterpriseId);
 
       expect(metrics.spentCount).toBe(3);
-      expect(metrics.subtotal).toBe(50);
+      expect(metrics.subtotal).toBe(100);
     });
   });
 
@@ -476,7 +468,6 @@ describe('MetricsService', () => {
               invoiceConcepts: [
                 {
                   name: 'Defaults',
-                  supplied: false,
                 } as Invoice['invoiceConcepts'][number],
               ],
             }),
@@ -516,7 +507,7 @@ describe('MetricsService', () => {
       });
     });
 
-    it('acumula percentage, defaults y gastos sin conceptos en el mes correspondiente', async () => {
+    it('acumula líneas persistidas, defaults y gastos sin conceptos en el mes correspondiente', async () => {
       spentRepository.getSpentsForMetrics.mockImplementation((startDate: Date) => {
         if (startDate.getMonth() !== 1) {
           return Promise.resolve([]);
@@ -524,28 +515,26 @@ describe('MetricsService', () => {
         return Promise.resolve([
           buildSpent(),
           buildSpent({
-            id: 'sin-percentage',
-            concepts: [
+            id: 'otra-linea',
+            spentConcepts: [
               {
-                name: 'Sin percentage',
-                base_price: 80,
+                name: 'Otra',
+                basePrice: 80,
                 quantity: 1,
                 vat: 10,
                 irpf: 15,
-                supplied: false,
-              } as Spent['concepts'][number],
+              } as Spent['spentConcepts'][number],
             ],
           }),
           buildSpent({
             id: 'defaults',
-            concepts: [
+            spentConcepts: [
               {
                 name: 'Defaults',
-                supplied: false,
-              } as Spent['concepts'][number],
+              } as Spent['spentConcepts'][number],
             ],
           }),
-          buildSpent({ id: 'sin-conceptos', concepts: undefined }),
+          buildSpent({ id: 'sin-conceptos', spentConcepts: undefined }),
         ]);
       });
 
@@ -553,12 +542,12 @@ describe('MetricsService', () => {
 
       expect(yearlyMetrics.months[1].monthName).toBe('Febrero');
       expect(yearlyMetrics.months[1].count).toBe(4);
-      expect(yearlyMetrics.months[1].subtotal).toBe(130);
-      expect(yearlyMetrics.months[1].vat).toBe(18.5);
+      expect(yearlyMetrics.months[1].subtotal).toBe(180);
+      expect(yearlyMetrics.months[1].vat).toBe(29);
       expect(yearlyMetrics.months[1].irpf).toBe(12);
-      expect(yearlyMetrics.months[1].total).toBe(136.5);
+      expect(yearlyMetrics.months[1].total).toBe(197);
       expect(yearlyMetrics.totals.count).toBe(4);
-      expect(yearlyMetrics.totals.subtotal).toBe(130);
+      expect(yearlyMetrics.totals.subtotal).toBe(180);
     });
   });
 });

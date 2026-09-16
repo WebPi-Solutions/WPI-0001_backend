@@ -234,7 +234,6 @@ describe('InvoiceConceptService', () => {
           vat: 21,
           irpf: 0,
           quantity: 1,
-          supplied: false,
           ean: null,
         }),
       );
@@ -264,7 +263,6 @@ describe('InvoiceConceptService', () => {
           vat: null as unknown as number,
           irpf: null as unknown as number,
           quantity: null as unknown as number,
-          supplied: null as unknown as boolean,
         } as InvoiceConcept,
         enterpriseId,
       );
@@ -277,7 +275,6 @@ describe('InvoiceConceptService', () => {
           vat: 21,
           irpf: 0,
           quantity: 1,
-          supplied: false,
         }),
       );
     });
@@ -287,7 +284,7 @@ describe('InvoiceConceptService', () => {
       invoiceConceptRepository.create.mockResolvedValue(buildInvoiceConcept());
 
       await service.create(
-        { invoiceId, item: { id: itemId } as Item, supplied: false } as InvoiceConcept,
+        { invoiceId, item: { id: itemId } as Item } as InvoiceConcept,
         enterpriseId,
       );
 
@@ -297,7 +294,6 @@ describe('InvoiceConceptService', () => {
           itemId,
           name: 'Tornillo',
           ean: null,
-          supplied: false,
         }),
       );
     });
@@ -429,14 +425,6 @@ describe('InvoiceConceptService', () => {
       });
       await expect(
         service.create(
-          { invoiceId, name: 'Hora', supplied: 'si' as unknown as boolean } as InvoiceConcept,
-          enterpriseId,
-        ),
-      ).rejects.toMatchObject({
-        message: 'El indicador de suplido debe ser un valor booleano',
-      });
-      await expect(
-        service.create(
           { invoiceId, name: 'Hora', ean: 1 as unknown as string } as InvoiceConcept,
           enterpriseId,
         ),
@@ -523,7 +511,6 @@ describe('InvoiceConceptService', () => {
         position: 3,
         basePrice: '8.5' as unknown as number,
         ean: '   ',
-        supplied: true,
       } as InvoiceConcept);
 
       expect(invoiceConceptRepository.updateById).toHaveBeenCalledWith(
@@ -534,7 +521,6 @@ describe('InvoiceConceptService', () => {
           position: 3,
           basePrice: 8.5,
           ean: null,
-          supplied: true,
         }),
       );
       expect(invoiceConceptRepository.updateById.mock.calls[0][1].invoiceId).toBeUndefined();

@@ -16,6 +16,7 @@ export type PermissionResource =
   | 'suppliers'
   | 'invoices'
   | 'quotes'
+  | 'orders'
   | 'invoiceSeries'
   | 'recurrentEarnings'
   | 'spents'
@@ -53,6 +54,7 @@ export const PERMISSION_RESOURCES: readonly PermissionResource[] = [
   'suppliers',
   'invoices',
   'quotes',
+  'orders',
   'invoiceSeries',
   'recurrentEarnings',
   'spents',

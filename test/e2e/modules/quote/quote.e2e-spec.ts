@@ -45,7 +45,6 @@ describe('Presupuestos (e2e) — control de acceso', () => {
         issuedDate: '2026-03-01',
         formalizationDate: '2026-03-15',
         status: 'draft',
-        concepts: [],
       });
     expectIdorHidden(response.status);
   });
@@ -67,7 +66,6 @@ describe('Presupuestos (e2e) — control de acceso', () => {
         issuedDate: '2026-03-01',
         formalizationDate: '2026-03-15',
         status: 'draft',
-        concepts: [],
       });
     expect(created.status).toBe(201);
 

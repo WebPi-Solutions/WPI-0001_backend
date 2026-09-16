@@ -215,6 +215,7 @@ describe('Conceptos de factura (e2e) — reglas de negocio', () => {
         name: serialNumber ? 'Artículo con serie' : 'Artículo sin serie',
         itemCategoryId: seed.itemCategoryA.id,
         serialNumber,
+        stock: serialNumber,
         pricePvp: 12,
       });
     expect(item.status).toBe(201);

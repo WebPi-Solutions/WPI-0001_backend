@@ -12,6 +12,7 @@ const TENANT_GET_PATHS = [
   '/items',
   '/invoices',
   '/quotes',
+  '/orders',
   '/spents',
   '/invoice-series',
   '/holidays',

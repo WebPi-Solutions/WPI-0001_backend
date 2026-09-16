@@ -34,7 +34,6 @@ describe('Gastos (e2e) — control de acceso', () => {
         collectionDate: '2026-03-15',
         declarationDate: '2026-03-01',
         status: 'paid',
-        concepts: [],
       });
     expectIdorHidden(response.status);
   });
@@ -65,6 +64,15 @@ describe('Gastos (e2e) — control de acceso', () => {
     const seed = getE2eSeed();
     const response = await http().get(`/spents/${seed.spentA.id}`).set(authHeader(E2E_EMAIL.userA));
     expect(response.status).toBe(200);
+    const spentConcepts = response.body.spentConcepts as Array<{
+      id: string;
+      serials?: Array<{ id: string }>;
+    }>;
+    expect(spentConcepts.some((concept) => concept.id === seed.spentConceptA.id)).toBe(true);
+    const seededConcept = spentConcepts.find((concept) => concept.id === seed.spentConceptA.id);
+    expect(seededConcept?.serials?.some((serial) => serial.id === seed.spentConceptSerialA.id)).toBe(
+      true,
+    );
   });
 
   it('el usuario A no actualiza ni borra el gasto de B', async () => {
