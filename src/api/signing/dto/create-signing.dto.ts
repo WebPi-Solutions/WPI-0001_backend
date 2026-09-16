@@ -9,7 +9,7 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
-import { SigningAction } from 'src/entities/signing/signing.entity';
+import { SigningAction } from 'src/common/enums';
 
 /**
  * Cuerpo para registrar un fichaje (`signings`).

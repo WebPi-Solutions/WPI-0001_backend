@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { SigningAction } from 'src/entities/signing/signing.entity';
+import { SigningAction } from 'src/common/enums';
 import { coverDtoClass } from 'src/test-utils/cover-data-classes';
 import { CreateSigningDto } from './create-signing.dto';
 import { UpdateSigningDto } from './update-signing.dto';

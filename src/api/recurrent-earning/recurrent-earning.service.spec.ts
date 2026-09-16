@@ -3,7 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ClientRepository } from 'src/entities/client/client-repository.service';
 import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-series-repository.service';
 import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recurrent-earning-repository.service';
-import { RecurrentEarning, RecurrentEarningType } from 'src/entities/recurrent-earning/recurrent-earning.entity';
+import { RecurrentEarning } from 'src/entities/recurrent-earning/recurrent-earning.entity';
+import { RecurrentEarningType } from 'src/common/enums';
 import { RecurrentEarningService } from './recurrent-earning.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 

@@ -260,7 +260,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Cliente Ejemplo\",\n  \"enterpriseId\": \"uuid-empresa\",\n  \"nif\": \"B12345678\",\n  \"email\": \"cliente@ejemplo.com\",\n  \"phone\": \"+34600000000\",\n  \"address\": \"Calle Ejemplo 123\",\n  \"type\": \"empresa\",\n  \"accountNumber\": \"ES1234567890\",\n  \"equivalenceSurcharge\": \"0\",\n  \"description\": \"Cliente de prueba\"\n}"
+              "raw": "{\n  \"name\": \"Cliente Ejemplo\",\n  \"enterpriseId\": \"uuid-empresa\",\n  \"nif\": \"B12345678\",\n  \"email\": \"cliente@ejemplo.com\",\n  \"phone\": \"+34600000000\",\n  \"address\": \"Calle Ejemplo 123\",\n  \"type\": \"empresa\",\n  \"accountNumber\": \"ES1234567890\",\n  \"paymentMethod\": \"bank_transfer\",\n  \"description\": \"Cliente de prueba\"\n}"
             },
             "url": {
               "raw": "{{url}}/clients",
@@ -544,7 +544,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Proveedor Ejemplo\",\n  \"enterpriseId\": \"uuid-empresa\",\n  \"nif\": \"B87654321\",\n  \"email\": \"proveedor@ejemplo.com\",\n  \"phone\": \"+34600111222\",\n  \"address\": \"Calle Proveedores 123\",\n  \"type\": \"mayorista\",\n  \"accountNumber\": \"ES9876543210\",\n  \"equivalenceSurcharge\": \"0\",\n  \"description\": \"Proveedor de prueba\"\n}"
+              "raw": "{\n  \"name\": \"Proveedor Ejemplo\",\n  \"enterpriseId\": \"uuid-empresa\",\n  \"nif\": \"B87654321\",\n  \"email\": \"proveedor@ejemplo.com\",\n  \"phone\": \"+34600111222\",\n  \"address\": \"Calle Proveedores 123\",\n  \"type\": \"mayorista\",\n  \"accountNumber\": \"ES9876543210\",\n  \"description\": \"Proveedor de prueba\"\n}"
             },
             "url": {
               "raw": "{{url}}/suppliers",

@@ -2,9 +2,8 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { Invoice, InvoiceStatus } from './invoice.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/common/helpers/query-builder/query-builder.service';
+import { QueryBuilderService, QueryFilterOptions } from 'src/common/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
-import { Concept } from 'src/common/models/Concept';
 import { InvoiceSubtotalsByStatusDto, InvoiceStatusMetricsDto } from 'src/api/metrics/dto';
 
 @Injectable()
@@ -22,9 +21,6 @@ export class InvoiceRepository {
   create(invoice: Invoice): Promise<Invoice> {
     // Verifica que el estado de la factura sea válido
     this.verifyInvoiceStatus(invoice);
-
-    // Verifica que los conceptos sean válidos
-    this.validateConcepts(invoice.concepts);
 
     return this.invoiceRepository.save(invoice);
   }
@@ -90,9 +86,6 @@ export class InvoiceRepository {
     // Verifica que el estado de la factura sea válido
     this.verifyInvoiceStatus(invoice);
 
-    // Verifica que los conceptos sean válidos
-    this.validateConcepts(invoice.concepts);
-
     // Obtiene la factura a actualizar
     const invoiceToUpdate = await this.invoiceRepository.findOne({ where: { id } });
 
@@ -124,50 +117,20 @@ export class InvoiceRepository {
     }
   }
 
-  private validateConcepts(concepts: Concept[]): void {
-    // concepts.forEach(concept => {
-    //   if(!Object.values(ConceptVats).some(vat => vat.value === concept.vat)) {
-    //     this.logger.error(`El IVA del concepto no es válido: ${concept.vat}`);
-    //     throw new HttpException(`El IVA del concepto no es válido: ${concept.vat}`, HttpStatus.BAD_REQUEST);
-    //   }
-
-    //   if(!Object.values(ConceptIrpfs).some(irpf => irpf.value === concept.irpf)) {
-    //     this.logger.error(`El IRPF del concepto no es válido: ${concept.irpf}`);
-    //     throw new HttpException(`El IRPF del concepto no es válido: ${concept.irpf}`, HttpStatus.BAD_REQUEST);
-    //   }
-
-    //   if(concept.quantity <= 0) {
-    //     this.logger.error(`La cantidad del concepto no es válida: ${concept.quantity}`);
-    //     throw new HttpException(`La cantidad del concepto no es válida: ${concept.quantity}`, HttpStatus.BAD_REQUEST);
-    //   }
-
-    //   if(concept.base_price <= 0) {
-    //     this.logger.error(`El precio base del concepto no es válido: ${concept.base_price}`);
-    //     throw new HttpException(`El precio base del concepto no es válido: ${concept.base_price}`, HttpStatus.BAD_REQUEST);
-    //   }
-    // });
-  }
-
   /**
-   * Obtiene facturas emitidas con sus conceptos en un rango de fechas para cálculo de métricas
+   * Obtiene facturas emitidas con sus líneas en un rango de fechas para cálculo de métricas
    * @param startDate - Fecha de inicio (inclusive)
    * @param endDate - Fecha de fin (inclusive)
    * @param enterpriseId - ID de la empresa
-   * @returns Array de facturas con sus conceptos
+   * @returns Array de facturas con sus líneas
    */
   async getNonDraftInvoicesForMetrics(startDate: Date, endDate: Date, enterpriseId: string): Promise<Invoice[]> {
     this.logger.log(`Obteniendo facturas emitidas desde ${startDate.toISOString()} hasta ${endDate.toISOString()} para empresa ${enterpriseId}`);
 
-    // Consulta optimizada que obtiene solo los conceptos de facturas emitidas en el rango de fechas
     const result = await this.invoiceRepository
       .createQueryBuilder('invoice')
       .leftJoin('invoice.client', 'client')
-      .select([
-        'invoice.concepts',
-        'invoice.id',
-        'invoice.issuedDate',
-        'invoice.name'
-      ])
+      .leftJoinAndSelect('invoice.invoiceConcepts', 'invoiceConcepts')
       .where('invoice.status != :status', { status: InvoiceStatus.DRAFT })
       .andWhere('invoice.issuedDate >= :startDate', { startDate })
       .andWhere('invoice.issuedDate <= :endDate', { endDate })
@@ -199,8 +162,9 @@ export class InvoiceRepository {
         i.status,
         COUNT(*)::int AS count,
         ROUND(CAST(SUM(
-          (SELECT COALESCE(SUM((elem->>'base_price')::numeric * COALESCE((elem->>'quantity')::int, 1)), 0)
-           FROM jsonb_array_elements(COALESCE(i.concepts, '[]'::jsonb)) elem)
+          (SELECT COALESCE(SUM(ic.base_price * ic.quantity), 0)
+           FROM invoice_concepts ic
+           WHERE ic.invoice_id = i.id)
         ) AS numeric), 2) AS subtotal
       FROM invoices i
       INNER JOIN clients c ON i.client_id = c.id

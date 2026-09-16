@@ -1,18 +1,11 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
+import { RecurrentEarningType } from 'src/common/enums';
 import { Concept } from 'src/common/models/Concept';
 import { Client } from '../client/client.entity';
 import { Enterprise } from '../enterprise/enterprise.entity';
 import { Invoice } from '../invoice/invoice.entity';
 import { InvoiceSeries } from '../invoice-series/invoice-series.entity';
-
-/**
- * Periodicidad del ingreso recurrente (tipo PostgreSQL `recurrent_earnings_type`).
- */
-export enum RecurrentEarningType {
-  MONTHLY = 'monthly',
-  YEARLY = 'yearly',
-}
 
 /**
  * Entidad Ingreso recurrente que representa la tabla recurrent_earnings.

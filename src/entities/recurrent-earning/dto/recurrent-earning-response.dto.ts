@@ -5,7 +5,7 @@ import { ClientResponseDto } from 'src/entities/client/dto/client-response.dto';
 import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
 import { InvoiceResponseDto } from 'src/entities/invoice/dto/invoice-response.dto';
 import { InvoiceSeriesResponseDto } from 'src/entities/invoice-series/dto/invoice-series-response.dto';
-import { RecurrentEarningType } from '../recurrent-earning.entity';
+import { RecurrentEarningType } from 'src/common/enums';
 
 /**
  * Vista pública de ingreso recurrente para respuestas HTTP.

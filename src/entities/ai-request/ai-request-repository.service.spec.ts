@@ -14,7 +14,8 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { QueryBuilderService } from 'src/common/helpers/query-builder/query-builder.service';
-import { AiRequest, AiRequestType } from './ai-request.entity';
+import { AiRequest } from './ai-request.entity';
+import { AiRequestType } from 'src/common/enums';
 import { AiRequestRepository } from './ai-request-repository.service';
 
 /**

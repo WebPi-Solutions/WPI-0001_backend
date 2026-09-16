@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
-import { AiMode } from 'src/common/models/AiMode';
+import { AiMode } from 'src/common/enums';
 
 /**
  * Vista pública de empresa para respuestas HTTP.

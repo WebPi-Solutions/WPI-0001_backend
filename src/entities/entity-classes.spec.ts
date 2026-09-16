@@ -1,15 +1,25 @@
 import { invokeTypeOrmMetadataCallbacks } from 'src/test-utils/cover-data-classes';
-import { AiRequest, AiRequestType } from './ai-request/ai-request.entity';
-import { AiMode } from 'src/common/models/AiMode';
+import {
+  AiMode,
+  AiRequestType,
+  PaymentMethod,
+  RecurrentEarningType,
+  SigningAction,
+} from 'src/common/enums';
+import { AiRequest } from './ai-request/ai-request.entity';
 import { Client } from './client/client.entity';
 import { DefaultSchedule } from './default-schedule/default-schedule.entity';
 import { Enterprise } from './enterprise/enterprise.entity';
 import { Holiday } from './holiday/holiday.entity';
 import { Invoice, InvoiceStatus } from './invoice/invoice.entity';
+import { InvoiceConcept } from './invoice-concept/invoice-concept.entity';
+import { InvoiceConceptSerial } from './invoice-concept-serial/invoice-concept-serial.entity';
 import { InvoiceSeries } from './invoice-series/invoice-series.entity';
+import { Item } from './item/item.entity';
+import { ItemCategory } from './item-category/item-category.entity';
 import { Quote, QuoteStatus } from './quote/quote.entity';
-import { RecurrentEarning, RecurrentEarningType } from './recurrent-earning/recurrent-earning.entity';
-import { Signing, SigningAction } from './signing/signing.entity';
+import { RecurrentEarning } from './recurrent-earning/recurrent-earning.entity';
+import { Signing } from './signing/signing.entity';
 import { SigningUpdate } from './signing/signing-update.entity';
 import { Spent } from './spent/spent.entity';
 import { Supplier } from './supplier/supplier.entity';
@@ -49,6 +59,7 @@ describe('Entidades TypeORM', () => {
       holidays: [],
       recurrentEarnings: [],
       aiRequests: [],
+      itemCategories: [],
     });
     const user = Object.assign(new User(), {
       id: 'user-1',
@@ -137,7 +148,7 @@ describe('Entidades TypeORM', () => {
       address: 'Dir',
       type: 'company',
       accountNumber: 'ES11',
-      equivalenceSurcharge: 'type_1',
+      paymentMethod: PaymentMethod.CARD,
       description: 'Nota',
       createdAt: now,
       updatedAt: now,
@@ -156,13 +167,38 @@ describe('Entidades TypeORM', () => {
       address: 'Dir P',
       type: 'individual',
       accountNumber: 'ES22',
-      equivalenceSurcharge: null,
       description: null,
       createdAt: now,
       updatedAt: now,
       enterprise,
       spents: [],
     });
+    const itemCategory = Object.assign(new ItemCategory(), {
+      id: 'item-cat-1',
+      enterpriseId: enterprise.id,
+      name: 'Material',
+      description: 'Consumibles',
+      createdAt: now,
+      updatedAt: now,
+      enterprise,
+      items: [],
+    });
+    const item = Object.assign(new Item(), {
+      id: 'item-1',
+      itemCategoryId: itemCategory.id,
+      name: 'Tornillo',
+      description: 'M6',
+      pricePvp: 1.5,
+      lastPurchasePrice: 0.8,
+      serialNumber: true,
+      stock: false,
+      ean: '8412345678901',
+      createdAt: now,
+      updatedAt: now,
+      itemCategory,
+    });
+    itemCategory.items = [item];
+    enterprise.itemCategories = [itemCategory];
     const spent = Object.assign(new Spent(), {
       id: 'spent-1',
       supplierId: supplier.id,
@@ -233,7 +269,6 @@ describe('Entidades TypeORM', () => {
       name: 'Factura',
       issuedDate: now,
       collectionDate: now,
-      concepts: [],
       status: InvoiceStatus.PAID,
       clientName: client.name,
       clientNif: client.nif,
@@ -249,6 +284,35 @@ describe('Entidades TypeORM', () => {
       quote,
       recurrentEarning,
     });
+    invoice.invoiceConcepts = [];
+    const invoiceConcept = Object.assign(new InvoiceConcept(), {
+      id: 'ic-1',
+      invoiceId: invoice.id,
+      itemId: item.id,
+      position: 0,
+      name: 'Tornillo',
+      basePrice: 1.5,
+      vat: 21,
+      irpf: 0,
+      quantity: 1,
+      supplied: false,
+      ean: '8412345678901',
+      createdAt: now,
+      updatedAt: now,
+      invoice,
+      item,
+      serials: [],
+    });
+    const invoiceConceptSerial = Object.assign(new InvoiceConceptSerial(), {
+      id: 'ics-1',
+      invoiceConceptId: invoiceConcept.id,
+      serialNumber: 'SN-001',
+      createdAt: now,
+      updatedAt: now,
+      invoiceConcept,
+    });
+    invoiceConcept.serials = [invoiceConceptSerial];
+    invoice.invoiceConcepts = [invoiceConcept];
     const signing = Object.assign(new Signing(), {
       id: 'sig-1',
       userEnterpriseId: userEnterprise.id,
@@ -300,13 +364,19 @@ describe('Entidades TypeORM', () => {
     expect(workSchedule.startsAt).toEqual(now);
     expect(holiday.calendarColor).toBe('#00A76F');
     expect(client.type).toBe('company');
+    expect(client.paymentMethod).toBe(PaymentMethod.CARD);
     expect(supplier.spents).toEqual([]);
+    expect(itemCategory.name).toBe('Material');
+    expect(item.itemCategoryId).toBe('item-cat-1');
+    expect(enterprise.itemCategories).toEqual([itemCategory]);
     expect(spent.file).toBe(true);
     expect(spent.code).toBe('FAC-2026-001');
     expect(invoiceSeries.series).toBe('A');
     expect(quote.status).toBe(QuoteStatus.DRAFT);
     expect(recurrentEarning.type).toBe(RecurrentEarningType.YEARLY);
     expect(invoice.status).toBe(InvoiceStatus.PAID);
+    expect(invoice.invoiceConcepts[0].name).toBe('Tornillo');
+    expect(invoice.invoiceConcepts[0].serials[0].serialNumber).toBe('SN-001');
     expect(signing.action).toBe(SigningAction.END);
     expect(signingUpdate.signingsId).toBe('sig-1');
     expect(aiRequest.type).toBe(AiRequestType.GET_SPENT_CONCEPTS);

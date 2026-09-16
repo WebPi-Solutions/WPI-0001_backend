@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { EntityManager } from 'typeorm';
-import { SigningAction } from './signing.entity';
+import { SigningAction } from 'src/common/enums';
 import { SigningUpdate } from './signing-update.entity';
 import { SigningUpdateRepository } from './signing-update-repository.service';
 

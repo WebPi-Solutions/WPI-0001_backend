@@ -23,6 +23,8 @@ import {
 describe('permission.catalog helpers', () => {
   it('reconoce recursos y acciones del catálogo', () => {
     expect(isCatalogPermissionResource('invoices')).toBe(true);
+    expect(isCatalogPermissionResource('itemCategories')).toBe(true);
+    expect(isCatalogPermissionResource('items')).toBe(true);
     expect(isCatalogPermissionResource('foo')).toBe(false);
     expect(isCatalogPermissionAction('read')).toBe(true);
     expect(isCatalogPermissionAction('publish')).toBe(false);

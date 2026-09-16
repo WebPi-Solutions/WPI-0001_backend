@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { QueryBuilderService, QueryFilterOptions } from 'src/common/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
-import { Signing, SigningAction } from './signing.entity';
+import { Signing } from './signing.entity';
+import { SigningAction } from 'src/common/enums';
 import { SigningUpdate } from './signing-update.entity';
 
 /**

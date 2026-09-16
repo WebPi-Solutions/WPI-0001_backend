@@ -1,7 +1,7 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Request } from 'express';
-import { SigningAction } from 'src/entities/signing/signing.entity';
+import { SigningAction } from 'src/common/enums';
 import { CreateSigningDto } from './dto/create-signing.dto';
 import { UpdateSigningDto } from './dto/update-signing.dto';
 import { SigningController } from './signing.controller';

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
-import { SigningAction } from 'src/entities/signing/signing.entity';
+import { SigningAction } from 'src/common/enums';
 import { UserEnterpriseResponseDto } from 'src/entities/user/dto/user-response.dto';
 
 /**

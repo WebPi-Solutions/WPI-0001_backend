@@ -181,7 +181,10 @@ describe('InvoiceService', () => {
     });
 
     it('crea un borrador sin numerar ni copiar datos persistentes', async () => {
-      const draftInvoice = buildInvoice({ status: InvoiceStatus.DRAFT });
+      const draftInvoice = buildInvoice({
+        status: InvoiceStatus.DRAFT,
+        invoiceConcepts: [{ name: 'Ignorada' }] as Invoice['invoiceConcepts'],
+      });
       mockTenantAccessibleSources();
       invoiceRepository.create.mockResolvedValue(draftInvoice);
 
@@ -191,6 +194,7 @@ describe('InvoiceService', () => {
       expect(invoiceRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ seriesNumber: null }),
       );
+      expect(invoiceRepository.create.mock.calls[0][0]).not.toHaveProperty('invoiceConcepts');
     });
 
     it('rechaza una serie de otra empresa aunque el cliente sea accesible', async () => {
@@ -268,7 +272,11 @@ describe('InvoiceService', () => {
       invoiceRepository.findById.mockResolvedValue(existingInvoice);
 
       await expect(service.findById(invoiceId, ['client'])).resolves.toEqual(existingInvoice);
-      expect(invoiceRepository.findById).toHaveBeenCalledWith(invoiceId, ['client']);
+      expect(invoiceRepository.findById).toHaveBeenCalledWith(invoiceId, [
+        'client',
+        'invoiceConcepts',
+        'invoiceConcepts.serials',
+      ]);
     });
 
     it('consulta sin relaciones cuando no se informan', async () => {
@@ -276,7 +284,11 @@ describe('InvoiceService', () => {
       invoiceRepository.findById.mockResolvedValue(existingInvoice);
 
       await expect(service.findById(invoiceId)).resolves.toEqual(existingInvoice);
-      expect(invoiceRepository.findById).toHaveBeenCalledWith(invoiceId, ['client']);
+      expect(invoiceRepository.findById).toHaveBeenCalledWith(invoiceId, [
+        'client',
+        'invoiceConcepts',
+        'invoiceConcepts.serials',
+      ]);
     });
 
     it('lanza 404 si la factura no existe', async () => {
@@ -403,6 +415,8 @@ describe('InvoiceService', () => {
         'client',
         'series',
         'recurrentEarning',
+        'invoiceConcepts',
+        'invoiceConcepts.serials',
       ]);
       expect(result.status).toBe(InvoiceStatus.ISSUED);
     });

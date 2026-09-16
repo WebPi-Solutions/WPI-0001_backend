@@ -3,7 +3,8 @@ import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/en
 import { SigningRepository } from 'src/entities/signing/signing-repository.service';
 import { SigningUpdateRepository } from 'src/entities/signing/signing-update-repository.service';
 import { SigningUpdate } from 'src/entities/signing/signing-update.entity';
-import { Signing, SigningAction } from 'src/entities/signing/signing.entity';
+import { Signing } from 'src/entities/signing/signing.entity';
+import { SigningAction } from 'src/common/enums';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EntityManager, UpdateResult } from 'typeorm';
 import { CreateSigningDto } from './dto/create-signing.dto';

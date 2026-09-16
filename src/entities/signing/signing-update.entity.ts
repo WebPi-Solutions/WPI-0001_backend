@@ -8,7 +8,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { UserEnterprise } from '../user/user-enterprise.entity';
-import { Signing, SigningAction } from './signing.entity';
+import { Signing } from './signing.entity';
+import { SigningAction } from 'src/common/enums';
 
 /**
  * Fila de histórico en `signings_updates`: un parche manual sobre un fichaje (antes / después).

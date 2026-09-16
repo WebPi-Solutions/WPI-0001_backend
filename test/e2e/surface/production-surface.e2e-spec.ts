@@ -19,6 +19,10 @@ import { SigningUpdateResponseDto } from 'src/entities/signing/dto/signing-updat
 import { AiRequestResponseDto } from 'src/entities/ai-request/dto/ai-request-response.dto';
 import { RecurrentEarningResponseDto } from 'src/entities/recurrent-earning/dto/recurrent-earning-response.dto';
 import { InvoiceSeriesResponseDto } from 'src/entities/invoice-series/dto/invoice-series-response.dto';
+import { ItemCategoryResponseDto } from 'src/entities/item-category/dto/item-category-response.dto';
+import { ItemResponseDto } from 'src/entities/item/dto/item-response.dto';
+import { InvoiceConceptResponseDto } from 'src/entities/invoice-concept/dto/invoice-concept-response.dto';
+import { InvoiceConceptSerialResponseDto } from 'src/entities/invoice-concept-serial/dto/invoice-concept-serial-response.dto';
 import { UserEnterpriseResponseDto } from 'src/entities/user/dto/user-enterprise-response.dto';
 import { ActiveBillingSubscriptionResponseDto } from 'src/api/billing/dto/active-billing-subscription-response.dto';
 import { BillingPerUnitProductWithPricesResponseDto } from 'src/api/billing/dto/billing-per-unit-product-with-prices-response.dto';
@@ -31,7 +35,7 @@ import { SpentAiFileUploadDto } from 'src/api/spent/dto/spent-ai-file-upload.dto
 import { Client } from 'src/entities/client/client.entity';
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
 import { User, UserRoleTypes, UserStatusTypes } from 'src/entities/user/user.entity';
-import { SigningAction } from 'src/entities/signing/signing.entity';
+import { SigningAction } from 'src/common/enums';
 import { startE2eWorld } from '@e2e/world';
 
 describe('Superficie de producción (e2e) — DTOs, entidades y Swagger', () => {
@@ -68,6 +72,10 @@ describe('Superficie de producción (e2e) — DTOs, entidades y Swagger', () => 
     coverDtoClass(AiRequestResponseDto, { id: 'ai1' });
     coverDtoClass(RecurrentEarningResponseDto, { id: 'r1', name: 'R' });
     coverDtoClass(InvoiceSeriesResponseDto, { id: 'is1', series: 'A' });
+    coverDtoClass(ItemCategoryResponseDto, { id: 'ic1', name: 'Cat' });
+    coverDtoClass(ItemResponseDto, { id: 'it1', name: 'Art' });
+    coverDtoClass(InvoiceConceptResponseDto, { id: 'ic1', name: 'Linea', basePrice: 10 });
+    coverDtoClass(InvoiceConceptSerialResponseDto, { id: 'ics1', serialNumber: 'SN-1' });
     coverDtoClass(UserEnterpriseResponseDto, { id: 'ue1' });
     coverDtoClass(ActiveBillingSubscriptionResponseDto, {
       subscriptionId: 'sub',

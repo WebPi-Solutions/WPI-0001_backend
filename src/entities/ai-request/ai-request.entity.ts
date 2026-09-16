@@ -8,16 +8,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { AiMode, AiRequestType } from 'src/common/enums';
 import { Enterprise } from '../enterprise/enterprise.entity';
-import { AiMode } from 'src/common/models/AiMode';
-
-/**
- * Tipos de petición a la API de IA (enum PostgreSQL `ai_request_types`).
- */
-export enum AiRequestType {
-  GET_SPENT_ISSUER = 'get_spent_issuer',
-  GET_SPENT_CONCEPTS = 'get_spent_concepts',
-}
 
 /**
  * Entidad que representa una petición a la API de IA (`ai_requests`).

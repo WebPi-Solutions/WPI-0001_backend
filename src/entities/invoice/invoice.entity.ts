@@ -1,9 +1,9 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Client } from '../client/client.entity';
 import { InvoiceSeries } from '../invoice-series/invoice-series.entity';
-import { Concept } from 'src/common/models/Concept';
 import { Quote } from '../quote/quote.entity';
 import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
+import { InvoiceConcept } from '../invoice-concept/invoice-concept.entity';
 
 export enum InvoiceStatus {
   DRAFT = 'draft',
@@ -72,12 +72,6 @@ export class Invoice {
    */
   @Column({ name: 'collection_date', type: 'date' })
   collectionDate: Date;
-
-  /**
-   * Array JSON que almacena los conceptos o ítems incluidos en esta factura
-   */
-  @Column({ type: 'jsonb', default: '[]' })
-  concepts: Concept[];
 
   /**
    * Estado actual de la factura (ej., 'pagada', 'pendiente', etc.)
@@ -169,4 +163,10 @@ export class Invoice {
   })
   @JoinColumn({ name: 'recurrent_earning_id' })
   recurrentEarning: RecurrentEarning;
+
+  /**
+   * Líneas de concepto persistidas en `invoice_concepts`
+   */
+  @OneToMany(() => InvoiceConcept, (invoiceConcept) => invoiceConcept.invoice)
+  invoiceConcepts: InvoiceConcept[];
 }

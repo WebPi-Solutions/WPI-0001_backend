@@ -8,6 +8,8 @@ import { getE2eSeed, startE2eWorld } from '@e2e/world';
 const TENANT_GET_PATHS = [
   '/clients',
   '/suppliers',
+  '/item-categories',
+  '/items',
   '/invoices',
   '/quotes',
   '/spents',
@@ -57,6 +59,14 @@ describe('Usuario sin empresas (e2e) — control de acceso', () => {
       .get(`/enterprises/${seed.enterpriseA.id}`)
       .set(authHeader(E2E_EMAIL.outsider));
     expect(enterprise.status).toBe(404);
+    const itemCategory = await http()
+      .get(`/item-categories/${seed.itemCategoryA.id}`)
+      .set(authHeader(E2E_EMAIL.outsider));
+    expect(itemCategory.status).toBe(404);
+    const item = await http()
+      .get(`/items/${seed.itemA.id}`)
+      .set(authHeader(E2E_EMAIL.outsider));
+    expect(item.status).toBe(404);
   });
 
   it('sí puede leer su propio perfil y el catálogo Stripe (skip de empresa)', async () => {

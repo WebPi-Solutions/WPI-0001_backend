@@ -43,7 +43,21 @@ describe('MapResponseInterceptor', () => {
       name: 'Factura test',
       issuedDate: new Date('2026-01-01'),
       collectionDate: new Date('2026-01-15'),
-      concepts: [{ name: 'Horas', base_price: 100, vat: 21, irpf: 15, quantity: 1, supplied: false }],
+      invoiceConcepts: [
+        {
+          id: 'ic-1',
+          invoiceId: 'inv-1',
+          itemId: null,
+          position: 0,
+          name: 'Horas',
+          basePrice: 100,
+          vat: 21,
+          irpf: 15,
+          quantity: 1,
+          supplied: false,
+          ean: null,
+        },
+      ],
       status: 'issued',
       clientName: 'Cliente SA',
       clientNif: 'B12345678',
@@ -78,7 +92,7 @@ describe('MapResponseInterceptor', () => {
         expect(invoice.seriesId).toBe('ser-1');
         expect(invoice.clientId).toBe('cli-1');
         expect(invoice.recurrentEarningId).toBe('rec-1');
-        expect(invoice.concepts[0].base_price).toBe(100);
+        expect(invoice.invoiceConcepts[0].basePrice).toBe(100);
         expect(invoice.client?.name).toBe('Cliente SA');
         expect(invoice.series?.enterpriseId).toBe('ent-1');
         expect((invoice as unknown as { quoteId?: string }).quoteId).toBeUndefined();

@@ -26,6 +26,7 @@ export class ClientController {
   @ApiOperation({ summary: 'Crear un nuevo cliente' })
   @ApiOkResponse({ type: ClientResponseDto, description: 'Cliente creado (vista pública).' })
   @ApiResponse({ status: 201, description: 'El cliente ha sido creado correctamente.' })
+  @ApiResponse({ status: 409, description: 'Ya existe un cliente con el mismo NIF/CIF en la empresa. El mensaje incluye el NIF duplicado.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async create(
@@ -117,6 +118,7 @@ export class ClientController {
   @ApiOperation({ summary: 'Actualizar un cliente por su id' })
   @ApiOkResponse({ type: ClientResponseDto, description: 'Cliente actualizado (vista pública).' })
   @ApiResponse({ status: 200, description: 'El cliente ha sido actualizado correctamente.' })
+  @ApiResponse({ status: 409, description: 'Ya existe un cliente con el mismo NIF/CIF en la empresa. El mensaje incluye el NIF duplicado.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async updateById(@Param('id') id: string, @Body() client: Client) {

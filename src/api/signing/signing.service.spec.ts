@@ -3,7 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { SigningRepository } from 'src/entities/signing/signing-repository.service';
 import { SigningUpdateRepository } from 'src/entities/signing/signing-update-repository.service';
-import { Signing, SigningAction } from 'src/entities/signing/signing.entity';
+import { Signing } from 'src/entities/signing/signing.entity';
+import { SigningAction } from 'src/common/enums';
 import { SigningService } from './signing.service';
 import { CreateSigningDto } from './dto/create-signing.dto';
 

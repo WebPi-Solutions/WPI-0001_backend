@@ -9,7 +9,7 @@ import { FileService } from 'src/services/file/file.service';
 import { OpenaiService } from 'src/services/openai/openai.service';
 import { SupplierRepository } from 'src/entities/supplier/supplier-repository.service';
 import { AiRequestService } from 'src/api/ai-request/ai-request.service';
-import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
+import { AiRequestType } from 'src/common/enums';
 import { SpentService } from './spent.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 

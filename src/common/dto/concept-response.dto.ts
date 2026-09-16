@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 
 /**
- * Vista pública de un concepto de factura, cotización o ingreso recurrente.
+ * Vista pública de un concepto de cotización o ingreso recurrente.
  * Coincide con el JSONB persistido y con los campos que consume el frontend.
  */
 export class ConceptResponseDto {

@@ -66,6 +66,94 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
     expect(removed.status).toBe(200);
   });
 
+  it('categorías y artículos: CRUD propio, tenant anidado, freeze y borrado bloqueado', async () => {
+    const seed = getE2eSeed();
+
+    const listedCategories = await http()
+      .get('/item-categories')
+      .query({
+        enterpriseId: seed.enterpriseA.id,
+        page: 1,
+        pageSize: 20,
+        sort: 'name',
+        order: 'ASC',
+        relations: 'enterprise',
+        filter: JSON.stringify({ name_ilike: 'categoría' }),
+      })
+      .set(authHeader(E2E_EMAIL.userA));
+    expect(listedCategories.status).toBe(200);
+    expect(
+      listedCategories.body.items.some((item: { id: string }) => item.id === seed.itemCategoryA.id),
+    ).toBe(true);
+
+    const createdCategory = await http()
+      .post('/item-categories')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ name: 'Categoría e2e', description: 'Temporal' });
+    expect(createdCategory.status).toBe(201);
+    const createdCategoryId = createdCategory.body.id as string;
+
+    const patchedCategory = await http()
+      .patch(`/item-categories/${createdCategoryId}`)
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        name: 'Categoría e2e 2',
+        enterpriseId: seed.enterpriseB.id,
+      });
+    expect(patchedCategory.status).toBe(200);
+    expect(patchedCategory.body.name).toBe('Categoría e2e 2');
+    expect(patchedCategory.body.enterpriseId).toBe(seed.enterpriseA.id);
+
+    const listedItems = await http()
+      .get('/items')
+      .query({
+        enterpriseId: seed.enterpriseA.id,
+        relations: 'itemCategory',
+        filter: JSON.stringify({ name_ilike: 'artículo' }),
+      })
+      .set(authHeader(E2E_EMAIL.userA));
+    expect(listedItems.status).toBe(200);
+    expect(listedItems.body.items.some((item: { id: string }) => item.id === seed.itemA.id)).toBe(
+      true,
+    );
+
+    const createdItem = await http()
+      .post('/items')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        name: 'Artículo e2e',
+        description: 'Temporal',
+        itemCategoryId: createdCategoryId,
+      });
+    expect(createdItem.status).toBe(201);
+    const createdItemId = createdItem.body.id as string;
+
+    const blockedCategoryDelete = await http()
+      .delete(`/item-categories/${createdCategoryId}`)
+      .set(authHeader(E2E_EMAIL.userA));
+    expect(blockedCategoryDelete.status).toBe(400);
+
+    const patchedItem = await http()
+      .patch(`/items/${createdItemId}`)
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ name: 'Artículo e2e 2' });
+    expect(patchedItem.status).toBe(200);
+    expect(patchedItem.body.name).toBe('Artículo e2e 2');
+
+    const removedItem = await http()
+      .delete(`/items/${createdItemId}`)
+      .set(authHeader(E2E_EMAIL.userA));
+    expect(removedItem.status).toBe(200);
+
+    const removedCategory = await http()
+      .delete(`/item-categories/${createdCategoryId}`)
+      .set(authHeader(E2E_EMAIL.userA));
+    expect(removedCategory.status).toBe(200);
+  });
+
   it('plantillas de horario: CRUD propio y 400 sin enterpriseId', async () => {
     const seed = getE2eSeed();
     expect(
@@ -126,6 +214,7 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
       .set(authHeader(E2E_EMAIL.userA))
       .send({ name: 'Dup', nif: seed.clientA.nif });
     expect(duplicate.status).toBe(409);
+    expect(duplicate.body.message).toBe(`Ya existe un cliente con el NIF ${seed.clientA.nif}`);
 
     const created = await http()
       .post('/clients')
@@ -146,6 +235,15 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
       .set(authHeader(E2E_EMAIL.userA))
       .send({ name: 'Cliente temporal 2', phone: '600000000' });
     expect(patched.status).toBe(200);
+
+    const duplicateNifOnUpdate = await http()
+      .patch(`/clients/${createdId}`)
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ nif: seed.clientA.nif });
+    expect(duplicateNifOnUpdate.status).toBe(409);
+    expect(duplicateNifOnUpdate.body.message).toBe(
+      `Ya existe un cliente con el NIF ${seed.clientA.nif}`,
+    );
 
     expect(
       (await http().get(`/clients/${randomUUID()}`).set(authHeader(E2E_EMAIL.userA))).status,
@@ -169,6 +267,17 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
       .set(authHeader(E2E_EMAIL.userA))
       .send({ name: 'Proveedor tmp', nif: 'P33333333' });
     expect(supplier.status).toBe(201);
+
+    const duplicateSupplier = await http()
+      .post('/suppliers')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ name: 'Dup proveedor', nif: seed.supplierA.nif });
+    expect(duplicateSupplier.status).toBe(409);
+    expect(duplicateSupplier.body.message).toBe(
+      `Ya existe un proveedor con el NIF ${seed.supplierA.nif}`,
+    );
+
     expect(
       (
         await http()
@@ -177,6 +286,15 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
           .send({ name: 'Proveedor tmp 2' })
       ).status,
     ).toBe(200);
+
+    const duplicateNifOnUpdate = await http()
+      .patch(`/suppliers/${supplier.body.id}`)
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ nif: seed.supplierA.nif });
+    expect(duplicateNifOnUpdate.status).toBe(409);
+    expect(duplicateNifOnUpdate.body.message).toBe(
+      `Ya existe un proveedor con el NIF ${seed.supplierA.nif}`,
+    );
 
     const series = await http()
       .post('/invoice-series')
@@ -203,9 +321,76 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
         issuedDate: '2026-05-01',
         collectionDate: '2026-05-15',
         status: 'draft',
-        concepts: [{ name: 'Hora', base_price: 10, vat: 21, irpf: 0, quantity: 1, supplied: true }],
       });
     expect(invoice.status).toBe(201);
+    const serialTrackedItem = await http()
+      .post('/items')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        name: 'Artículo con serie tmp',
+        itemCategoryId: seed.itemCategoryA.id,
+        serialNumber: true,
+        pricePvp: 10,
+      });
+    expect(serialTrackedItem.status).toBe(201);
+    const invoiceConcept = await http()
+      .post('/invoice-concepts')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        invoiceId: invoice.body.id,
+        itemId: serialTrackedItem.body.id,
+        quantity: 2,
+        supplied: true,
+      });
+    expect(invoiceConcept.status).toBe(201);
+    expect(
+      (
+        await http()
+          .patch(`/invoice-concepts/${invoiceConcept.body.id}`)
+          .set(authHeader(E2E_EMAIL.userA))
+          .send({ name: 'Hora 2' })
+      ).status,
+    ).toBe(200);
+    const invoiceConceptSerial = await http()
+      .post('/invoice-concept-serials')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({
+        invoiceConceptId: invoiceConcept.body.id,
+        serialNumber: 'SN-TMP-1',
+      });
+    expect(invoiceConceptSerial.status).toBe(201);
+    expect(
+      (
+        await http()
+          .patch(`/invoice-concept-serials/${invoiceConceptSerial.body.id}`)
+          .set(authHeader(E2E_EMAIL.userA))
+          .send({ serialNumber: 'SN-TMP-2' })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await http()
+          .delete(`/invoice-concept-serials/${invoiceConceptSerial.body.id}`)
+          .set(authHeader(E2E_EMAIL.userA))
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await http()
+          .delete(`/invoice-concepts/${invoiceConcept.body.id}`)
+          .set(authHeader(E2E_EMAIL.userA))
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await http()
+          .delete(`/items/${serialTrackedItem.body.id}`)
+          .set(authHeader(E2E_EMAIL.userA))
+      ).status,
+    ).toBe(200);
     expect(
       (
         await http()

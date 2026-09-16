@@ -43,10 +43,10 @@ describe('MetricsService', () => {
       id: 'invoice-uuid',
       name: 'Factura de prueba',
       issuedDate: new Date('2026-01-15T00:00:00.000Z'),
-      concepts: [
+      invoiceConcepts: [
         {
           name: 'Servicio',
-          base_price: 100,
+          basePrice: 100,
           quantity: 2,
           vat: 21,
           irpf: 15,
@@ -262,15 +262,15 @@ describe('MetricsService', () => {
     it('acumula subtotal, IVA e IRPF y redondea a dos decimales', async () => {
       invoiceRepository.getNonDraftInvoicesForMetrics.mockResolvedValue([
         buildInvoice({
-          concepts: [
+          invoiceConcepts: [
             {
               name: 'Concepto con decimales',
-              base_price: 10.125,
+              basePrice: 10.125,
               quantity: 1,
               vat: 10,
               irpf: 0,
               supplied: false,
-            },
+            } as Invoice['invoiceConcepts'][number],
           ],
         }),
       ]);
@@ -296,14 +296,14 @@ describe('MetricsService', () => {
     it('usa quantity 1 y precios 0 cuando faltan en el concepto', async () => {
       invoiceRepository.getNonDraftInvoicesForMetrics.mockResolvedValue([
         buildInvoice({
-          concepts: [
+          invoiceConcepts: [
             {
               name: 'Sin cantidad',
-              base_price: 40,
+              basePrice: 40,
               vat: 21,
               irpf: 0,
               supplied: false,
-            } as Invoice['concepts'][number],
+            } as Invoice['invoiceConcepts'][number],
           ],
         }),
       ]);
@@ -318,12 +318,12 @@ describe('MetricsService', () => {
     it('usa base_price, vat e irpf 0 cuando el concepto no los informa', async () => {
       invoiceRepository.getNonDraftInvoicesForMetrics.mockResolvedValue([
         buildInvoice({
-          concepts: [
+          invoiceConcepts: [
             {
               name: 'Vacío',
               quantity: 2,
               supplied: false,
-            } as Invoice['concepts'][number],
+            } as Invoice['invoiceConcepts'][number],
           ],
         }),
       ]);
@@ -345,12 +345,12 @@ describe('MetricsService', () => {
         buildInvoice({
           id: 'earlier',
           issuedDate: new Date('2026-01-10T00:00:00.000Z'),
-          concepts: undefined,
+          invoiceConcepts: undefined,
         }),
         buildInvoice({
           id: 'not-array',
           issuedDate: new Date('2026-01-12T00:00:00.000Z'),
-          concepts: 'invalido' as unknown as Invoice['concepts'],
+          invoiceConcepts: 'invalido' as unknown as Invoice['invoiceConcepts'],
         }),
       ]);
 
@@ -473,14 +473,14 @@ describe('MetricsService', () => {
             buildInvoice(),
             buildInvoice({
               id: 'defaults',
-              concepts: [
+              invoiceConcepts: [
                 {
                   name: 'Defaults',
                   supplied: false,
-                } as Invoice['concepts'][number],
+                } as Invoice['invoiceConcepts'][number],
               ],
             }),
-            buildInvoice({ id: 'sin-conceptos', concepts: undefined }),
+            buildInvoice({ id: 'sin-conceptos', invoiceConcepts: undefined }),
           ]);
         },
       );

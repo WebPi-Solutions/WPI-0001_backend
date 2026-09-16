@@ -19,8 +19,7 @@ import { Supplier } from 'src/entities/supplier/supplier.entity';
 import { SpentConcept } from 'src/common/models/Concept';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { AiRequestService } from 'src/api/ai-request/ai-request.service';
-import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
-import { AiMode, isPremiumAiMode } from 'src/common/models/AiMode';
+import { AiMode, AiRequestType, isPremiumAiMode } from 'src/common/enums';
 
 /**
  * Origen de la factura para extraer emisor y conceptos con IA.

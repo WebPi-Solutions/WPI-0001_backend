@@ -20,6 +20,7 @@ import { ClientRepository } from '../../entities/client/client-repository.servic
 import { SupplierRepository } from '../../entities/supplier/supplier-repository.service';
 import { InvoiceSeriesRepository } from '../../entities/invoice-series/invoice-series-repository.service';
 import { AiRequestRepository } from '../../entities/ai-request/ai-request-repository.service';
+import { Invoice } from '../../entities/invoice/invoice.entity';
 
 @Injectable()
 export class MetricsService {
@@ -205,32 +206,11 @@ export class MetricsService {
     let totalIrpf = 0;
 
     for (const invoice of invoices.sort((a, b) => a.issuedDate.toString().localeCompare(b.issuedDate.toString()))) {
-      if (invoice.concepts && Array.isArray(invoice.concepts)) {
-        let totalInvoiceSubtotal = 0;
-        let totalInvoiceVat = 0;
-        let totalInvoiceIrpf = 0;
-        for (const concept of invoice.concepts) {
-          const quantity = concept.quantity || 1;
-          const basePrice = concept.base_price || 0;
-          const vatPercentage = concept.vat || 0;
-          const irpfPercentage = concept.irpf || 0;
-
-          // Calcular subtotal (base_price * quantity)
-          const conceptSubtotal = basePrice * quantity;
-          totalInvoiceSubtotal += conceptSubtotal;
-          // Calcular IVA (subtotal * vat%)
-          const conceptVat = (conceptSubtotal * vatPercentage) / 100;
-          totalInvoiceVat += conceptVat;
-          // Calcular IRPF (subtotal * irpf%)
-          const conceptIrpf = (conceptSubtotal * irpfPercentage) / 100;
-          totalInvoiceIrpf += conceptIrpf;
-        }
-
-        totalSubtotal += totalInvoiceSubtotal;
-        totalVat += totalInvoiceVat;
-        totalIrpf += totalInvoiceIrpf;
-        this.logger.log(`Factura ${invoice.name} (${invoice.id}) con fecha ${invoice.issuedDate}: \n- Subtotal: ${totalInvoiceSubtotal} (${totalSubtotal})\n- IVA: ${totalInvoiceVat} (${totalVat})\n- IRPF: ${totalInvoiceIrpf} (${totalIrpf})`);
-      }
+      const invoiceAmounts = this.accumulateInvoiceConceptAmounts(invoice);
+      totalSubtotal += invoiceAmounts.subtotal;
+      totalVat += invoiceAmounts.vat;
+      totalIrpf += invoiceAmounts.irpf;
+      this.logger.log(`Factura ${invoice.name} (${invoice.id}) con fecha ${invoice.issuedDate}: \n- Subtotal: ${invoiceAmounts.subtotal} (${totalSubtotal})\n- IVA: ${invoiceAmounts.vat} (${totalVat})\n- IRPF: ${invoiceAmounts.irpf} (${totalIrpf})`);
     }
 
     // Calcular total (subtotal + IVA - IRPF)
@@ -366,19 +346,10 @@ export class MetricsService {
       let monthIrpf = 0;
 
       for (const invoice of invoices) {
-        if (invoice.concepts && Array.isArray(invoice.concepts)) {
-          for (const concept of invoice.concepts) {
-            const quantity = concept.quantity || 1;
-            const basePrice = concept.base_price || 0;
-            const vatPercentage = concept.vat || 0;
-            const irpfPercentage = concept.irpf || 0;
-
-            const conceptSubtotal = basePrice * quantity;
-            monthSubtotal += conceptSubtotal;
-            monthVat += (conceptSubtotal * vatPercentage) / 100;
-            monthIrpf += (conceptSubtotal * irpfPercentage) / 100;
-          }
-        }
+        const invoiceAmounts = this.accumulateInvoiceConceptAmounts(invoice);
+        monthSubtotal += invoiceAmounts.subtotal;
+        monthVat += invoiceAmounts.vat;
+        monthIrpf += invoiceAmounts.irpf;
       }
 
       const monthTotal = monthSubtotal + monthVat - monthIrpf;
@@ -510,5 +481,35 @@ export class MetricsService {
 
     this.logger.log(`Métricas anuales de gastos recibidos calculadas para año ${year}`);
     return result;
+  }
+
+  /**
+   * Suma subtotal, IVA e IRPF de las líneas de una factura.
+   * @param invoice - Factura con `invoiceConcepts` cargados
+   * @returns Importes acumulados de la factura
+   */
+  private accumulateInvoiceConceptAmounts(invoice: Invoice): {
+    subtotal: number;
+    vat: number;
+    irpf: number;
+  } {
+    if (!invoice.invoiceConcepts || !Array.isArray(invoice.invoiceConcepts)) {
+      return { subtotal: 0, vat: 0, irpf: 0 };
+    }
+
+    let subtotal = 0;
+    let vat = 0;
+    let irpf = 0;
+    for (const invoiceConcept of invoice.invoiceConcepts) {
+      const quantity = invoiceConcept.quantity || 1;
+      const basePrice = invoiceConcept.basePrice || 0;
+      const vatPercentage = invoiceConcept.vat || 0;
+      const irpfPercentage = invoiceConcept.irpf || 0;
+      const conceptSubtotal = basePrice * quantity;
+      subtotal += conceptSubtotal;
+      vat += (conceptSubtotal * vatPercentage) / 100;
+      irpf += (conceptSubtotal * irpfPercentage) / 100;
+    }
+    return { subtotal, vat, irpf };
   }
 }

@@ -1,18 +1,25 @@
 import { QuoteStatus } from './quote/quote.entity';
 import { InvoiceStatus } from './invoice/invoice.entity';
-import { AiRequestType } from './ai-request/ai-request.entity';
-import { AiMode } from 'src/common/models/AiMode';
-import { RecurrentEarningType } from './recurrent-earning/recurrent-earning.entity';
-import { SigningAction } from './signing/signing.entity';
+import {
+  AiMode,
+  AiRequestType,
+  PaymentMethod,
+  RecurrentEarningType,
+  SigningAction,
+} from 'src/common/enums';
 import { UserRoleTypes, UserStatusTypes } from './user/user.entity';
 import { plainToInstance } from 'class-transformer';
 import { coverDtoClass } from 'src/test-utils/cover-data-classes';
 import { InvoiceSeriesResponseDto } from './invoice-series/dto/invoice-series-response.dto';
+import { ItemCategoryResponseDto } from './item-category/dto/item-category-response.dto';
+import { ItemResponseDto } from './item/dto/item-response.dto';
 import { ClientResponseDto } from './client/dto/client-response.dto';
 import { SpentResponseDto } from './spent/dto/spent-response.dto';
 import { SupplierResponseDto } from './supplier/dto/supplier-response.dto';
 import { QuoteResponseDto } from './quote/dto/quote-response.dto';
 import { InvoiceResponseDto } from './invoice/dto/invoice-response.dto';
+import { InvoiceConceptResponseDto } from './invoice-concept/dto/invoice-concept-response.dto';
+import { InvoiceConceptSerialResponseDto } from './invoice-concept-serial/dto/invoice-concept-serial-response.dto';
 import { VacationResponseDto } from './vacation/dto/vacation-response.dto';
 import { WorkScheduleResponseDto } from './work-schedule/dto/work-schedule-response.dto';
 import { DefaultScheduleResponseDto } from './default-schedule/dto/default-schedule-response.dto';
@@ -75,7 +82,7 @@ describe('DTO de respuesta de entidades', () => {
       address: 'Dir',
       type: 'company',
       accountNumber: 'ES11',
-      equivalenceSurcharge: 'type_1',
+      paymentMethod: PaymentMethod.CARD,
       description: 'Nota',
       createdAt: now,
       updatedAt: now,
@@ -91,7 +98,6 @@ describe('DTO de respuesta de entidades', () => {
       address: 'Dir P',
       type: 'individual',
       accountNumber: 'ES22',
-      equivalenceSurcharge: null,
       description: null,
       createdAt: now,
       updatedAt: now,
@@ -125,9 +131,40 @@ describe('DTO de respuesta de entidades', () => {
 
     expect(series.series).toBe('A');
     expect(client.type).toBe('company');
+    expect(client.paymentMethod).toBe(PaymentMethod.CARD);
     expect(spent.concepts[0].percentage).toBe(100);
     expect(spent.supplier?.name).toBe('Proveedor');
     expect(spent.code).toBe('FAC-2026-001');
+    const itemCategory = coverDtoClass(ItemCategoryResponseDto, {
+      id: 'item-cat-1',
+      enterpriseId: 'ent-1',
+      name: 'Material',
+      description: 'Consumibles',
+      createdAt: now,
+      updatedAt: now,
+      enterprise,
+    });
+    const item = coverDtoClass(ItemResponseDto, {
+      id: 'item-1',
+      itemCategoryId: 'item-cat-1',
+      name: 'Tornillo',
+      description: 'M6',
+      pricePvp: 1.5,
+      lastPurchasePrice: 0.8,
+      serialNumber: true,
+      stock: false,
+      ean: '8412345678901',
+      createdAt: now,
+      updatedAt: now,
+      itemCategory,
+    });
+    expect(itemCategory.name).toBe('Material');
+    expect(item.itemCategory?.id).toBe('item-cat-1');
+    expect(item.pricePvp).toBe(1.5);
+    expect(item.lastPurchasePrice).toBe(0.8);
+    expect(item.serialNumber).toBe(true);
+    expect(item.stock).toBe(false);
+    expect(item.ean).toBe('8412345678901');
   });
 
   it('debe instanciar cotización, factura e ingreso recurrente', () => {
@@ -141,7 +178,7 @@ describe('DTO de respuesta de entidades', () => {
       address: null,
       type: null,
       accountNumber: null,
-      equivalenceSurcharge: null,
+      paymentMethod: PaymentMethod.BANK_TRANSFER,
       description: null,
       createdAt: now,
       updatedAt: now,
@@ -183,8 +220,22 @@ describe('DTO de respuesta de entidades', () => {
       name: 'Factura',
       issuedDate: now,
       collectionDate: now,
-      concepts: [
-        { name: 'Horas', base_price: 50, vat: 21, irpf: 15, quantity: 2, supplied: false },
+      invoiceConcepts: [
+        {
+          id: 'ic-1',
+          invoiceId: 'inv-1',
+          itemId: null,
+          position: 0,
+          name: 'Horas',
+          basePrice: 50,
+          vat: 21,
+          irpf: 15,
+          quantity: 2,
+          supplied: false,
+          ean: null,
+          createdAt: now,
+          updatedAt: now,
+        },
       ],
       status: InvoiceStatus.ISSUED,
       clientName: 'Cliente',
@@ -219,6 +270,17 @@ describe('DTO de respuesta de entidades', () => {
 
     expect(quote.status).toBe(QuoteStatus.ISSUED);
     expect(invoice.seriesNumber).toBe(12);
+    expect(invoice.invoiceConcepts[0].basePrice).toBe(50);
+    const invoiceConcept = coverDtoClass(InvoiceConceptResponseDto, invoice.invoiceConcepts[0]);
+    expect(invoiceConcept.name).toBe('Horas');
+    const invoiceConceptSerial = coverDtoClass(InvoiceConceptSerialResponseDto, {
+      id: 'ics-1',
+      invoiceConceptId: 'ic-1',
+      serialNumber: 'SN-1',
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(invoiceConceptSerial.serialNumber).toBe('SN-1');
     expect(recurrent.invoices?.[0].id).toBe('inv-1');
   });
 

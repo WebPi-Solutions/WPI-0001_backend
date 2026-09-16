@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsDateString, IsEnum, IsInt, IsOptional, Min } from 'class-validator';
-import { SigningAction } from 'src/entities/signing/signing.entity';
+import { SigningAction } from 'src/common/enums';
 
 /**
  * Actualización parcial de un fichaje (no permite cambiar el vínculo `userEnterpriseId` desde esta API).

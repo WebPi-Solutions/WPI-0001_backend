@@ -1,4 +1,4 @@
-import { AiMode, isPremiumAiMode, normalizeAiMode } from './AiMode';
+import { AiMode, isPremiumAiMode, normalizeAiMode } from './ai-mode.enum';
 
 describe('AiMode', () => {
   it('identifica el modo premium', () => {

@@ -7,7 +7,8 @@ import {
   QueryRelation,
 } from 'src/common/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
-import { AiRequest, AiRequestType } from './ai-request.entity';
+import { AiRequest } from './ai-request.entity';
+import { AiRequestType } from 'src/common/enums';
 
 /**
  * Repositorio de peticiones a la API de IA.

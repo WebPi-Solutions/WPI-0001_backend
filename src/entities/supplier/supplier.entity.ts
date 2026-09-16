@@ -63,12 +63,6 @@ export class Supplier {
   accountNumber: string;
 
   /**
-   * Estado de recargo de equivalencia del proveedor
-   */
-  @Column({ name: 'equivalence_surcharge', nullable: true })
-  equivalenceSurcharge: string;
-
-  /**
    * Descripción adicional sobre el proveedor
    */
   @Column({ nullable: true })

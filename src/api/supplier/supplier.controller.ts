@@ -26,6 +26,7 @@ export class SupplierController {
   @ApiOperation({ summary: 'Crear un nuevo proveedor' })
   @ApiOkResponse({ type: SupplierResponseDto, description: 'Proveedor creado (vista pública).' })
   @ApiResponse({ status: 201, description: 'El proveedor ha sido creado correctamente.' })
+  @ApiResponse({ status: 409, description: 'Ya existe un proveedor con el mismo NIF/CIF en la empresa. El mensaje incluye el NIF duplicado.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async create(
@@ -117,6 +118,7 @@ export class SupplierController {
   @ApiOperation({ summary: 'Actualizar un proveedor por su id' })
   @ApiOkResponse({ type: SupplierResponseDto, description: 'Proveedor actualizado (vista pública).' })
   @ApiResponse({ status: 200, description: 'El proveedor ha sido actualizado correctamente.' })
+  @ApiResponse({ status: 409, description: 'Ya existe un proveedor con el mismo NIF/CIF en la empresa. El mensaje incluye el NIF duplicado.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async updateById(@Param('id') id: string, @Body() supplier: Supplier) {

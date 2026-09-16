@@ -7,16 +7,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { SigningAction } from 'src/common/enums';
 import { UserEnterprise } from '../user/user-enterprise.entity';
-
-/**
- * Valores del tipo PostgreSQL `signing_actions` (entrada/salida de fichaje).
- * Definido junto a la entidad para mantener el contrato en un único módulo.
- */
-export enum SigningAction {
-  START = 'start',
-  END = 'end',
-}
 
 /**
  * Registro de fichaje de un usuario (tabla signings).

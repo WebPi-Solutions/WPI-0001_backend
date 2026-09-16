@@ -6,7 +6,7 @@ import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/comm
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { SpentSubtotalsByStatusDto, SpentStatusMetricsDto } from 'src/api/metrics/dto/spent-subtotals-by-status.dto';
 import { Enterprise } from '../enterprise/enterprise.entity';
-import { AiMode, normalizeAiMode } from 'src/common/models/AiMode';
+import { AiMode, normalizeAiMode } from 'src/common/enums';
 
 @Injectable()
 export class SpentRepository {

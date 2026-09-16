@@ -50,7 +50,6 @@ describe('Facturas (e2e) — control de acceso', () => {
         issuedDate: '2026-03-01',
         collectionDate: '2026-03-15',
         status: 'draft',
-        concepts: [],
       });
     expectIdorHidden(response.status);
   });

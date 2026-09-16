@@ -3,6 +3,10 @@ import { ClientRepository } from 'src/entities/client/client-repository.service'
 import { Client } from 'src/entities/client/client.entity';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
+import {
+  DEFAULT_PAYMENT_METHOD,
+  isValidPaymentMethod,
+} from 'src/common/enums';
 import { DeleteResult } from 'typeorm';
 
 @Injectable()
@@ -23,11 +27,9 @@ export class ClientService {
     this.logger.log(`Iniciando proceso de creación de cliente: ${client.name}`);
     this.logger.log(`Datos del cliente a crear:`, JSON.stringify(client, null, 2));
 
-    const clientExists = await this.verifyClientExistsByNif(client.nif, client.enterpriseId);
-    if (clientExists) {
-      this.logger.warn(`Ya existe un cliente con el NIF: ${client.nif} para la empresa ${client.enterpriseId}`);
-      throw new HttpException('Ya existe un cliente con el NIF', HttpStatus.CONFLICT);
-    }
+    this.applyDefaultPaymentMethodIfMissing(client);
+    this.validatePaymentMethod(client);
+    await this.assertNifIsUniqueForEnterprise(client.nif, client.enterpriseId);
     
     try {
       const newClient = await this.clientRepository.create(client);
@@ -110,6 +112,18 @@ export class ClientService {
       { resource: 'clients', action: 'write' },
       );
 
+    if (client.paymentMethod) {
+      this.validatePaymentMethod(client);
+    }
+
+    if (client.nif) {
+      await this.assertNifIsUniqueForEnterprise(
+        client.nif,
+        existingClient.enterpriseId,
+        id,
+      );
+    }
+
     const payloadForPersistence = {
       ...client,
       enterpriseId: existingClient.enterpriseId,
@@ -175,7 +189,7 @@ export class ClientService {
     this.logger.log(`Verificando si existe un cliente con el NIF: ${nif} para la empresa ${enterpriseId}`);
     const clientExists = await this.clientRepository.findByNifAndEnterpriseId(nif, enterpriseId);
     if (clientExists) {
-      this.logger.warn(`El cliente ${clientExists.name} existe con el NIF: ${clientExists.nif} para la empresa ${enterpriseId}`);
+      this.logger.log(`El cliente ${clientExists.name} existe con el NIF: ${clientExists.nif} para la empresa ${enterpriseId}`);
       return clientExists;
     }
 
@@ -198,5 +212,68 @@ export class ClientService {
 
     this.logger.log(`No existe un cliente con el ID: ${id}`);
     return null;
+  }
+
+  /**
+   * Impide registrar un NIF/CIF que ya pertenece a otro cliente de la misma empresa.
+   * En actualizaciones se ignora el propio cliente.
+   * @param nif - NIF/CIF a comprobar
+   * @param enterpriseId - Empresa objetivo
+   * @param excludedClientId - Identificador del cliente que se está actualizando
+   * @returns Nada
+   */
+  private async assertNifIsUniqueForEnterprise(
+    nif: string,
+    enterpriseId: string,
+    excludedClientId?: string,
+  ): Promise<void> {
+    const clientWithSameNif = await this.verifyClientExistsByNif(nif, enterpriseId);
+    if (!clientWithSameNif) {
+      return;
+    }
+
+    if (excludedClientId && clientWithSameNif.id === excludedClientId) {
+      this.logger.log(
+        `El NIF ${nif} pertenece al propio cliente ${excludedClientId}; se permite conservarlo`,
+      );
+      return;
+    }
+
+    this.logger.error(
+      `Ya existe un cliente con el NIF ${nif} para la empresa ${enterpriseId}`,
+    );
+    throw new HttpException(
+      `Ya existe un cliente con el NIF ${nif}`,
+      HttpStatus.CONFLICT,
+    );
+  }
+
+  /**
+   * Asigna transferencia bancaria cuando el método de pago no se informa en el alta.
+   * @param client - Cliente a normalizar
+   * @returns Nada
+   */
+  private applyDefaultPaymentMethodIfMissing(client: Client): void {
+    if (!client.paymentMethod) {
+      client.paymentMethod = DEFAULT_PAYMENT_METHOD;
+      this.logger.log(
+        `Método de pago no informado; se aplica el valor por defecto ${DEFAULT_PAYMENT_METHOD}`,
+      );
+    }
+  }
+
+  /**
+   * Rechaza un método de pago distinto de los valores del enum `payment_methods`.
+   * @param client - Cliente a validar
+   * @returns Nada
+   */
+  private validatePaymentMethod(client: Client): void {
+    if (!isValidPaymentMethod(client.paymentMethod)) {
+      this.logger.error(`Método de pago no válido: ${client.paymentMethod}`);
+      throw new HttpException(
+        'El método de pago debe ser card, cash, bank_transfer o direct_debit',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 }

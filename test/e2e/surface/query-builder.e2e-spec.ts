@@ -1,5 +1,6 @@
 import { Client } from 'src/entities/client/client.entity';
 import { Invoice } from 'src/entities/invoice/invoice.entity';
+import { Quote } from 'src/entities/quote/quote.entity';
 import { QueryBuilderService } from 'src/common/helpers/query-builder/query-builder.service';
 import { getE2eDataSource, getE2eSeed, startE2eWorld } from '@e2e/world';
 
@@ -138,6 +139,7 @@ describe('QueryBuilderService (e2e) — Postgres real', () => {
     const seed = getE2eSeed();
     const clientRepository = getE2eDataSource().getRepository(Client);
     const invoiceRepository = getE2eDataSource().getRepository(Invoice);
+    const quoteRepository = getE2eDataSource().getRepository(Quote);
 
     const fromOnly = await QueryBuilderService.getPaginatedResults(clientRepository, 'client', {
       page: 1,
@@ -163,7 +165,7 @@ describe('QueryBuilderService (e2e) — Postgres real', () => {
     });
     expect(toOnly.total).toBeGreaterThanOrEqual(1);
 
-    const jsonLike = await QueryBuilderService.getPaginatedResults(invoiceRepository, 'invoice', {
+    const jsonLike = await QueryBuilderService.getPaginatedResults(quoteRepository, 'quote', {
       page: 1,
       pageSize: 5,
       sort: 'name',

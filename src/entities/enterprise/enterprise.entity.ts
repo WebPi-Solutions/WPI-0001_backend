@@ -8,7 +8,8 @@ import { DefaultSchedule } from '../default-schedule/default-schedule.entity';
 import { Holiday } from '../holiday/holiday.entity';
 import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 import { AiRequest } from '../ai-request/ai-request.entity';
-import { AiMode } from 'src/common/models/AiMode';
+import { ItemCategory } from '../item-category/item-category.entity';
+import { AiMode } from 'src/common/enums';
 
 /**
  * Entidad Empresa que representa la tabla enterprises en la base de datos
@@ -148,4 +149,10 @@ export class Enterprise {
    */
   @OneToMany(() => AiRequest, aiRequest => aiRequest.enterprise)
   aiRequests: AiRequest[];
+
+  /**
+   * Categorías de artículos asociadas a esta empresa (`item_categories`)
+   */
+  @OneToMany(() => ItemCategory, itemCategory => itemCategory.enterprise)
+  itemCategories: ItemCategory[];
 } 

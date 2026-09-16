@@ -23,7 +23,6 @@ describe('Aislamiento multi-empresa (e2e) — mutaciones cruzadas', () => {
         issuedDate: '2026-03-01',
         collectionDate: '2026-03-15',
         status: 'draft',
-        concepts: [],
       });
     expectIdorHidden(response.status);
   });

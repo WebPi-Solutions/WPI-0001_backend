@@ -28,6 +28,17 @@ describe('Proveedores (e2e) — control de acceso', () => {
     expect(ids).not.toContain(seed.supplierB.id);
   });
 
+  it('rechaza crear un proveedor con un NIF duplicado de la misma empresa', async () => {
+    const seed = getE2eSeed();
+    const response = await http()
+      .post('/suppliers')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ name: 'Dup', nif: seed.supplierA.nif });
+    expect(response.status).toBe(409);
+    expect(response.body.message).toBe(`Ya existe un proveedor con el NIF ${seed.supplierA.nif}`);
+  });
+
   it('el usuario A no lee el proveedor de B por id', async () => {
     const seed = getE2eSeed();
     const response = await http()
@@ -57,5 +68,32 @@ describe('Proveedores (e2e) — control de acceso', () => {
       .delete(`/suppliers/${seed.supplierB.id}`)
       .set(authHeader(E2E_EMAIL.userA));
     expectIdorHidden(deleteResponse.status);
+  });
+
+  it('rechaza actualizar un proveedor con el NIF de otro de la misma empresa', async () => {
+    const seed = getE2eSeed();
+    const created = await http()
+      .post('/suppliers')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ name: 'Proveedor NIF único', nif: 'P66666666' });
+    expect(created.status).toBe(201);
+
+    const response = await http()
+      .patch(`/suppliers/${created.body.id}`)
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ nif: seed.supplierA.nif });
+    expect(response.status).toBe(409);
+    expect(response.body.message).toBe(`Ya existe un proveedor con el NIF ${seed.supplierA.nif}`);
+  });
+
+  it('permite actualizar un proveedor conservando su propio NIF', async () => {
+    const seed = getE2eSeed();
+    const response = await http()
+      .patch(`/suppliers/${seed.supplierA.id}`)
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ nif: seed.supplierA.nif, name: 'Proveedor A' });
+    expect(response.status).toBe(200);
+    expect(response.body.nif).toBe(seed.supplierA.nif);
   });
 });

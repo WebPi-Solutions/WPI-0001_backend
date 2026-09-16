@@ -1,8 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
 import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
-import { AiRequestType } from '../ai-request.entity';
-import { AiMode } from 'src/common/models/AiMode';
+import { AiMode, AiRequestType } from 'src/common/enums';
 
 /**
  * DTO de salida para peticiones a la API de IA (`ai_requests`).

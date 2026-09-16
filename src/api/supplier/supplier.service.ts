@@ -22,6 +22,8 @@ export class SupplierService {
   async create(supplier: Supplier): Promise<Supplier> {
     this.logger.log(`Iniciando proceso de creación de proveedor: ${supplier.name}`);
     this.logger.log(`Datos del proveedor a crear:`, JSON.stringify(supplier, null, 2));
+
+    await this.assertNifIsUniqueForEnterprise(supplier.nif, supplier.enterpriseId);
     
     try {
       const newSupplier = await this.supplierRepository.create(supplier);
@@ -102,6 +104,14 @@ export class SupplierService {
       { resource: 'suppliers', action: 'write' },
       );
 
+    if (supplier.nif) {
+      await this.assertNifIsUniqueForEnterprise(
+        supplier.nif,
+        existingSupplier.enterpriseId,
+        id,
+      );
+    }
+
     const payloadForPersistence = {
       ...supplier,
       enterpriseId: existingSupplier.enterpriseId,
@@ -145,5 +155,64 @@ export class SupplierService {
       this.logger.error(`Error al eliminar proveedor ${id}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Verifica si existe un proveedor con el NIF y el ID de la empresa.
+   * @param nif - El NIF/CIF del proveedor a buscar
+   * @param enterpriseId - El ID de la empresa a la que pertenece el proveedor
+   * @returns El proveedor si se encuentra, de lo contrario null
+   */
+  async verifySupplierExistsByNif(nif: string, enterpriseId: string): Promise<Supplier | null> {
+    this.logger.log(
+      `Verificando si existe un proveedor con el NIF: ${nif} para la empresa ${enterpriseId}`,
+    );
+    const supplierExists = await this.supplierRepository.findByNifAndEnterpriseId(
+      nif,
+      enterpriseId,
+    );
+    if (supplierExists) {
+      this.logger.log(
+        `El proveedor ${supplierExists.name} existe con el NIF: ${supplierExists.nif} para la empresa ${enterpriseId}`,
+      );
+      return supplierExists;
+    }
+
+    this.logger.log(`No existe un proveedor con el NIF: ${nif} para la empresa ${enterpriseId}`);
+    return null;
+  }
+
+  /**
+   * Impide registrar un NIF/CIF que ya pertenece a otro proveedor de la misma empresa.
+   * En actualizaciones se ignora el propio proveedor.
+   * @param nif - NIF/CIF a comprobar
+   * @param enterpriseId - Empresa objetivo
+   * @param excludedSupplierId - Identificador del proveedor que se está actualizando
+   * @returns Nada
+   */
+  private async assertNifIsUniqueForEnterprise(
+    nif: string,
+    enterpriseId: string,
+    excludedSupplierId?: string,
+  ): Promise<void> {
+    const supplierWithSameNif = await this.verifySupplierExistsByNif(nif, enterpriseId);
+    if (!supplierWithSameNif) {
+      return;
+    }
+
+    if (excludedSupplierId && supplierWithSameNif.id === excludedSupplierId) {
+      this.logger.log(
+        `El NIF ${nif} pertenece al propio proveedor ${excludedSupplierId}; se permite conservarlo`,
+      );
+      return;
+    }
+
+    this.logger.error(
+      `Ya existe un proveedor con el NIF ${nif} para la empresa ${enterpriseId}`,
+    );
+    throw new HttpException(
+      `Ya existe un proveedor con el NIF ${nif}`,
+      HttpStatus.CONFLICT,
+    );
   }
 }

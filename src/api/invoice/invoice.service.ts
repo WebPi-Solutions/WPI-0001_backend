@@ -29,6 +29,7 @@ export class InvoiceService {
     this.logger.log(`Datos de la factura a crear:`, JSON.stringify(invoice, null, 2));
 
     await this.assertInvoiceTenantAccessible(invoice);
+    this.stripInvoiceConceptRelation(invoice);
     invoice = await this.setInvoicePersistentData(invoice);
     await this.validateRecurrentEarningLink(invoice);
     
@@ -76,7 +77,7 @@ export class InvoiceService {
     
     const relationsWithClient = this.enterpriseAccessService.mergeRelationNames(
       relations,
-      ['client'],
+      ['client', 'invoiceConcepts', 'invoiceConcepts.serials'],
     );
     const invoice = await this.invoiceRepository.findById(id, relationsWithClient);
     
@@ -120,6 +121,7 @@ export class InvoiceService {
       ...invoiceToUpdate,
       ...invoice
     }
+    this.stripInvoiceConceptRelation(invoice);
     // Revalida cliente y serie tras el merge: el cuerpo puede retargetear FKs a otra empresa.
     await this.assertInvoiceTenantAccessible(invoice);
     invoice = await this.setInvoicePersistentData(invoice);
@@ -320,6 +322,14 @@ export class InvoiceService {
     }
 
     return invoiceSeriesNumber;
+  }
+
+  /**
+   * Quita la colección de líneas del payload de factura: se persisten por `/invoice-concepts`.
+   * @param invoice - Factura a persistir
+   */
+  private stripInvoiceConceptRelation(invoice: Invoice): void {
+    delete (invoice as { invoiceConcepts?: unknown }).invoiceConcepts;
   }
 
   /**

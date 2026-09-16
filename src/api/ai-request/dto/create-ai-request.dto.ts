@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Min } from 'class-validator';
-import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
-import { AiMode } from 'src/common/models/AiMode';
+import { AiMode, AiRequestType } from 'src/common/enums';
 
 /**
  * Cuerpo para registrar una petición a la API de IA.

@@ -9,7 +9,11 @@ import { http } from '@e2e/http';
 const TENANT_LIST_PATHS = [
   '/clients',
   '/suppliers',
+  '/item-categories',
+  '/items',
   '/invoices',
+  '/invoice-concepts',
+  '/invoice-concept-serials',
   '/quotes',
   '/spents',
   '/invoice-series',
@@ -41,9 +45,10 @@ const TENANT_LIST_PATHS = [
  * Query extra que algunos listados de métricas exigen además de enterpriseId.
  *
  * @param path - Ruta
+ * @param seed - Dataset e2e cuando hace falta un UUID de línea
  * @returns Parámetros adicionales
  */
-function extraQueryForPath(path: string): Record<string, string> {
+function extraQueryForPath(path: string, seed?: E2eSeed): Record<string, string> {
   if (path.endsWith('/yearly')) {
     return { year: '2026' };
   }
@@ -61,6 +66,9 @@ function extraQueryForPath(path: string): Record<string, string> {
   if (path === '/users') {
     return { relations: 'userEnterprises' };
   }
+  if (path === '/invoice-concept-serials' && seed) {
+    return { invoiceConceptId: seed.invoiceConceptA.id };
+  }
   return {};
 }
 
@@ -72,15 +80,16 @@ describe('Matriz HTTP de acceso (e2e)', () => {
   it.each(TENANT_LIST_PATHS)('%s sin Authorization es 401', async (path) => {
     const seed = getE2eSeed();
     const response = await e2eRequest('get', path, {
-      query: { ...enterpriseAQuery(seed), ...extraQueryForPath(path) },
+      query: { ...enterpriseAQuery(seed), ...extraQueryForPath(path, seed) },
     });
     expect(response.status).toBe(401);
   });
 
   it.each(TENANT_LIST_PATHS)('%s sin enterpriseId es 400', async (path) => {
+    const seed = getE2eSeed();
     const response = await e2eRequest('get', path, {
       email: E2E_EMAIL.userA,
-      query: extraQueryForPath(path),
+      query: extraQueryForPath(path, seed),
     });
     expect(response.status).toBe(400);
   });
@@ -89,7 +98,7 @@ describe('Matriz HTTP de acceso (e2e)', () => {
     const seed = getE2eSeed();
     const response = await e2eRequest('get', path, {
       email: E2E_EMAIL.userA,
-      query: { ...enterpriseBQuery(seed), ...extraQueryForPath(path) },
+      query: { ...enterpriseBQuery(seed), ...extraQueryForPath(path, seed) },
     });
     expect(response.status).toBe(403);
   });
@@ -98,7 +107,7 @@ describe('Matriz HTTP de acceso (e2e)', () => {
     const seed = getE2eSeed();
     const response = await e2eRequest('get', path, {
       email: E2E_EMAIL.userA,
-      query: { ...enterpriseAQuery(seed), ...extraQueryForPath(path) },
+      query: { ...enterpriseAQuery(seed), ...extraQueryForPath(path, seed) },
     });
     expect(response.status).toBe(200);
   });
@@ -107,7 +116,7 @@ describe('Matriz HTTP de acceso (e2e)', () => {
     const seed = getE2eSeed();
     const response = await e2eRequest('get', path, {
       email: E2E_EMAIL.outsider,
-      query: { ...enterpriseAQuery(seed), ...extraQueryForPath(path) },
+      query: { ...enterpriseAQuery(seed), ...extraQueryForPath(path, seed) },
     });
     expect(response.status).toBe(403);
   });
@@ -117,6 +126,8 @@ describe('Matriz HTTP de acceso (e2e)', () => {
     const paths = [
       '/clients',
       '/suppliers',
+      '/item-categories',
+      '/items',
       '/holidays',
       '/default-schedules',
       '/signings',
@@ -125,6 +136,8 @@ describe('Matriz HTTP de acceso (e2e)', () => {
       '/ai-requests',
       '/recurrent-earnings',
       '/invoice-series',
+      '/invoice-concepts',
+      '/invoice-concept-serials',
       '/users',
     ];
     for (const path of paths) {
@@ -141,7 +154,11 @@ describe('Matriz HTTP de acceso (e2e)', () => {
     const paths = [
       `/clients/${seed.clientA.id}`,
       `/suppliers/${seed.supplierA.id}`,
+      `/item-categories/${seed.itemCategoryA.id}`,
+      `/items/${seed.itemA.id}`,
       `/invoices/${seed.invoiceA.id}`,
+      `/invoice-concepts/${seed.invoiceConceptA.id}`,
+      `/invoice-concept-serials/${seed.invoiceConceptSerialA.id}`,
       `/quotes/${seed.quoteA.id}`,
       `/spents/${seed.spentA.id}`,
       `/enterprises/${seed.enterpriseA.id}`,
@@ -202,7 +219,11 @@ const BY_ID_RESOLVES_TENANT: Array<{
 }> = [
   { name: 'cliente', ownPath: (seed) => `/clients/${seed.clientA.id}`, foreignPath: (seed) => `/clients/${seed.clientB.id}` },
   { name: 'proveedor', ownPath: (seed) => `/suppliers/${seed.supplierA.id}`, foreignPath: (seed) => `/suppliers/${seed.supplierB.id}` },
+  { name: 'categoría de artículos', ownPath: (seed) => `/item-categories/${seed.itemCategoryA.id}`, foreignPath: (seed) => `/item-categories/${seed.itemCategoryB.id}` },
+  { name: 'artículo', ownPath: (seed) => `/items/${seed.itemA.id}`, foreignPath: (seed) => `/items/${seed.itemB.id}` },
   { name: 'factura', ownPath: (seed) => `/invoices/${seed.invoiceA.id}`, foreignPath: (seed) => `/invoices/${seed.invoiceB.id}` },
+  { name: 'concepto de factura', ownPath: (seed) => `/invoice-concepts/${seed.invoiceConceptA.id}`, foreignPath: (seed) => `/invoice-concepts/${seed.invoiceConceptB.id}` },
+  { name: 'número de serie de concepto', ownPath: (seed) => `/invoice-concept-serials/${seed.invoiceConceptSerialA.id}`, foreignPath: (seed) => `/invoice-concept-serials/${seed.invoiceConceptSerialB.id}` },
   { name: 'presupuesto', ownPath: (seed) => `/quotes/${seed.quoteA.id}`, foreignPath: (seed) => `/quotes/${seed.quoteB.id}` },
   { name: 'gasto', ownPath: (seed) => `/spents/${seed.spentA.id}`, foreignPath: (seed) => `/spents/${seed.spentB.id}` },
   { name: 'serie', ownPath: (seed) => `/invoice-series/${seed.seriesA.id}`, foreignPath: (seed) => `/invoice-series/${seed.seriesB.id}` },

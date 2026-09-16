@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AiRequestType } from 'src/entities/ai-request/ai-request.entity';
+import { AiRequestType } from 'src/common/enums';
 import { AiRequestController } from './ai-request.controller';
 import { AiRequestService } from './ai-request.service';
 

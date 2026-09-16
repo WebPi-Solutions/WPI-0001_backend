@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
-import { ConceptResponseDto } from 'src/common/dto/concept-response.dto';
 import { ClientResponseDto } from 'src/entities/client/dto/client-response.dto';
 import { InvoiceSeriesResponseDto } from 'src/entities/invoice-series/dto/invoice-series-response.dto';
+import { InvoiceConceptResponseDto } from 'src/entities/invoice-concept/dto/invoice-concept-response.dto';
 import { InvoiceStatus } from '../invoice.entity';
 
 /**
@@ -76,15 +76,16 @@ export class InvoiceResponseDto {
   collectionDate: Date;
 
   /**
-   * Líneas de concepto
+   * Líneas de concepto persistidas en `invoice_concepts`
    */
   @ApiProperty({
     description: 'Conceptos de la factura',
-    type: [ConceptResponseDto],
+    type: [InvoiceConceptResponseDto],
+    required: false,
   })
   @Expose()
-  @Type(() => ConceptResponseDto)
-  concepts: ConceptResponseDto[];
+  @Type(() => InvoiceConceptResponseDto)
+  invoiceConcepts?: InvoiceConceptResponseDto[];
 
   /**
    * Estado de la factura

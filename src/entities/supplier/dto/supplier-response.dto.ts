@@ -92,17 +92,6 @@ export class SupplierResponseDto {
   accountNumber: string | null;
 
   /**
-   * Recargo de equivalencia (opcional)
-   */
-  @ApiProperty({
-    description: 'Recargo de equivalencia',
-    required: false,
-    nullable: true,
-  })
-  @Expose()
-  equivalenceSurcharge: string | null;
-
-  /**
    * Notas internas (opcional)
    */
   @ApiProperty({

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
+import { PaymentMethod } from 'src/common/enums';
 import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
 
 /**
@@ -93,15 +94,15 @@ export class ClientResponseDto {
   accountNumber: string | null;
 
   /**
-   * Recargo de equivalencia (`type_1`, `type_2`, `type_3`)
+   * Método de pago preferido (`card`, `cash`, `bank_transfer`, `direct_debit`)
    */
   @ApiProperty({
-    description: 'Recargo de equivalencia',
-    required: false,
-    nullable: true,
+    description: 'Método de pago del cliente',
+    enum: PaymentMethod,
+    example: PaymentMethod.BANK_TRANSFER,
   })
   @Expose()
-  equivalenceSurcharge: string | null;
+  paymentMethod: PaymentMethod;
 
   /**
    * Notas internas (opcional)

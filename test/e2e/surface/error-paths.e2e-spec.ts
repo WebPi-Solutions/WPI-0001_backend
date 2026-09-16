@@ -25,7 +25,6 @@ describe('Ramas de error de dominio (e2e)', () => {
         issuedDate: '2026-05-01',
         collectionDate: '2026-05-15',
         status: 'draft',
-        concepts: [],
       });
     expect(missingInvoiceClient.status).toBe(400);
 
@@ -38,7 +37,6 @@ describe('Ramas de error de dominio (e2e)', () => {
         issuedDate: '2026-05-01',
         collectionDate: '2026-05-15',
         status: 'draft',
-        concepts: [],
       });
     expect(unknownInvoiceClient.status).toBe(404);
 

@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { PaymentMethod } from 'src/common/enums';
 import { Enterprise } from '../enterprise/enterprise.entity';
 import { Invoice } from '../invoice/invoice.entity';
 import { Quote } from '../quote/quote.entity';
@@ -74,10 +75,16 @@ export class Client {
   accountNumber: string;
 
   /**
-   * Estado de recargo de equivalencia del cliente
+   * Método de pago preferido del cliente (enum PostgreSQL `payment_methods`).
    */
-  @Column({ name: 'equivalence_surcharge', nullable: true })
-  equivalenceSurcharge: string;
+  @Column({
+    name: 'payment_method',
+    type: 'enum',
+    enum: PaymentMethod,
+    enumName: 'payment_methods',
+    default: PaymentMethod.BANK_TRANSFER,
+  })
+  paymentMethod: PaymentMethod;
 
   /**
    * Descripción adicional sobre el cliente

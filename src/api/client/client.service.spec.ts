@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClientRepository } from 'src/entities/client/client-repository.service';
 import { Client } from 'src/entities/client/client.entity';
+import { PaymentMethod } from 'src/common/enums';
 import { ClientService } from './client.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 
@@ -71,7 +72,7 @@ describe('ClientService', () => {
 
       await expect(service.create(buildClient())).rejects.toMatchObject({
         status: HttpStatus.CONFLICT,
-        message: 'Ya existe un cliente con el NIF',
+        message: 'Ya existe un cliente con el NIF B12345678',
       });
       expect(clientRepository.create).not.toHaveBeenCalled();
     });
@@ -83,8 +84,33 @@ describe('ClientService', () => {
 
       await expect(service.create(buildClient())).resolves.toEqual(createdClient);
       expect(clientRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ nif: 'B12345678', enterpriseId }),
+        expect.objectContaining({
+          nif: 'B12345678',
+          enterpriseId,
+          paymentMethod: PaymentMethod.BANK_TRANSFER,
+        }),
       );
+    });
+
+    it('conserva el método de pago informado cuando es válido', async () => {
+      const clientToCreate = buildClient({ paymentMethod: PaymentMethod.CASH });
+      clientRepository.findByNifAndEnterpriseId.mockResolvedValue(null);
+      clientRepository.create.mockResolvedValue(clientToCreate);
+
+      await expect(service.create(clientToCreate)).resolves.toEqual(clientToCreate);
+      expect(clientRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentMethod: PaymentMethod.CASH }),
+      );
+    });
+
+    it('rechaza un método de pago que no pertenece al enumerado', async () => {
+      const clientToCreate = buildClient({ paymentMethod: 'paypal' as PaymentMethod });
+
+      await expect(service.create(clientToCreate)).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'El método de pago debe ser card, cash, bank_transfer o direct_debit',
+      });
+      expect(clientRepository.create).not.toHaveBeenCalled();
     });
 
     it('relanza el error del repositorio', async () => {
@@ -202,6 +228,66 @@ describe('ClientService', () => {
           enterpriseId,
         }),
       );
+    });
+
+    it('rechaza un método de pago inválido en la actualización', async () => {
+      clientRepository.findById.mockResolvedValue(buildClient());
+
+      await expect(
+        service.updateById(clientId, buildClient({ paymentMethod: 'paypal' as PaymentMethod })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'El método de pago debe ser card, cash, bank_transfer o direct_debit',
+      });
+      expect(clientRepository.updateById).not.toHaveBeenCalled();
+    });
+
+    it('actualiza el método de pago cuando el valor pertenece al enumerado', async () => {
+      const updatedClient = buildClient({ paymentMethod: PaymentMethod.DIRECT_DEBIT });
+      clientRepository.findById.mockResolvedValue(buildClient());
+      clientRepository.updateById.mockResolvedValue(updatedClient);
+
+      await expect(service.updateById(clientId, updatedClient)).resolves.toEqual(updatedClient);
+      expect(clientRepository.updateById).toHaveBeenCalledWith(
+        clientId,
+        expect.objectContaining({ paymentMethod: PaymentMethod.DIRECT_DEBIT }),
+      );
+    });
+
+    it('rechaza un NIF duplicado de otro cliente de la misma empresa', async () => {
+      clientRepository.findById.mockResolvedValue(buildClient());
+      clientRepository.findByNifAndEnterpriseId.mockResolvedValue(
+        buildClient({ id: 'otro-cliente', nif: 'B99999999' }),
+      );
+
+      await expect(
+        service.updateById(clientId, buildClient({ nif: 'B99999999' })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.CONFLICT,
+        message: 'Ya existe un cliente con el NIF B99999999',
+      });
+      expect(clientRepository.updateById).not.toHaveBeenCalled();
+    });
+
+    it('permite conservar el NIF del propio cliente', async () => {
+      const existingClient = buildClient();
+      clientRepository.findById.mockResolvedValue(existingClient);
+      clientRepository.findByNifAndEnterpriseId.mockResolvedValue(existingClient);
+      clientRepository.updateById.mockResolvedValue(existingClient);
+
+      await expect(
+        service.updateById(clientId, buildClient({ name: 'Mismo NIF' })),
+      ).resolves.toEqual(existingClient);
+      expect(clientRepository.updateById).toHaveBeenCalled();
+    });
+
+    it('no comprueba el NIF si el cuerpo no lo informa', async () => {
+      clientRepository.findById.mockResolvedValue(buildClient());
+      clientRepository.updateById.mockResolvedValue(buildClient({ name: 'Solo nombre' }));
+
+      await service.updateById(clientId, { name: 'Solo nombre' } as Client);
+
+      expect(clientRepository.findByNifAndEnterpriseId).not.toHaveBeenCalled();
     });
 
     it('relanza el error del repositorio', async () => {

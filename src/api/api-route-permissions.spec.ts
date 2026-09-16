@@ -2,12 +2,89 @@ import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
-import { SKIP_ENTERPRISE_ACCESS_KEY } from 'src/common/decorators/enterprise-access.decorator';
+import {
+  REQUIRE_ENTERPRISE_ID_KEY,
+  SKIP_ENTERPRISE_ACCESS_KEY,
+} from 'src/common/decorators/enterprise-access.decorator';
 import {
   REQUIRE_ENTERPRISE_PERMISSION_KEY,
   RequiredEnterprisePermission,
   SKIP_ENTERPRISE_PERMISSION_KEY,
 } from 'src/common/decorators/enterprise-permission.decorator';
+import { PermissionAction, PermissionResource } from 'src/common/helpers/enterprise-permission/permission.catalog';
+
+/**
+ * Contrato RBAC esperado en un handler de controlador.
+ */
+interface ExpectedRoutePermission {
+  /**
+   * Nombre del método del controlador
+   */
+  handlerName: string;
+  /**
+   * Recurso del catálogo
+   */
+  resource: PermissionResource;
+  /**
+   * Acción exigida
+   */
+  action: PermissionAction;
+  /**
+   * Si la ruta exige `enterpriseId` en la petición
+   */
+  requiresEnterpriseId: boolean;
+}
+
+/**
+ * Lee el permiso y el flag de tenant declarados en un handler.
+ * @param controllerClass - Clase del controlador
+ * @param handlerName - Método HTTP
+ * @returns Metadata de autorización
+ */
+function readHandlerAuthorization(
+  controllerClass: new (...arguments_: never[]) => unknown,
+  handlerName: string,
+): {
+  permission: RequiredEnterprisePermission | undefined;
+  requiresEnterpriseId: boolean;
+} {
+  const handler = controllerClass.prototype[handlerName] as (
+    ...arguments_: unknown[]
+  ) => unknown;
+  return {
+    permission: Reflect.getMetadata(
+      REQUIRE_ENTERPRISE_PERMISSION_KEY,
+      handler,
+    ) as RequiredEnterprisePermission | undefined,
+    requiresEnterpriseId: Boolean(
+      Reflect.getMetadata(REQUIRE_ENTERPRISE_ID_KEY, handler),
+    ),
+  };
+}
+
+/**
+ * Comprueba que cada handler declara exactamente el permiso y el tenant esperados.
+ * @param controllerClass - Clase del controlador
+ * @param expectedRoutePermissions - Contrato por método
+ */
+function assertControllerRoutePermissions(
+  controllerClass: new (...arguments_: never[]) => unknown,
+  expectedRoutePermissions: ExpectedRoutePermission[],
+): void {
+  for (const expectedRoutePermission of expectedRoutePermissions) {
+    const authorization = readHandlerAuthorization(
+      controllerClass,
+      expectedRoutePermission.handlerName,
+    );
+    expect(authorization.permission).toEqual({
+      resource: expectedRoutePermission.resource,
+      action: expectedRoutePermission.action,
+    });
+    expect(authorization.requiresEnterpriseId).toBe(
+      expectedRoutePermission.requiresEnterpriseId,
+    );
+  }
+}
 
 /**
  * Recorre `src/api` y lista los ficheros `*.controller.ts`.
@@ -150,5 +227,33 @@ describe('Declaración de permisos en rutas HTTP de src/api', () => {
       resource: 'aiRequests',
       action: 'write',
     });
+  });
+
+  it('ItemCategoryController exige itemCategories en todas las rutas y enterpriseId en listado/alta', () => {
+    const { ItemCategoryController } = require('./item-category/item-category.controller') as {
+      ItemCategoryController: new (...arguments_: never[]) => unknown;
+    };
+
+    assertControllerRoutePermissions(ItemCategoryController, [
+      { handlerName: 'create', resource: 'itemCategories', action: 'write', requiresEnterpriseId: true },
+      { handlerName: 'findAll', resource: 'itemCategories', action: 'read', requiresEnterpriseId: true },
+      { handlerName: 'findById', resource: 'itemCategories', action: 'read', requiresEnterpriseId: false },
+      { handlerName: 'updateById', resource: 'itemCategories', action: 'write', requiresEnterpriseId: false },
+      { handlerName: 'delete', resource: 'itemCategories', action: 'delete', requiresEnterpriseId: false },
+    ]);
+  });
+
+  it('ItemController exige items en todas las rutas y enterpriseId en listado/alta', () => {
+    const { ItemController } = require('./item/item.controller') as {
+      ItemController: new (...arguments_: never[]) => unknown;
+    };
+
+    assertControllerRoutePermissions(ItemController, [
+      { handlerName: 'create', resource: 'items', action: 'write', requiresEnterpriseId: true },
+      { handlerName: 'findAll', resource: 'items', action: 'read', requiresEnterpriseId: true },
+      { handlerName: 'findById', resource: 'items', action: 'read', requiresEnterpriseId: false },
+      { handlerName: 'updateById', resource: 'items', action: 'write', requiresEnterpriseId: false },
+      { handlerName: 'delete', resource: 'items', action: 'delete', requiresEnterpriseId: false },
+    ]);
   });
 });

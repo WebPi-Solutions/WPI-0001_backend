@@ -46,6 +46,7 @@ describe('Clientes (e2e) — control de acceso', () => {
       .set(authHeader(E2E_EMAIL.userA));
     expect(response.status).toBe(200);
     expect(response.body.id).toBe(seed.clientA.id);
+    expect(response.body.paymentMethod).toBe('bank_transfer');
   });
 
   it('el usuario A no puede leer el cliente de B por id (404)', async () => {
@@ -84,6 +85,44 @@ describe('Clientes (e2e) — control de acceso', () => {
       .send({ name: 'Cliente nuevo A', nif: 'C33333333' });
     expect(response.status).toBe(201);
     expect(response.body.name).toBe('Cliente nuevo A');
+    expect(response.body.paymentMethod).toBe('bank_transfer');
+  });
+
+  it('rechaza un método de pago inválido al crear', async () => {
+    const seed = getE2eSeed();
+    const response = await http()
+      .post('/clients')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ name: 'Cliente inválido', nif: 'C55555555', paymentMethod: 'paypal' });
+    expect(response.status).toBe(400);
+  });
+
+  it('rechaza actualizar un cliente con el NIF de otro de la misma empresa', async () => {
+    const seed = getE2eSeed();
+    const created = await http()
+      .post('/clients')
+      .query({ enterpriseId: seed.enterpriseA.id })
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ name: 'Cliente NIF único', nif: 'C66666666' });
+    expect(created.status).toBe(201);
+
+    const response = await http()
+      .patch(`/clients/${created.body.id}`)
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ nif: seed.clientA.nif });
+    expect(response.status).toBe(409);
+    expect(response.body.message).toBe(`Ya existe un cliente con el NIF ${seed.clientA.nif}`);
+  });
+
+  it('permite actualizar un cliente conservando su propio NIF', async () => {
+    const seed = getE2eSeed();
+    const response = await http()
+      .patch(`/clients/${seed.clientA.id}`)
+      .set(authHeader(E2E_EMAIL.userA))
+      .send({ nif: seed.clientA.nif, name: 'Cliente A' });
+    expect(response.status).toBe(200);
+    expect(response.body.nif).toBe(seed.clientA.nif);
   });
 
   it('el usuario A no puede actualizar el cliente de B', async () => {

@@ -1,23 +1,29 @@
 import { randomUUID } from 'crypto';
 import { DataSource } from 'typeorm';
-import { AiRequest, AiRequestType } from '../../../src/entities/ai-request/ai-request.entity';
+import { AiRequest } from '../../../src/entities/ai-request/ai-request.entity';
 import { Client } from '../../../src/entities/client/client.entity';
 import { DefaultSchedule } from '../../../src/entities/default-schedule/default-schedule.entity';
 import { Enterprise } from '../../../src/entities/enterprise/enterprise.entity';
 import { Holiday } from '../../../src/entities/holiday/holiday.entity';
 import { InvoiceSeries } from '../../../src/entities/invoice-series/invoice-series.entity';
 import { Invoice, InvoiceStatus } from '../../../src/entities/invoice/invoice.entity';
+import { InvoiceConcept } from '../../../src/entities/invoice-concept/invoice-concept.entity';
+import { InvoiceConceptSerial } from '../../../src/entities/invoice-concept-serial/invoice-concept-serial.entity';
+import { Item } from '../../../src/entities/item/item.entity';
+import { ItemCategory } from '../../../src/entities/item-category/item-category.entity';
 import { Quote, QuoteStatus } from '../../../src/entities/quote/quote.entity';
-import {
-  RecurrentEarning,
-  RecurrentEarningType,
-} from '../../../src/entities/recurrent-earning/recurrent-earning.entity';
-import { Signing, SigningAction } from '../../../src/entities/signing/signing.entity';
+import { RecurrentEarning } from '../../../src/entities/recurrent-earning/recurrent-earning.entity';
+import { Signing } from '../../../src/entities/signing/signing.entity';
 import { Spent } from '../../../src/entities/spent/spent.entity';
 import { Supplier } from '../../../src/entities/supplier/supplier.entity';
 import { EnterpriseRole } from '../../../src/entities/enterprise-role/enterprise-role.entity';
 import { UserEnterprise } from '../../../src/entities/user/user-enterprise.entity';
 import { User, UserRoleTypes, UserStatusTypes } from '../../../src/entities/user/user.entity';
+import {
+  AiRequestType,
+  RecurrentEarningType,
+  SigningAction,
+} from '../../../src/common/enums';
 import {
   ADMINISTRATOR_ROLE_PERMISSIONS,
   EMPLOYEE_ROLE_PERMISSIONS,
@@ -54,10 +60,18 @@ export interface E2eSeed {
   seriesB: InvoiceSeries;
   invoiceA: Invoice;
   invoiceB: Invoice;
+  invoiceConceptA: InvoiceConcept;
+  invoiceConceptB: InvoiceConcept;
+  invoiceConceptSerialA: InvoiceConceptSerial;
+  invoiceConceptSerialB: InvoiceConceptSerial;
   quoteA: Quote;
   quoteB: Quote;
   spentA: Spent;
   spentB: Spent;
+  itemCategoryA: ItemCategory;
+  itemCategoryB: ItemCategory;
+  itemA: Item;
+  itemB: Item;
   recurrentA: RecurrentEarning;
   recurrentB: RecurrentEarning;
   holidayA: Holiday;
@@ -209,7 +223,6 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     issuedDate,
     collectionDate: '2026-02-15',
     status: InvoiceStatus.DRAFT,
-    concepts: [],
   });
   const invoiceB = await dataSource.getRepository(Invoice).save({
     clientId: clientB.id,
@@ -218,7 +231,6 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     issuedDate,
     collectionDate: '2026-02-15',
     status: InvoiceStatus.DRAFT,
-    concepts: [],
   });
 
   const quoteA = await dataSource.getRepository(Quote).save({
@@ -257,6 +269,66 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     status: 'paid',
     file: true,
     concepts: [],
+  });
+
+  const itemCategoryA = await dataSource.getRepository(ItemCategory).save({
+    enterpriseId: enterpriseA.id,
+    name: 'Categoría A',
+    description: 'Artículos de A',
+  });
+  const itemCategoryB = await dataSource.getRepository(ItemCategory).save({
+    enterpriseId: enterpriseB.id,
+    name: 'Categoría B',
+    description: 'Artículos de B',
+  });
+  const itemA = await dataSource.getRepository(Item).save({
+    itemCategoryId: itemCategoryA.id,
+    name: 'Artículo A',
+    description: 'Artículo de la empresa A',
+    pricePvp: 10,
+    lastPurchasePrice: 5,
+    serialNumber: true,
+    stock: false,
+  });
+  const itemB = await dataSource.getRepository(Item).save({
+    itemCategoryId: itemCategoryB.id,
+    name: 'Artículo B',
+    description: 'Artículo de la empresa B',
+    pricePvp: 20,
+    lastPurchasePrice: 8,
+    serialNumber: true,
+    stock: false,
+  });
+
+  const invoiceConceptA = await dataSource.getRepository(InvoiceConcept).save({
+    invoiceId: invoiceA.id,
+    itemId: itemA.id,
+    position: 0,
+    name: 'Concepto A',
+    basePrice: 10,
+    vat: 21,
+    irpf: 0,
+    quantity: 2,
+    supplied: false,
+  });
+  const invoiceConceptB = await dataSource.getRepository(InvoiceConcept).save({
+    invoiceId: invoiceB.id,
+    itemId: itemB.id,
+    position: 0,
+    name: 'Concepto B',
+    basePrice: 20,
+    vat: 21,
+    irpf: 0,
+    quantity: 2,
+    supplied: false,
+  });
+  const invoiceConceptSerialA = await dataSource.getRepository(InvoiceConceptSerial).save({
+    invoiceConceptId: invoiceConceptA.id,
+    serialNumber: 'SN-A-1',
+  });
+  const invoiceConceptSerialB = await dataSource.getRepository(InvoiceConceptSerial).save({
+    invoiceConceptId: invoiceConceptB.id,
+    serialNumber: 'SN-B-1',
   });
 
   const recurrentA = await dataSource.getRepository(RecurrentEarning).save({
@@ -375,10 +447,18 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     seriesB,
     invoiceA,
     invoiceB,
+    invoiceConceptA,
+    invoiceConceptB,
+    invoiceConceptSerialA,
+    invoiceConceptSerialB,
     quoteA,
     quoteB,
     spentA,
     spentB,
+    itemCategoryA,
+    itemCategoryB,
+    itemA,
+    itemB,
     recurrentA,
     recurrentB,
     holidayA,

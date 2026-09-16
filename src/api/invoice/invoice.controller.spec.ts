@@ -119,10 +119,10 @@ describe('InvoiceController', () => {
     it('delega al servicio parseando las relaciones', async () => {
       invoiceService.findById.mockResolvedValue({ id: invoiceId });
 
-      await expect(controller.findById(invoiceId, 'client,concepts')).resolves.toEqual({
+      await expect(controller.findById(invoiceId, 'client,invoiceConcepts')).resolves.toEqual({
         id: invoiceId,
       });
-      expect(invoiceService.findById).toHaveBeenCalledWith(invoiceId, ['client', 'concepts']);
+      expect(invoiceService.findById).toHaveBeenCalledWith(invoiceId, ['client', 'invoiceConcepts']);
     });
 
     it('busca sin relaciones cuando no se informan', async () => {

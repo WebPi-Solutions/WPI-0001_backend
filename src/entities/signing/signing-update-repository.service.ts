@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
-import { SigningAction } from './signing.entity';
+import { SigningAction } from 'src/common/enums';
 import { SigningUpdate } from './signing-update.entity';
 
 /**

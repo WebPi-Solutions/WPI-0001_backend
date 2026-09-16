@@ -14,7 +14,8 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { QueryBuilderService } from 'src/common/helpers/query-builder/query-builder.service';
-import { Signing, SigningAction } from './signing.entity';
+import { Signing } from './signing.entity';
+import { SigningAction } from 'src/common/enums';
 import { SigningRepository } from './signing-repository.service';
 
 /**

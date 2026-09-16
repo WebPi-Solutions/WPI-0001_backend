@@ -147,6 +147,8 @@ Cualquier `findById` / `updateById` / `deleteById` / descarga de fichero debe co
 | Cliente, proveedor, serie, ingreso recurrente, festivo, horario por defecto, petición IA, empresa | `entity.enterpriseId` |
 | Factura / presupuesto | `entity.client.enterpriseId` (hay que cargar `client`) |
 | Gasto | `entity.supplier.enterpriseId` (hay que cargar `supplier`) |
+| Categoría de artículos | `entity.enterpriseId` |
+| Artículo | `entity.itemCategory.enterpriseId` (hay que cargar `itemCategory`) |
 | Usuario | Él mismo, admin global, o al menos una empresa en común |
 | Fichaje / vacación / horario | Ya existía `assertUserEnterpriseBelongsToEnterprise` sobre el **recurso**; el Guard añade que el **caller** pertenezca a esa empresa |
 

@@ -39,6 +39,7 @@ describe('InvoiceRepository', () => {
   let queryMock: jest.Mock;
   let queryBuilder: {
     leftJoin: jest.Mock;
+    leftJoinAndSelect: jest.Mock;
     select: jest.Mock;
     where: jest.Mock;
     andWhere: jest.Mock;
@@ -67,6 +68,7 @@ describe('InvoiceRepository', () => {
     queryMock = jest.fn().mockResolvedValue([]);
     queryBuilder = {
       leftJoin: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -103,7 +105,6 @@ describe('InvoiceRepository', () => {
     it('persiste la factura cuando el estado es válido', async () => {
       const invoiceToCreate = {
         status: InvoiceStatus.DRAFT,
-        concepts: [],
       } as Invoice;
       typeOrmRepositoryMock.save.mockResolvedValue({ id: 'invoice-uuid', ...invoiceToCreate });
 
@@ -118,7 +119,6 @@ describe('InvoiceRepository', () => {
         Promise.resolve().then(() =>
           invoiceRepositoryService.create({
             status: 'invalid' as InvoiceStatus,
-            concepts: [],
           } as Invoice),
         ),
       );
@@ -208,7 +208,6 @@ describe('InvoiceRepository', () => {
       const thrownError = await expectHttpException(
         invoiceRepositoryService.updateById('missing-id', {
           status: InvoiceStatus.ISSUED,
-          concepts: [],
         } as Invoice),
       );
 
@@ -220,7 +219,6 @@ describe('InvoiceRepository', () => {
       const thrownError = await expectHttpException(
         invoiceRepositoryService.updateById('invoice-uuid', {
           status: 'invalid' as InvoiceStatus,
-          concepts: [],
         } as Invoice),
       );
 
@@ -230,7 +228,7 @@ describe('InvoiceRepository', () => {
 
     it('actualiza la factura y la recarga con relaciones', async () => {
       const existingInvoice = { id: 'invoice-uuid', status: InvoiceStatus.DRAFT } as Invoice;
-      const payload = { status: InvoiceStatus.ISSUED, concepts: [] } as Invoice;
+      const payload = { status: InvoiceStatus.ISSUED } as Invoice;
       const reloadedInvoice = { ...existingInvoice, ...payload } as Invoice;
 
       typeOrmRepositoryMock.findOne
@@ -279,6 +277,10 @@ describe('InvoiceRepository', () => {
 
       expect(typeOrmRepositoryMock.createQueryBuilder).toHaveBeenCalledWith('invoice');
       expect(queryBuilder.leftJoin).toHaveBeenCalledWith('invoice.client', 'client');
+      expect(queryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+        'invoice.invoiceConcepts',
+        'invoiceConcepts',
+      );
       expect(queryBuilder.where).toHaveBeenCalledWith('invoice.status != :status', {
         status: InvoiceStatus.DRAFT,
       });
@@ -315,7 +317,10 @@ describe('InvoiceRepository', () => {
 
       const [sql, parameters] = getLastQueryCall();
       expect(sql).toContain('c.enterprise_id = $1');
+      expect(sql).toContain('FROM invoice_concepts ic');
+      expect(sql).toContain('ic.base_price * ic.quantity');
       expect(sql).not.toContain('recurrent_earning_id');
+      expect(sql).not.toContain('jsonb_array_elements');
       expect(parameters).toEqual([enterpriseId]);
     });
 
