@@ -857,7 +857,7 @@ export class SpentService {
   }
 
   /**
-   * Extrae las líneas anidadas del cuerpo y quita el JSONB legado `concepts`.
+   * Extrae las líneas anidadas del cuerpo para persistirlas en `spent_concepts`.
    * `undefined` deja las líneas intactas (actualización solo de cabecera).
    *
    * @param spent - Gasto recibido
@@ -866,7 +866,6 @@ export class SpentService {
   private extractNestedSpentConcepts(spent: Spent): Spent['spentConcepts'] | undefined {
     const nestedSpentConcepts = spent.spentConcepts;
     delete (spent as { spentConcepts?: unknown }).spentConcepts;
-    delete (spent as { concepts?: unknown }).concepts;
     if (nestedSpentConcepts === undefined || nestedSpentConcepts === null) {
       return undefined;
     }

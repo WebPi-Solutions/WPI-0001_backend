@@ -67,6 +67,8 @@ $ npm run test:e2e
 
 La cobertura unitaria la genera `npm test` (`coverage/`). El dataset e2e no es un dump SQL: se inserta en `test/e2e/harness/seed.ts`. Detalle en [docs/tests.md](./docs/tests.md#dataset-e2e-cómo-se-puebla-la-base).
 
+Los workflows `.github/workflows/build-and-push-*.yml` ejecutan `npm test` y `npm run test:e2e` **antes** de publicar la imagen. Un test en rojo no despliega.
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.

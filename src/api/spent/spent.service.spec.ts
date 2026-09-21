@@ -883,18 +883,16 @@ describe('SpentService', () => {
       expect(spentRepository.create).not.toHaveBeenCalled();
     });
 
-    it('envía los spentConcepts anidados al grafo y descarta el JSONB legado', async () => {
+    it('envía los spentConcepts anidados al grafo', async () => {
       const spentConcepts = [{ id: 'linea' }] as unknown as Spent['spentConcepts'];
       const payload = buildSpent({
         spentConcepts,
-      }) as Spent & { concepts?: unknown };
-      payload.concepts = [{ name: 'legado' }];
+      });
       spentGraphPersistenceService.createSpentGraph.mockResolvedValue(payload);
 
       await service.create(payload);
 
       expect(payload.spentConcepts).toBeUndefined();
-      expect(payload.concepts).toBeUndefined();
       expect(spentGraphPersistenceService.createSpentGraph).toHaveBeenCalledWith(
         payload,
         spentConcepts,

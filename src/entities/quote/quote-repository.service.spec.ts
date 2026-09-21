@@ -331,7 +331,6 @@ describe('QuoteRepository', () => {
       const [sql, parameters] = getLastQueryCall();
       expect(sql).toContain('c.enterprise_id = $1');
       expect(sql).toContain('FROM quote_concepts qc');
-      expect(sql).not.toContain('jsonb_array_elements');
       expect(sql).not.toContain('q.status IN');
       expect(parameters).toEqual([enterpriseId]);
     });

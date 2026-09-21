@@ -113,6 +113,8 @@ src/api/<recurso>/            # HTTP + reglas
 
 Umbral **100%** statements/branches/functions/lines en unitarios (`npm test` / `npm run test:cov`) y en e2e (`npm run test:e2e`, Docker). Cubrir el código nuevo **y** las casuísticas, no solo el camino feliz.
 
+Los workflows `.github/workflows/build-and-push-*.yml` ejecutan `npm test` y `npm run test:e2e` **antes** de construir y empujar la imagen. Un test en rojo no publica. No quites esos pasos.
+
 ### Unitarios (`src/**/*.spec.ts`, al lado del fichero)
 
 - Cada controller, servicio y repositorio nuevo tiene spec. Mocks de repos y SDKs; no Postgres real.

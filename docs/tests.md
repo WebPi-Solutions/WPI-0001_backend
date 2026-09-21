@@ -28,6 +28,10 @@ npm run test:debug
 
 La suite e2e (`npm run test:e2e`) es independiente: usa `test/jest-e2e.json`, Testcontainers (PostgreSQL en Docker) y no forma parte de `npm test`. Ver [Pruebas e2e](#pruebas-e2e).
 
+## CI de deploy (obligatorio)
+
+Los workflows `.github/workflows/build-and-push-*.yml` ejecutan `npm test` y `npm run test:e2e` **antes** de construir y empujar la imagen a GHCR. Un test en rojo aborta el job: **no** se publica. No uses `continue-on-error` en esos pasos.
+
 ## Qué esperar
 
 Una ejecución correcta de `npm test` termina con **todas las suites en verde**. A modo de referencia, la última pasada de la suite unitaria reportó:

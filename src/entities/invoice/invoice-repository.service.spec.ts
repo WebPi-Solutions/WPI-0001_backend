@@ -321,7 +321,6 @@ describe('InvoiceRepository', () => {
       expect(sql).toContain('FROM invoice_concepts ic');
       expect(sql).toContain('ic.base_price * ic.quantity');
       expect(sql).not.toContain('recurrent_earning_id');
-      expect(sql).not.toContain('jsonb_array_elements');
       expect(parameters).toEqual([enterpriseId]);
     });
 

@@ -222,7 +222,7 @@ describe('MapResponseInterceptor', () => {
               name: 'Factura array',
               issuedDate: new Date('2026-03-01'),
               collectionDate: new Date('2026-03-01'),
-              concepts: [],
+              invoiceConcepts: [],
               status: 'issued',
               clientName: 'Cliente',
               clientNif: 'B1',
