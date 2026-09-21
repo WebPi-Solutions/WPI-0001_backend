@@ -100,6 +100,21 @@ export class SpentConceptRepository {
   }
 
   /**
+   * Lista las líneas de un gasto.
+   * @param spentId - UUID del gasto
+   * @param relations - Relaciones opcionales
+   * @returns Líneas encontradas
+   */
+  findBySpentId(spentId: string, relations?: string[]): Promise<SpentConcept[]> {
+    this.logger.log(`Listando líneas del gasto ${spentId}`);
+    return this.spentConceptRepository.find({
+      where: { spentId },
+      relations,
+      order: { position: 'ASC' },
+    });
+  }
+
+  /**
    * Actualiza una línea
    * @param id - UUID
    * @param partial - Campos a actualizar

@@ -6,12 +6,14 @@ import { DefaultSchedule } from '../../../src/entities/default-schedule/default-
 import { Enterprise } from '../../../src/entities/enterprise/enterprise.entity';
 import { Holiday } from '../../../src/entities/holiday/holiday.entity';
 import { InvoiceSeries } from '../../../src/entities/invoice-series/invoice-series.entity';
-import { Invoice, InvoiceStatus } from '../../../src/entities/invoice/invoice.entity';
+import { Invoice } from '../../../src/entities/invoice/invoice.entity';
 import { InvoiceConcept } from '../../../src/entities/invoice-concept/invoice-concept.entity';
 import { InvoiceConceptSerial } from '../../../src/entities/invoice-concept-serial/invoice-concept-serial.entity';
 import { Item } from '../../../src/entities/item/item.entity';
 import { ItemCategory } from '../../../src/entities/item-category/item-category.entity';
-import { Quote, QuoteStatus } from '../../../src/entities/quote/quote.entity';
+import { ItemSerial } from '../../../src/entities/item-serial/item-serial.entity';
+import { StockMovement } from '../../../src/entities/stock-movement/stock-movement.entity';
+import { Quote } from '../../../src/entities/quote/quote.entity';
 import { QuoteConcept } from '../../../src/entities/quote-concept/quote-concept.entity';
 import { Order } from '../../../src/entities/order/order.entity';
 import { OrderConcept } from '../../../src/entities/order-concept/order-concept.entity';
@@ -23,12 +25,20 @@ import { SpentConceptSerial } from '../../../src/entities/spent-concept-serial/s
 import { Supplier } from '../../../src/entities/supplier/supplier.entity';
 import { EnterpriseRole } from '../../../src/entities/enterprise-role/enterprise-role.entity';
 import { UserEnterprise } from '../../../src/entities/user/user-enterprise.entity';
-import { User, UserRoleTypes, UserStatusTypes } from '../../../src/entities/user/user.entity';
+import { User } from '../../../src/entities/user/user.entity';
 import {
   AiRequestType,
+  InvoiceStatus,
+  ItemSerialStatus,
   OrderStatus,
+  QuoteStatus,
   RecurrentEarningType,
   SigningAction,
+  SpentStatus,
+  StockDirection,
+  StockType,
+  UserRoleTypes,
+  UserStatusTypes,
 } from '../../../src/common/enums';
 import {
   ADMINISTRATOR_ROLE_PERMISSIONS,
@@ -88,6 +98,10 @@ export interface E2eSeed {
   itemCategoryB: ItemCategory;
   itemA: Item;
   itemB: Item;
+  itemSerialA: ItemSerial;
+  itemSerialB: ItemSerial;
+  stockMovementA: StockMovement;
+  stockMovementB: StockMovement;
   recurrentA: RecurrentEarning;
   recurrentB: RecurrentEarning;
   holidayA: Holiday;
@@ -284,7 +298,7 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     issuedDate,
     collectionDate: '2026-02-15',
     declarationDate: issuedDate,
-    status: 'paid',
+    status: SpentStatus.PAID,
     file: true,
   });
   const spentB = await dataSource.getRepository(Spent).save({
@@ -293,7 +307,7 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     issuedDate,
     collectionDate: '2026-02-15',
     declarationDate: issuedDate,
-    status: 'paid',
+    status: SpentStatus.PAID,
     file: true,
   });
 
@@ -325,6 +339,66 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     serialNumber: true,
     stock: true,
   });
+  const itemSerialA = await dataSource.getRepository(ItemSerial).save({
+    itemId: itemA.id,
+    serialNumber: 'SN-SPENT-A-1',
+    status: ItemSerialStatus.IN_STOCK,
+  });
+  const itemSerialB = await dataSource.getRepository(ItemSerial).save({
+    itemId: itemB.id,
+    serialNumber: 'SN-SPENT-B-1',
+    status: ItemSerialStatus.IN_STOCK,
+  });
+  const itemSerialInvoiceA = await dataSource.getRepository(ItemSerial).save({
+    itemId: itemA.id,
+    serialNumber: 'SN-A-1',
+    status: ItemSerialStatus.RESERVED,
+  });
+  const itemSerialInvoiceB = await dataSource.getRepository(ItemSerial).save({
+    itemId: itemB.id,
+    serialNumber: 'SN-B-1',
+    status: ItemSerialStatus.RESERVED,
+  });
+  const stockMovementA = await dataSource.getRepository(StockMovement).save({
+    itemId: itemA.id,
+    itemSerialId: itemSerialA.id,
+    spentConceptId: null,
+    invoiceConceptId: null,
+    quantity: 1,
+    direction: StockDirection.IN,
+    type: StockType.PURCHASE,
+    occurredAt: issuedDate,
+  });
+  const stockMovementB = await dataSource.getRepository(StockMovement).save({
+    itemId: itemB.id,
+    itemSerialId: itemSerialB.id,
+    spentConceptId: null,
+    invoiceConceptId: null,
+    quantity: 1,
+    direction: StockDirection.IN,
+    type: StockType.PURCHASE,
+    occurredAt: issuedDate,
+  });
+  await dataSource.getRepository(StockMovement).save({
+    itemId: itemA.id,
+    itemSerialId: itemSerialInvoiceA.id,
+    spentConceptId: null,
+    invoiceConceptId: null,
+    quantity: 1,
+    direction: StockDirection.IN,
+    type: StockType.PURCHASE,
+    occurredAt: issuedDate,
+  });
+  await dataSource.getRepository(StockMovement).save({
+    itemId: itemB.id,
+    itemSerialId: itemSerialInvoiceB.id,
+    spentConceptId: null,
+    invoiceConceptId: null,
+    quantity: 1,
+    direction: StockDirection.IN,
+    type: StockType.PURCHASE,
+    occurredAt: issuedDate,
+  });
 
   const invoiceConceptA = await dataSource.getRepository(InvoiceConcept).save({
     invoiceId: invoiceA.id,
@@ -348,10 +422,12 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
   });
   const invoiceConceptSerialA = await dataSource.getRepository(InvoiceConceptSerial).save({
     invoiceConceptId: invoiceConceptA.id,
+    itemSerialId: itemSerialInvoiceA.id,
     serialNumber: 'SN-A-1',
   });
   const invoiceConceptSerialB = await dataSource.getRepository(InvoiceConceptSerial).save({
     invoiceConceptId: invoiceConceptB.id,
+    itemSerialId: itemSerialInvoiceB.id,
     serialNumber: 'SN-B-1',
   });
 
@@ -417,10 +493,12 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
   });
   const spentConceptSerialA = await dataSource.getRepository(SpentConceptSerial).save({
     spentConceptId: spentConceptA.id,
+    itemSerialId: itemSerialA.id,
     serialNumber: 'SN-SPENT-A-1',
   });
   const spentConceptSerialB = await dataSource.getRepository(SpentConceptSerial).save({
     spentConceptId: spentConceptB.id,
+    itemSerialId: itemSerialB.id,
     serialNumber: 'SN-SPENT-B-1',
   });
 
@@ -562,6 +640,10 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     itemCategoryB,
     itemA,
     itemB,
+    itemSerialA,
+    itemSerialB,
+    stockMovementA,
+    stockMovementB,
     recurrentA,
     recurrentB,
     holidayA,

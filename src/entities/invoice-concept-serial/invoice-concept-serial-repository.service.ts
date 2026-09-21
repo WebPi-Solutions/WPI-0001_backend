@@ -132,6 +132,23 @@ export class InvoiceConceptSerialRepository {
   }
 
   /**
+   * Lista los números de serie de una línea de factura.
+   * @param invoiceConceptId - UUID de la línea
+   * @param relations - Relaciones opcionales
+   * @returns Series persistidas
+   */
+  findByInvoiceConceptId(
+    invoiceConceptId: string,
+    relations?: string[],
+  ): Promise<InvoiceConceptSerial[]> {
+    this.logger.log(`Listando números de serie de la línea ${invoiceConceptId}`);
+    return this.invoiceConceptSerialRepository.find({
+      where: { invoiceConceptId },
+      relations,
+    });
+  }
+
+  /**
    * Traduce la violación de unicidad de serie a un 409.
    * @param error - Error de TypeORM/PostgreSQL
    */

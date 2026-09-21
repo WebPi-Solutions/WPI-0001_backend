@@ -20,6 +20,13 @@ export class SpentConceptSerialResponseDto {
   spentConceptId: string;
 
   /**
+   * Identidad canónica de la unidad
+   */
+  @ApiProperty({ description: 'UUID del número de serie de artículo' })
+  @Expose()
+  itemSerialId: string;
+
+  /**
    * Número de serie capturado
    */
   @ApiProperty({ description: 'Número de serie' })

@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { SupplierType } from 'src/common/enums';
 import { Enterprise } from '../enterprise/enterprise.entity';
 import { Spent } from '../spent/spent.entity';
 
@@ -51,10 +52,10 @@ export class Supplier {
   address: string;
 
   /**
-   * Tipo de proveedor
+   * Tipo de proveedor (`company` o `individual`)
    */
   @Column({ nullable: true })
-  type: string;
+  type: SupplierType | null;
 
   /**
    * Número de cuenta bancaria del proveedor

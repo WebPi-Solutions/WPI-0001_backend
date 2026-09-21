@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
-import { PaymentMethod } from 'src/common/enums';
+import { ClientType, PaymentMethod } from 'src/common/enums';
 import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
 
 /**
@@ -76,11 +76,11 @@ export class ClientResponseDto {
     description: 'Tipo de cliente (`company` o `particular`)',
     required: false,
     nullable: true,
-    example: 'company',
-    enum: ['company', 'particular'],
+    enum: ClientType,
+    example: ClientType.COMPANY,
   })
   @Expose()
-  type: string | null;
+  type: ClientType | null;
 
   /**
    * Cuenta bancaria del cliente (opcional)

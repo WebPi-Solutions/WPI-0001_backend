@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { SpentConcept } from 'src/common/models/Concept';
+import { SpentStatus, SupplierType } from 'src/common/enums';
 
 /**
  * Datos del emisor extraídos por IA para crear un proveedor si no existe en la empresa.
@@ -27,11 +28,11 @@ export class SpentAiSuggestedSupplierDto {
    * Tipo de proveedor inferido a partir del CIF/NIF.
    */
   @ApiProperty({
-    description: 'Tipo de proveedor inferido: company o individual',
-    example: 'company',
-    enum: ['company', 'individual'],
+    description: 'Tipo de proveedor inferido a partir del CIF/NIF',
+    enum: SupplierType,
+    example: SupplierType.COMPANY,
   })
-  type: string;
+  type: SupplierType;
 }
 
 /**
@@ -99,9 +100,10 @@ export class SpentAiPreviewSpentDataDto {
    */
   @ApiProperty({
     description: 'Estado del gasto. Por defecto pagado',
-    example: 'paid',
+    enum: SpentStatus,
+    example: SpentStatus.PAID,
   })
-  status: string;
+  status: SpentStatus;
 
   /**
    * ID del proveedor si existe en la empresa para el CIF extraído.

@@ -1,14 +1,21 @@
-import { QuoteStatus } from './quote/quote.entity';
-import { InvoiceStatus } from './invoice/invoice.entity';
 import {
   AiMode,
   AiRequestType,
+  ClientType,
+  InvoiceStatus,
+  ItemSerialStatus,
   OrderStatus,
   PaymentMethod,
+  QuoteStatus,
   RecurrentEarningType,
   SigningAction,
+  SpentStatus,
+  StockDirection,
+  StockType,
+  SupplierType,
+  UserRoleTypes,
+  UserStatusTypes,
 } from 'src/common/enums';
-import { UserRoleTypes, UserStatusTypes } from './user/user.entity';
 import { plainToInstance } from 'class-transformer';
 import { coverDtoClass } from 'src/test-utils/cover-data-classes';
 import { InvoiceSeriesResponseDto } from './invoice-series/dto/invoice-series-response.dto';
@@ -26,6 +33,8 @@ import { InvoiceConceptResponseDto } from './invoice-concept/dto/invoice-concept
 import { InvoiceConceptSerialResponseDto } from './invoice-concept-serial/dto/invoice-concept-serial-response.dto';
 import { SpentConceptResponseDto } from './spent-concept/dto/spent-concept-response.dto';
 import { SpentConceptSerialResponseDto } from './spent-concept-serial/dto/spent-concept-serial-response.dto';
+import { ItemSerialResponseDto } from './item-serial/dto/item-serial-response.dto';
+import { StockMovementResponseDto } from './stock-movement/dto/stock-movement-response.dto';
 import { VacationResponseDto } from './vacation/dto/vacation-response.dto';
 import { WorkScheduleResponseDto } from './work-schedule/dto/work-schedule-response.dto';
 import { DefaultScheduleResponseDto } from './default-schedule/dto/default-schedule-response.dto';
@@ -86,7 +95,7 @@ describe('DTO de respuesta de entidades', () => {
       email: 'c@test',
       phone: '611',
       address: 'Dir',
-      type: 'company',
+      type: ClientType.COMPANY,
       accountNumber: 'ES11',
       paymentMethod: PaymentMethod.CARD,
       description: 'Nota',
@@ -102,7 +111,7 @@ describe('DTO de respuesta de entidades', () => {
       email: 'p@test',
       phone: '622',
       address: 'Dir P',
-      type: 'individual',
+      type: SupplierType.INDIVIDUAL,
       accountNumber: 'ES22',
       description: null,
       createdAt: now,
@@ -133,7 +142,7 @@ describe('DTO de respuesta de entidades', () => {
           updatedAt: now,
         },
       ],
-      status: 'paid',
+      status: SpentStatus.PAID,
       file: true,
       createdAt: now,
       updatedAt: now,
@@ -141,7 +150,7 @@ describe('DTO de respuesta de entidades', () => {
     });
 
     expect(series.series).toBe('A');
-    expect(client.type).toBe('company');
+    expect(client.type).toBe(ClientType.COMPANY);
     expect(client.paymentMethod).toBe(PaymentMethod.CARD);
     expect(spent.spentConcepts?.[0].basePrice).toBe(10);
     expect(spent.supplier?.name).toBe('Proveedor');
@@ -176,6 +185,31 @@ describe('DTO de respuesta de entidades', () => {
     expect(item.serialNumber).toBe(true);
     expect(item.stock).toBe(false);
     expect(item.ean).toBe('8412345678901');
+    const itemSerial = coverDtoClass(ItemSerialResponseDto, {
+      id: 'is-1',
+      itemId: 'item-1',
+      serialNumber: 'SN-1',
+      status: ItemSerialStatus.IN_STOCK,
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(itemSerial.status).toBe(ItemSerialStatus.IN_STOCK);
+    const stockMovement = coverDtoClass(StockMovementResponseDto, {
+      id: 'sm-1',
+      itemId: 'item-1',
+      itemSerialId: 'is-1',
+      itemSerial,
+      invoiceConceptId: null,
+      spentConceptId: 'sc-1',
+      quantity: 1,
+      direction: StockDirection.IN,
+      type: StockType.PURCHASE,
+      occurredAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(stockMovement.direction).toBe(StockDirection.IN);
+    expect(stockMovement.itemSerial?.serialNumber).toBe('SN-1');
   });
 
   it('debe instanciar cotización, factura e ingreso recurrente', () => {
@@ -340,6 +374,7 @@ describe('DTO de respuesta de entidades', () => {
     const invoiceConceptSerial = coverDtoClass(InvoiceConceptSerialResponseDto, {
       id: 'ics-1',
       invoiceConceptId: 'ic-1',
+      itemSerialId: 'is-1',
       serialNumber: 'SN-1',
       createdAt: now,
       updatedAt: now,
@@ -363,6 +398,7 @@ describe('DTO de respuesta de entidades', () => {
     const spentConceptSerial = coverDtoClass(SpentConceptSerialResponseDto, {
       id: 'scs-1',
       spentConceptId: 'sc-1',
+      itemSerialId: 'is-1',
       serialNumber: 'SN-SPENT-1',
       createdAt: now,
       updatedAt: now,

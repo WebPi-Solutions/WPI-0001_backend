@@ -2,10 +2,12 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ClientRepository } from 'src/entities/client/client-repository.service';
 import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-repository.service';
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
-import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
+import { Quote } from 'src/entities/quote/quote.entity';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
+
+import { QuoteStatus } from 'src/common/enums';
 
 @Injectable()
 export class QuoteService {

@@ -6,7 +6,7 @@ import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/comm
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { SpentSubtotalsByStatusDto, SpentStatusMetricsDto } from 'src/api/metrics/dto/spent-subtotals-by-status.dto';
 import { Enterprise } from '../enterprise/enterprise.entity';
-import { AiMode, normalizeAiMode } from 'src/common/enums';
+import { AiMode, normalizeAiMode, SpentStatus } from 'src/common/enums';
 
 @Injectable()
 export class SpentRepository {
@@ -266,7 +266,7 @@ export class SpentRepository {
     };
 
     for (const row of rows) {
-      const status = String(row.status || 'pending').toLowerCase();
+      const status = String(row.status || SpentStatus.PENDING).toLowerCase();
       const count = Number(row.count) || 0;
       const subtotal = Number(row.subtotal) || 0;
 
@@ -280,7 +280,12 @@ export class SpentRepository {
     }
 
     metrics.total.subtotal = Math.round(metrics.total.subtotal * 100) / 100;
-    const statusKeys = ['pending', 'paid', 'partially_paid', 'cancelled'] as const;
+    const statusKeys = [
+      SpentStatus.PENDING,
+      SpentStatus.PAID,
+      SpentStatus.PARTIALLY_PAID,
+      SpentStatus.CANCELLED,
+    ] as const;
     statusKeys.forEach((key) => {
       metrics[key].subtotal = Math.round(metrics[key].subtotal * 100) / 100;
     });

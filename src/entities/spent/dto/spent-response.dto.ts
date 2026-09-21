@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
 import { SpentConceptResponseDto } from 'src/entities/spent-concept/dto/spent-concept-response.dto';
 import { SupplierResponseDto } from 'src/entities/supplier/dto/supplier-response.dto';
+import { SpentStatus } from 'src/common/enums';
 
 /**
  * Vista pública de gasto para respuestas HTTP.
@@ -77,9 +78,9 @@ export class SpentResponseDto {
   /**
    * Estado del gasto
    */
-  @ApiProperty({ description: 'Estado del gasto', example: 'paid' })
+  @ApiProperty({ description: 'Estado del gasto', enum: SpentStatus })
   @Expose()
-  status: string;
+  status: SpentStatus;
 
   /**
    * Indica si existe un PDF adjunto

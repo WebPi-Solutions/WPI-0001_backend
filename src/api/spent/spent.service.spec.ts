@@ -9,9 +9,11 @@ import { FileService } from 'src/services/file/file.service';
 import { OpenaiService } from 'src/services/openai/openai.service';
 import { SupplierRepository } from 'src/entities/supplier/supplier-repository.service';
 import { AiRequestService } from 'src/api/ai-request/ai-request.service';
-import { AiRequestType } from 'src/common/enums';
+import { AiRequestType, SpentStatus, SupplierType } from 'src/common/enums';
 import { SpentService } from './spent.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+import { SpentGraphPersistenceService } from 'src/common/helpers/spent-graph/spent-graph-persistence.service';
 
 describe('SpentService', () => {
   let service: SpentService;
@@ -46,6 +48,15 @@ describe('SpentService', () => {
   };
   let supplierRepository: { findByNifAndEnterpriseId: jest.Mock; findById: jest.Mock };
   let aiRequestService: { create: jest.Mock };
+  let inventoryLedgerService: {
+    isSpentCancelled: jest.Mock;
+    cancelSpentInventory: jest.Mock;
+    purgeSpentInventory: jest.Mock;
+  };
+  let spentGraphPersistenceService: {
+    createSpentGraph: jest.Mock;
+    updateSpentGraph: jest.Mock;
+  };
 
   const enterpriseId = 'enterprise-id-de-prueba';
   const spentId = 'spent-uuid';
@@ -200,6 +211,17 @@ describe('SpentService', () => {
     aiRequestService = {
       create: jest.fn().mockResolvedValue({ id: 'ai-request-id' }),
     };
+    inventoryLedgerService = {
+      isSpentCancelled: jest.fn(
+        (status: string) => (status ?? '').trim().toLowerCase() === SpentStatus.CANCELLED,
+      ),
+      cancelSpentInventory: jest.fn().mockResolvedValue(undefined),
+      purgeSpentInventory: jest.fn().mockResolvedValue(undefined),
+    };
+    spentGraphPersistenceService = {
+      createSpentGraph: jest.fn(),
+      updateSpentGraph: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -218,6 +240,8 @@ describe('SpentService', () => {
               [...new Set([...(relations ?? []), ...required])],
           },
         },
+        { provide: InventoryLedgerService, useValue: inventoryLedgerService },
+        { provide: SpentGraphPersistenceService, useValue: spentGraphPersistenceService },
       ],
     }).compile();
 
@@ -273,12 +297,12 @@ describe('SpentService', () => {
             percentage: 100,
           },
         ],
-        status: 'paid',
+        status: SpentStatus.PAID,
         supplierId: null,
         suggestedSupplier: {
           name: 'Proveedor S.L.',
           nif: 'B12345678',
-          type: 'company',
+          type: SupplierType.COMPANY,
         },
       });
       expect(fileService.processAiSpentPdf).toHaveBeenCalledWith(file);
@@ -408,7 +432,7 @@ describe('SpentService', () => {
       expect(result.spentData.suggestedSupplier).toEqual({
         name: 'Ana García',
         nif: '12345678A',
-        type: 'individual',
+        type: SupplierType.INDIVIDUAL,
       });
     });
 
@@ -489,9 +513,9 @@ describe('SpentService', () => {
       expect(result.spentData.suggestedSupplier).toEqual({
         name: 'Tesla Spain, S.L. Unipersonal',
         nif: 'B66855701',
-        type: 'company',
+        type: SupplierType.COMPANY,
       });
-      expect(result.spentData.status).toBe('paid');
+      expect(result.spentData.status).toBe(SpentStatus.PAID);
       expect(result.spentData.collectionDate).toBe(result.spentData.issuedDate);
       expect(result.spentData.declarationDate).toBe(result.spentData.issuedDate);
     });
@@ -622,7 +646,7 @@ describe('SpentService', () => {
       expect(result.spentData.suggestedSupplier).toEqual({
         name: 'Persona NIE',
         nif: 'ESX1234567L',
-        type: 'individual',
+        type: SupplierType.INDIVIDUAL,
       });
     });
 
@@ -843,33 +867,73 @@ describe('SpentService', () => {
         message: 'Gasto no encontrado',
       });
       expect(spentRepository.create).not.toHaveBeenCalled();
+      expect(spentGraphPersistenceService.createSpentGraph).not.toHaveBeenCalled();
     });
 
-    it('persiste el gasto y lo devuelve', async () => {
+    it('persiste el gasto atómicamente y lo devuelve', async () => {
       const payload = buildSpent();
-      spentRepository.create.mockResolvedValue(payload);
+      spentGraphPersistenceService.createSpentGraph.mockResolvedValue(payload);
 
       await expect(service.create(payload)).resolves.toEqual(payload);
-      expect(spentRepository.create).toHaveBeenCalledWith(payload);
+      expect(spentGraphPersistenceService.createSpentGraph).toHaveBeenCalledWith(
+        payload,
+        undefined,
+        enterpriseId,
+      );
+      expect(spentRepository.create).not.toHaveBeenCalled();
     });
 
-    it('no persiste spentConcepts ni el JSONB legado concepts', async () => {
+    it('envía los spentConcepts anidados al grafo y descarta el JSONB legado', async () => {
+      const spentConcepts = [{ id: 'linea' }] as unknown as Spent['spentConcepts'];
       const payload = buildSpent({
-        spentConcepts: [{ id: 'linea' }] as unknown as Spent['spentConcepts'],
+        spentConcepts,
       }) as Spent & { concepts?: unknown };
       payload.concepts = [{ name: 'legado' }];
-      spentRepository.create.mockResolvedValue(payload);
+      spentGraphPersistenceService.createSpentGraph.mockResolvedValue(payload);
 
       await service.create(payload);
 
       expect(payload.spentConcepts).toBeUndefined();
       expect(payload.concepts).toBeUndefined();
-      expect(spentRepository.create).toHaveBeenCalledWith(payload);
+      expect(spentGraphPersistenceService.createSpentGraph).toHaveBeenCalledWith(
+        payload,
+        spentConcepts,
+        enterpriseId,
+      );
+    });
+
+    it('trata spentConcepts nulos como ausencia de líneas', async () => {
+      const payload = buildSpent({
+        spentConcepts: null as unknown as Spent['spentConcepts'],
+      });
+      spentGraphPersistenceService.createSpentGraph.mockResolvedValue(payload);
+
+      await service.create(payload);
+
+      expect(spentGraphPersistenceService.createSpentGraph).toHaveBeenCalledWith(
+        payload,
+        undefined,
+        enterpriseId,
+      );
+    });
+
+    it('rechaza conceptos que no son un array', async () => {
+      await expect(
+        service.create(
+          buildSpent({
+            spentConcepts: { name: 'invalido' } as unknown as Spent['spentConcepts'],
+          }),
+        ),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Los conceptos del gasto deben ser un array',
+      });
+      expect(spentGraphPersistenceService.createSpentGraph).not.toHaveBeenCalled();
     });
 
     it('relanza el error de persistencia', async () => {
       const payload = buildSpent();
-      spentRepository.create.mockRejectedValue(new Error('duplicado'));
+      spentGraphPersistenceService.createSpentGraph.mockRejectedValue(new Error('duplicado'));
 
       await expect(service.create(payload)).rejects.toThrow('duplicado');
     });
@@ -944,6 +1008,66 @@ describe('SpentService', () => {
       spentRepository.updateById.mockResolvedValue(payload);
 
       await expect(service.updateById(spentId, payload)).resolves.toEqual(payload);
+      expect(spentGraphPersistenceService.updateSpentGraph).not.toHaveBeenCalled();
+    });
+
+    it('actualiza el grafo cuando el cuerpo trae spentConcepts', async () => {
+      const existingSpent = buildSpent();
+      const spentConcepts = [{ name: 'Línea' }] as unknown as Spent['spentConcepts'];
+      const payload = buildSpent({ name: 'Actualizado', spentConcepts });
+      spentRepository.findById.mockResolvedValue(existingSpent);
+      spentGraphPersistenceService.updateSpentGraph.mockResolvedValue(payload);
+
+      await expect(service.updateById(spentId, payload)).resolves.toEqual(payload);
+      expect(spentGraphPersistenceService.updateSpentGraph).toHaveBeenCalledWith(
+        existingSpent,
+        payload,
+        spentConcepts,
+        enterpriseId,
+      );
+      expect(spentRepository.updateById).not.toHaveBeenCalled();
+    });
+
+    it('anula el inventario al cancelar el gasto', async () => {
+      const existingSpent = buildSpent({
+        status: SpentStatus.PAID,
+        issuedDate: new Date('2026-06-01'),
+      });
+      spentRepository.findById.mockResolvedValue(existingSpent);
+      spentRepository.updateById.mockResolvedValue(buildSpent({ status: SpentStatus.CANCELLED }));
+
+      await service.updateById(spentId, { status: SpentStatus.CANCELLED } as Spent);
+
+      expect(inventoryLedgerService.cancelSpentInventory).toHaveBeenCalledWith(
+        spentId,
+        new Date('2026-06-01'),
+      );
+    });
+
+    it('usa la fecha actual si el gasto cancelado no tiene fecha de emisión', async () => {
+      spentRepository.findById.mockResolvedValue(
+        buildSpent({ status: SpentStatus.PAID, issuedDate: null }),
+      );
+      spentRepository.updateById.mockResolvedValue(buildSpent({ status: SpentStatus.CANCELLED }));
+
+      await service.updateById(spentId, { status: SpentStatus.CANCELLED } as Spent);
+
+      expect(inventoryLedgerService.cancelSpentInventory).toHaveBeenCalledWith(
+        spentId,
+        expect.any(Date),
+      );
+    });
+
+    it('rechaza reactivar un gasto cancelado', async () => {
+      spentRepository.findById.mockResolvedValue(buildSpent({ status: SpentStatus.CANCELLED }));
+
+      await expect(
+        service.updateById(spentId, { status: SpentStatus.PAID } as Spent),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'No se puede reactivar un gasto cancelado',
+      });
+      expect(spentRepository.updateById).not.toHaveBeenCalled();
     });
 
     it('relanza el error de actualización', async () => {
@@ -951,6 +1075,17 @@ describe('SpentService', () => {
       spentRepository.updateById.mockRejectedValue(new Error('bloqueo'));
 
       await expect(service.updateById(spentId, buildSpent())).rejects.toThrow('bloqueo');
+    });
+
+    it('relanza el error del grafo atómico', async () => {
+      spentRepository.findById.mockResolvedValue(buildSpent());
+      spentGraphPersistenceService.updateSpentGraph.mockRejectedValue(
+        new Error('bloqueo-grafo'),
+      );
+
+      await expect(
+        service.updateById(spentId, buildSpent({ spentConcepts: [] })),
+      ).rejects.toThrow('bloqueo-grafo');
     });
   });
 

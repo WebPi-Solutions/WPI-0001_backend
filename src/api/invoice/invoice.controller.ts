@@ -1,12 +1,14 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
+import { Invoice } from 'src/entities/invoice/invoice.entity';
 import { InvoiceResponseDto } from 'src/entities/invoice/dto/invoice-response.dto';
 import { InvoiceService } from './invoice.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
+
+import { InvoiceStatus } from 'src/common/enums';
 
 @ApiTags('Facturas')
 @Controller('invoices')

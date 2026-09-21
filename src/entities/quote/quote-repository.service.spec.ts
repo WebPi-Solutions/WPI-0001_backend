@@ -14,8 +14,10 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { QueryBuilderService } from 'src/common/helpers/query-builder/query-builder.service';
-import { Quote, QuoteStatus } from './quote.entity';
+import { Quote } from './quote.entity';
 import { QuoteRepository } from './quote-repository.service';
+
+import { QuoteStatus } from 'src/common/enums';
 
 /**
  * Extrae la HttpException lanzada por una promesa rechazada.

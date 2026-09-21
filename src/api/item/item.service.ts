@@ -7,6 +7,7 @@ import { ItemCategory } from 'src/entities/item-category/item-category.entity';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { PermissionAction } from 'src/common/helpers/enterprise-permission/permission.catalog';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
 
 /**
  * Mensaje HTTP cuando se pide número de serie con el stock desactivado.
@@ -26,6 +27,7 @@ export class ItemService {
     private readonly itemRepository: ItemRepository,
     private readonly itemCategoryRepository: ItemCategoryRepository,
     private readonly enterpriseAccessService: EnterpriseAccessService,
+    private readonly inventoryLedgerService: InventoryLedgerService,
   ) {}
 
   /**
@@ -98,6 +100,7 @@ export class ItemService {
       filter,
       relations,
     );
+    await this.inventoryLedgerService.attachStockBalances(result.items);
     this.logger.log(`Artículos obtenidos: ${result.items.length} de ${result.total}`);
     return result;
   }
@@ -125,6 +128,7 @@ export class ItemService {
     }
 
     this.assertItemAccessible(item, 'read');
+    await this.inventoryLedgerService.attachStockBalances([item]);
     this.logger.log(`Artículo encontrado: ${item.name} (ID: ${item.id})`);
     return item;
   }

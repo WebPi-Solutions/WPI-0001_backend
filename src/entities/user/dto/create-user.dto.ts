@@ -1,8 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, IsEmail, IsOptional, IsEnum, IsArray, ValidateNested, IsUUID, ValidateIf } from 'class-validator';
-import { UserStatusTypes } from '../user.entity';
 import { UserEnterprise } from '../user-enterprise.entity';
 import { Type } from 'class-transformer';
+
+import { UserStatusTypes } from 'src/common/enums';
 
 export class CreateUserDto {
   @ApiProperty({ description: 'Nombre del usuario', required: true, example: 'Juan Pérez' })

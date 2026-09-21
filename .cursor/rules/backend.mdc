@@ -99,7 +99,7 @@ src/api/<recurso>/            # HTTP + reglas
 
 - `EntitiesModule.register()` y `ApiModule.register()` descubren `*.module.ts` / `*.controller.ts` / `*.service.ts` por glob. Un módulo de entidad nuevo se registra solo con el fichero en `src/entities/<recurso>/`.
 - El **repositorio** habla con TypeORM (`save`, `findOne`, `QueryBuilderService`). El **servicio de API** tiene las reglas (duplicados, estados, tenant, FKs). El **controller** valida query, fuerza `enterpriseId`, documenta Swagger y delega.
-- Transversal en `src/common/`: `guards/`, `interceptors/`, `decorators/`, `middleware/` (Firebase y Swagger), `helpers/` (acceso por empresa, query builder), `models/` (Concept) y `enums/` (tipos PostgreSQL: `ai_modes`, `ai_request_types`, `payment_methods`, `recurrent_earnings_type`, `signing_actions`).
+- Transversal en `src/common/`: `guards/`, `interceptors/`, `decorators/`, `middleware/` (Firebase y Swagger), `helpers/` (acceso por empresa, query builder), `models/` (Concept) y `enums/` (todos los enumerados de la app: tipos PostgreSQL y contratos varchar de dominio).
 - Integraciones (Stripe, Firebase Admin, Dropbox, OpenAI, OCR) viven en `src/services/`, no en `api/` ni en el repositorio.
 
 ## DTOs y Swagger

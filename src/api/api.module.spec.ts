@@ -1,6 +1,8 @@
 import { glob } from 'glob';
 import { MulterModule } from '@nestjs/platform-express';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+import { SpentGraphPersistenceService } from 'src/common/helpers/spent-graph/spent-graph-persistence.service';
 import { StripeService } from 'src/services/stripe/stripe.service';
 import { ApiModule } from './api.module';
 
@@ -47,7 +49,12 @@ describe('ApiModule', () => {
     expect(Array.isArray(dynamicModule.controllers)).toBe(true);
     expect(dynamicModule.controllers.length).toBeGreaterThan(0);
     expect(dynamicModule.providers).toEqual(
-      expect.arrayContaining([EnterpriseAccessService, StripeService]),
+      expect.arrayContaining([
+        EnterpriseAccessService,
+        InventoryLedgerService,
+        SpentGraphPersistenceService,
+        StripeService,
+      ]),
     );
   });
 

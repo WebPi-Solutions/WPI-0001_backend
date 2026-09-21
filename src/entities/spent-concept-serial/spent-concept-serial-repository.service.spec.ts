@@ -34,6 +34,7 @@ describe('SpentConceptSerialRepository', () => {
   let typeOrmRepositoryMock: {
     save: jest.Mock;
     findOne: jest.Mock;
+    find: jest.Mock;
     delete: jest.Mock;
     count: jest.Mock;
   };
@@ -49,6 +50,7 @@ describe('SpentConceptSerialRepository', () => {
     typeOrmRepositoryMock = {
       save: jest.fn(),
       findOne: jest.fn(),
+      find: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
     };
@@ -245,6 +247,17 @@ describe('SpentConceptSerialRepository', () => {
       ).resolves.toBe(3);
       expect(typeOrmRepositoryMock.count).toHaveBeenCalledWith({
         where: { spentConceptId: 'ic-uuid' },
+      });
+    });
+  });
+
+  describe('findBySpentConceptId', () => {
+    it('lista las series de la línea', async () => {
+      typeOrmRepositoryMock.find.mockResolvedValue([]);
+      await spentConceptSerialRepositoryService.findBySpentConceptId('ic-uuid', ['itemSerial']);
+      expect(typeOrmRepositoryMock.find).toHaveBeenCalledWith({
+        where: { spentConceptId: 'ic-uuid' },
+        relations: ['itemSerial'],
       });
     });
   });

@@ -5,7 +5,7 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import { User, UserRoleTypes } from 'src/entities/user/user.entity';
+import { User } from 'src/entities/user/user.entity';
 import { UserRepository } from 'src/entities/user/user-repository.service';
 import { AccessContext } from './access-context';
 import { getEnterpriseAccessContext } from './enterprise-access.storage';
@@ -14,6 +14,8 @@ import {
   PermissionResource,
 } from 'src/common/helpers/enterprise-permission/permission.catalog';
 import { hasEnterprisePermission } from 'src/common/helpers/enterprise-permission/permission.evaluator';
+
+import { UserRoleTypes } from 'src/common/enums';
 
 /**
  * Opciones para {@link EnterpriseAccessService.assertUserBelongsToEnterprise}.

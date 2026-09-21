@@ -1,17 +1,10 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { InvoiceStatus } from 'src/common/enums';
 import { Client } from '../client/client.entity';
 import { InvoiceSeries } from '../invoice-series/invoice-series.entity';
 import { Quote } from '../quote/quote.entity';
 import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 import { InvoiceConcept } from '../invoice-concept/invoice-concept.entity';
-
-export enum InvoiceStatus {
-  DRAFT = 'draft',
-  ISSUED = 'issued',
-  PAID = 'paid',
-  PARTIALLY_PAID = 'partially_paid',
-  CANCELLED = 'cancelled',
-}
 
 /**
  * Entidad Factura que representa la tabla invoices en la base de datos

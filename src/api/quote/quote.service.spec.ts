@@ -5,9 +5,11 @@ import { Client } from 'src/entities/client/client.entity';
 import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-repository.service';
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
-import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
+import { Quote } from 'src/entities/quote/quote.entity';
 import { QuoteService } from './quote.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
+
+import { QuoteStatus } from 'src/common/enums';
 
 describe('QuoteService', () => {
   let service: QuoteService;

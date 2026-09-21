@@ -1,10 +1,12 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { Quote, QuoteStatus } from './quote.entity';
+import { Quote } from './quote.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryBuilderService, QueryFilterOptions } from 'src/common/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { QuoteSubtotalsByStatusDto, QuoteStatusMetricsDto } from 'src/api/metrics/dto/quote-subtotals-by-status.dto';
+
+import { QuoteStatus } from 'src/common/enums';
 
 @Injectable()
 export class QuoteRepository {
@@ -202,7 +204,13 @@ export class QuoteRepository {
     }
 
     metrics.total.subtotal = Math.round(metrics.total.subtotal * 100) / 100;
-    const statusKeys = ['draft', 'issued', 'ordered', 'converted', 'rejected'] as const;
+    const statusKeys = [
+      QuoteStatus.DRAFT,
+      QuoteStatus.ISSUED,
+      QuoteStatus.ORDERED,
+      QuoteStatus.CONVERTED,
+      QuoteStatus.REJECTED,
+    ] as const;
     statusKeys.forEach((key) => {
       metrics[key].subtotal = Math.round(metrics[key].subtotal * 100) / 100;
     });

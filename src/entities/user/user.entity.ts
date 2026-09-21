@@ -6,18 +6,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { UserRoleTypes, UserStatusTypes } from 'src/common/enums';
 import { UserEnterprise } from '../user/user-enterprise.entity';
-
-export enum UserStatusTypes {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-  PENDING = 'pending'
-}
-
-export enum UserRoleTypes {
-  USER = 'user',
-  ADMIN = 'administrator',
-}
 
 /**
  * Entidad Usuario que representa la tabla users en la base de datos

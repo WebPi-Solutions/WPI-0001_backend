@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { User, UserStatusTypes } from './user.entity';
+import { User } from './user.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/common/helpers/query-builder/query-builder.service';
@@ -7,6 +7,8 @@ import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { UserEnterprise } from './user-enterprise.entity';
 import { CreateUserEnterpriseDto } from './dto/create-user-enterprise.dto';
 import { DefaultSchedule } from '../default-schedule/default-schedule.entity';
+
+import { UserStatusTypes } from 'src/common/enums';
 
 @Injectable()
 export class UserRepository {

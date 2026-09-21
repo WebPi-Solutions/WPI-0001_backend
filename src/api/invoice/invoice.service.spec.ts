@@ -5,10 +5,13 @@ import { Client } from 'src/entities/client/client.entity';
 import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-series-repository.service';
 import { InvoiceSeries } from 'src/entities/invoice-series/invoice-series.entity';
 import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.service';
-import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
+import { Invoice } from 'src/entities/invoice/invoice.entity';
 import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recurrent-earning-repository.service';
 import { InvoiceService } from './invoice.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+
+import { InvoiceStatus } from 'src/common/enums';
 
 describe('InvoiceService', () => {
   let service: InvoiceService;
@@ -22,6 +25,11 @@ describe('InvoiceService', () => {
   let clientRepository: { findById: jest.Mock };
   let invoiceSeriesRepository: { findById: jest.Mock };
   let recurrentEarningRepository: { findById: jest.Mock };
+  let inventoryLedgerService: {
+    releaseDraftInvoiceReservations: jest.Mock;
+    confirmInvoiceIssue: jest.Mock;
+    reverseInvoiceCancellation: jest.Mock;
+  };
 
   const invoiceId = 'invoice-uuid';
   const clientId = 'client-uuid';
@@ -114,6 +122,11 @@ describe('InvoiceService', () => {
     clientRepository = { findById: jest.fn() };
     invoiceSeriesRepository = { findById: jest.fn() };
     recurrentEarningRepository = { findById: jest.fn() };
+    inventoryLedgerService = {
+      releaseDraftInvoiceReservations: jest.fn().mockResolvedValue(undefined),
+      confirmInvoiceIssue: jest.fn().mockResolvedValue(undefined),
+      reverseInvoiceCancellation: jest.fn().mockResolvedValue(undefined),
+    };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -130,6 +143,7 @@ describe('InvoiceService', () => {
               [...new Set([...(relations ?? []), ...required])],
           },
         },
+        { provide: InventoryLedgerService, useValue: inventoryLedgerService },
       ],
     }).compile();
 
@@ -419,6 +433,39 @@ describe('InvoiceService', () => {
         'invoiceConcepts.serials',
       ]);
       expect(result.status).toBe(InvoiceStatus.ISSUED);
+    });
+
+    it('libera reservas si el borrador se cancela', async () => {
+      mockIssuedPersistentDataSources();
+      invoiceRepository.findById
+        .mockResolvedValueOnce(buildInvoice({ status: InvoiceStatus.DRAFT }))
+        .mockResolvedValueOnce(buildInvoice({ status: InvoiceStatus.CANCELLED }));
+      invoiceRepository.updateById.mockResolvedValue({});
+
+      await service.updateStatusById(invoiceId, InvoiceStatus.CANCELLED);
+
+      expect(inventoryLedgerService.releaseDraftInvoiceReservations).toHaveBeenCalledWith(
+        invoiceId,
+      );
+      expect(inventoryLedgerService.confirmInvoiceIssue).not.toHaveBeenCalled();
+    });
+
+    it('revierte el kardex al cancelar una factura emitida', async () => {
+      const issuedInvoice = buildInvoice({
+        status: InvoiceStatus.ISSUED,
+        issuedDate: new Date('2026-06-01'),
+      });
+      invoiceRepository.findById
+        .mockResolvedValueOnce(issuedInvoice)
+        .mockResolvedValueOnce({ ...issuedInvoice, status: InvoiceStatus.CANCELLED });
+      invoiceRepository.updateById.mockResolvedValue({});
+
+      await service.updateStatusById(invoiceId, InvoiceStatus.CANCELLED);
+
+      expect(inventoryLedgerService.reverseInvoiceCancellation).toHaveBeenCalledWith(
+        invoiceId,
+        new Date('2026-06-01'),
+      );
     });
 
     it('solo actualiza el estado al pasar de emitida a pagada', async () => {

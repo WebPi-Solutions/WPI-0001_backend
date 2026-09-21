@@ -2,10 +2,11 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { coverDtoClass } from 'src/test-utils/cover-data-classes';
 import { UserEnterprise } from '../user-enterprise.entity';
-import { UserStatusTypes } from '../user.entity';
 import { CreateUserDto } from './create-user.dto';
 import { CreateUserEnterpriseDto } from './create-user-enterprise.dto';
 import { UpdateUserDto } from './update-user.dto';
+
+import { UserStatusTypes } from 'src/common/enums';
 
 const SAMPLE_UUID = '123e4567-e89b-12d3-a456-426614174000';
 

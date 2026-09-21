@@ -15,9 +15,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { QueryBuilderService } from 'src/common/helpers/query-builder/query-builder.service';
 import { CreateUserEnterpriseDto } from './dto/create-user-enterprise.dto';
-import { User, UserStatusTypes } from './user.entity';
+import { User } from './user.entity';
 import { UserEnterprise } from './user-enterprise.entity';
 import { UserRepository } from './user-repository.service';
+
+import { UserStatusTypes } from 'src/common/enums';
 
 /**
  * Extrae la HttpException lanzada por una promesa rechazada.

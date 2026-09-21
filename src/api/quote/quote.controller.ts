@@ -2,11 +2,13 @@ import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param
 import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { QuoteService } from './quote.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
-import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
+import { Quote } from 'src/entities/quote/quote.entity';
 import { QuoteResponseDto } from 'src/entities/quote/dto/quote-response.dto';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
+
+import { QuoteStatus } from 'src/common/enums';
 
 @ApiTags('Cotizaciones')
 @Controller('quotes')

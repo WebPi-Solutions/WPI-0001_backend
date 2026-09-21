@@ -4,9 +4,12 @@ import { InvoiceConceptSerialRepository } from 'src/entities/invoice-concept-ser
 import { InvoiceConceptSerial } from 'src/entities/invoice-concept-serial/invoice-concept-serial.entity';
 import { InvoiceConceptRepository } from 'src/entities/invoice-concept/invoice-concept-repository.service';
 import { InvoiceConcept } from 'src/entities/invoice-concept/invoice-concept.entity';
-import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
+import { Invoice } from 'src/entities/invoice/invoice.entity';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { InvoiceConceptSerialService } from './invoice-concept-serial.service';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+
+import { InvoiceStatus } from 'src/common/enums';
 
 describe('InvoiceConceptSerialService', () => {
   let service: InvoiceConceptSerialService;
@@ -22,6 +25,13 @@ describe('InvoiceConceptSerialService', () => {
   let enterpriseAccessService: {
     assertCurrentEntityAccessible: jest.Mock;
     mergeRelationNames: (relations: string[] | undefined, required: string[]) => string[];
+  };
+  let inventoryLedgerService: {
+    resolveAvailableSaleSerial: jest.Mock;
+    reserveSaleSerial: jest.Mock;
+    replaceReservedSaleSerial: jest.Mock;
+    releaseReservedSaleSerial: jest.Mock;
+    normalizeSerialNumber: jest.Mock;
   };
 
   const serialId = 'ics-uuid';
@@ -47,6 +57,7 @@ describe('InvoiceConceptSerialService', () => {
       id: serialId,
       invoiceConceptId,
       serialNumber: 'SN-1',
+      itemSerial: { id: 'item-serial-uuid', serialNumber: 'SN-1' },
       invoiceConcept: buildInvoiceConcept(),
       ...overrides,
     }) as InvoiceConceptSerial;
@@ -66,6 +77,52 @@ describe('InvoiceConceptSerialService', () => {
       mergeRelationNames: (relations?: string[], required: string[] = []) =>
         [...new Set([...(relations ?? []), ...required])],
     };
+    inventoryLedgerService = {
+      resolveAvailableSaleSerial: jest.fn(async (_item, itemSerialId, serialNumber) => {
+        if (itemSerialId) {
+          return { id: itemSerialId, serialNumber: 'SN-1' };
+        }
+        if (typeof serialNumber !== 'string') {
+          throw new HttpException(
+            'El número de serie debe ser una cadena de texto',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        const trimmedSerialNumber = serialNumber.trim();
+        if (trimmedSerialNumber === '') {
+          throw new HttpException(
+            'El número de serie no puede estar vacío',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        return { id: 'item-serial-uuid', serialNumber: trimmedSerialNumber };
+      }),
+      reserveSaleSerial: jest.fn(async (_item, itemSerialId: string) => ({
+        id: itemSerialId,
+        serialNumber: 'SN-1',
+      })),
+      replaceReservedSaleSerial: jest.fn(async (_item, _previous, nextId: string) => ({
+        id: nextId,
+        serialNumber: 'SN-2',
+      })),
+      releaseReservedSaleSerial: jest.fn().mockResolvedValue(undefined),
+      normalizeSerialNumber: jest.fn((raw: unknown) => {
+        if (typeof raw !== 'string') {
+          throw new HttpException(
+            'El número de serie debe ser una cadena de texto',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        const trimmedSerialNumber = raw.trim();
+        if (trimmedSerialNumber === '') {
+          throw new HttpException(
+            'El número de serie no puede estar vacío',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        return trimmedSerialNumber;
+      }),
+    };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -73,6 +130,7 @@ describe('InvoiceConceptSerialService', () => {
         { provide: InvoiceConceptSerialRepository, useValue: invoiceConceptSerialRepository },
         { provide: InvoiceConceptRepository, useValue: invoiceConceptRepository },
         { provide: EnterpriseAccessService, useValue: enterpriseAccessService },
+        { provide: InventoryLedgerService, useValue: inventoryLedgerService },
       ],
     }).compile();
 
@@ -214,6 +272,7 @@ describe('InvoiceConceptSerialService', () => {
       ).resolves.toEqual(created);
       expect(invoiceConceptSerialRepository.create).toHaveBeenCalledWith({
         invoiceConceptId,
+        itemSerialId: 'item-serial-uuid',
         serialNumber: 'SN-1',
       });
     });
@@ -385,6 +444,7 @@ describe('InvoiceConceptSerialService', () => {
       } as InvoiceConceptSerial);
 
       expect(invoiceConceptSerialRepository.updateById).toHaveBeenCalledWith(serialId, {
+        itemSerialId: 'item-serial-uuid',
         serialNumber: 'SN-2',
       });
     });
@@ -437,6 +497,7 @@ describe('InvoiceConceptSerialService', () => {
       invoiceConceptSerialRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });
 
       await expect(service.deleteById(serialId)).resolves.toEqual({ affected: 1, raw: [] });
+      expect(inventoryLedgerService.releaseReservedSaleSerial).toHaveBeenCalled();
     });
 
     it('propaga el error del repositorio', async () => {

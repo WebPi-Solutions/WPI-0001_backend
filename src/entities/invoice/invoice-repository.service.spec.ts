@@ -15,7 +15,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { QueryBuilderService } from 'src/common/helpers/query-builder/query-builder.service';
 import { InvoiceRepository } from './invoice-repository.service';
-import { Invoice, InvoiceStatus } from './invoice.entity';
+import { Invoice } from './invoice.entity';
+import { InvoiceStatus } from 'src/common/enums';
 
 /**
  * Extrae la HttpException lanzada por una promesa rechazada.

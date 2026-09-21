@@ -5,6 +5,7 @@ import { Item } from 'src/entities/item/item.entity';
 import { ItemCategoryRepository } from 'src/entities/item-category/item-category-repository.service';
 import { ItemCategory } from 'src/entities/item-category/item-category.entity';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
 import { ITEM_SERIAL_NUMBER_REQUIRES_STOCK_MESSAGE, ItemService } from './item.service';
 
 describe('ItemService', () => {
@@ -23,6 +24,7 @@ describe('ItemService', () => {
     assertCurrentEntityAccessible: jest.Mock;
     mergeRelationNames: (relations: string[] | undefined, required: string[]) => string[];
   };
+  let inventoryLedgerService: { attachStockBalances: jest.Mock };
 
   const itemId = 'item-uuid';
   const itemCategoryId = 'item-category-uuid';
@@ -73,6 +75,9 @@ describe('ItemService', () => {
       mergeRelationNames: (relations?: string[], required: string[] = []) =>
         [...new Set([...(relations ?? []), ...required])],
     };
+    inventoryLedgerService = {
+      attachStockBalances: jest.fn().mockResolvedValue(undefined),
+    };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -80,6 +85,7 @@ describe('ItemService', () => {
         { provide: ItemRepository, useValue: itemRepository },
         { provide: ItemCategoryRepository, useValue: itemCategoryRepository },
         { provide: EnterpriseAccessService, useValue: enterpriseAccessService },
+        { provide: InventoryLedgerService, useValue: inventoryLedgerService },
       ],
     }).compile();
 

@@ -2,17 +2,27 @@ import { invokeTypeOrmMetadataCallbacks } from 'src/test-utils/cover-data-classe
 import {
   AiMode,
   AiRequestType,
+  ClientType,
+  InvoiceStatus,
+  ItemSerialStatus,
   OrderStatus,
   PaymentMethod,
+  QuoteStatus,
   RecurrentEarningType,
   SigningAction,
+  SpentStatus,
+  StockDirection,
+  StockType,
+  SupplierType,
+  UserRoleTypes,
+  UserStatusTypes,
 } from 'src/common/enums';
 import { AiRequest } from './ai-request/ai-request.entity';
 import { Client } from './client/client.entity';
 import { DefaultSchedule } from './default-schedule/default-schedule.entity';
 import { Enterprise } from './enterprise/enterprise.entity';
 import { Holiday } from './holiday/holiday.entity';
-import { Invoice, InvoiceStatus } from './invoice/invoice.entity';
+import { Invoice } from './invoice/invoice.entity';
 import { InvoiceConcept } from './invoice-concept/invoice-concept.entity';
 import { InvoiceConceptSerial } from './invoice-concept-serial/invoice-concept-serial.entity';
 import { InvoiceSeries } from './invoice-series/invoice-series.entity';
@@ -20,7 +30,7 @@ import { Item } from './item/item.entity';
 import { ItemCategory } from './item-category/item-category.entity';
 import { Order } from './order/order.entity';
 import { OrderConcept } from './order-concept/order-concept.entity';
-import { Quote, QuoteStatus } from './quote/quote.entity';
+import { Quote } from './quote/quote.entity';
 import { QuoteConcept } from './quote-concept/quote-concept.entity';
 import { RecurrentEarning } from './recurrent-earning/recurrent-earning.entity';
 import { Signing } from './signing/signing.entity';
@@ -28,10 +38,12 @@ import { SigningUpdate } from './signing/signing-update.entity';
 import { Spent } from './spent/spent.entity';
 import { SpentConcept } from './spent-concept/spent-concept.entity';
 import { SpentConceptSerial } from './spent-concept-serial/spent-concept-serial.entity';
+import { ItemSerial } from './item-serial/item-serial.entity';
+import { StockMovement } from './stock-movement/stock-movement.entity';
 import { Supplier } from './supplier/supplier.entity';
 import { EnterpriseRole } from './enterprise-role/enterprise-role.entity';
 import { UserEnterprise } from './user/user-enterprise.entity';
-import { User, UserRoleTypes, UserStatusTypes } from './user/user.entity';
+import { User } from './user/user.entity';
 import { Vacation } from './vacation/vacation.entity';
 import { WorkSchedule } from './work-schedule/work-schedule.entity';
 
@@ -152,7 +164,7 @@ describe('Entidades TypeORM', () => {
       email: 'c@test',
       phone: '622',
       address: 'Dir',
-      type: 'company',
+      type: ClientType.COMPANY,
       accountNumber: 'ES11',
       paymentMethod: PaymentMethod.CARD,
       description: 'Nota',
@@ -172,7 +184,7 @@ describe('Entidades TypeORM', () => {
       email: 'p@test',
       phone: '633',
       address: 'Dir P',
-      type: 'individual',
+      type: SupplierType.INDIVIDUAL,
       accountNumber: 'ES22',
       description: null,
       createdAt: now,
@@ -203,7 +215,22 @@ describe('Entidades TypeORM', () => {
       createdAt: now,
       updatedAt: now,
       itemCategory,
+      itemSerials: [],
+      stockMovements: [],
     });
+    const itemSerial = Object.assign(new ItemSerial(), {
+      id: 'is-1',
+      itemId: item.id,
+      serialNumber: 'SN-001',
+      status: ItemSerialStatus.IN_STOCK,
+      createdAt: now,
+      updatedAt: now,
+      item,
+      spentConceptSerials: [],
+      invoiceConceptSerials: [],
+      stockMovements: [],
+    });
+    item.itemSerials = [itemSerial];
     itemCategory.items = [item];
     enterprise.itemCategories = [itemCategory];
     const spent = Object.assign(new Spent(), {
@@ -214,7 +241,7 @@ describe('Entidades TypeORM', () => {
       issuedDate: now,
       collectionDate: now,
       declarationDate: now,
-      status: 'paid',
+      status: SpentStatus.PAID,
       file: true,
       spentConcepts: [],
       createdAt: now,
@@ -332,10 +359,12 @@ describe('Entidades TypeORM', () => {
     const invoiceConceptSerial = Object.assign(new InvoiceConceptSerial(), {
       id: 'ics-1',
       invoiceConceptId: invoiceConcept.id,
+      itemSerialId: itemSerial.id,
       serialNumber: 'SN-001',
       createdAt: now,
       updatedAt: now,
       invoiceConcept,
+      itemSerial,
     });
     invoiceConcept.serials = [invoiceConceptSerial];
     invoice.invoiceConcepts = [invoiceConcept];
@@ -393,13 +422,34 @@ describe('Entidades TypeORM', () => {
     const spentConceptSerial = Object.assign(new SpentConceptSerial(), {
       id: 'scs-1',
       spentConceptId: spentConcept.id,
+      itemSerialId: itemSerial.id,
       serialNumber: 'SN-SPENT-001',
       createdAt: now,
       updatedAt: now,
       spentConcept,
+      itemSerial,
     });
     spentConcept.serials = [spentConceptSerial];
     spent.spentConcepts = [spentConcept];
+    const stockMovement = Object.assign(new StockMovement(), {
+      id: 'sm-1',
+      itemId: item.id,
+      itemSerialId: itemSerial.id,
+      invoiceConceptId: null,
+      spentConceptId: spentConcept.id,
+      quantity: 1,
+      direction: StockDirection.IN,
+      type: StockType.PURCHASE,
+      occurredAt: now,
+      createdAt: now,
+      updatedAt: now,
+      item,
+      itemSerial,
+      invoiceConcept: null,
+      spentConcept,
+    });
+    item.stockMovements = [stockMovement];
+    itemSerial.stockMovements = [stockMovement];
     const signing = Object.assign(new Signing(), {
       id: 'sig-1',
       userEnterpriseId: userEnterprise.id,
@@ -450,7 +500,7 @@ describe('Entidades TypeORM', () => {
     expect(vacation.name).toBe('Vacaciones');
     expect(workSchedule.startsAt).toEqual(now);
     expect(holiday.calendarColor).toBe('#00A76F');
-    expect(client.type).toBe('company');
+    expect(client.type).toBe(ClientType.COMPANY);
     expect(client.paymentMethod).toBe(PaymentMethod.CARD);
     expect(supplier.spents).toEqual([]);
     expect(itemCategory.name).toBe('Material');
@@ -460,6 +510,8 @@ describe('Entidades TypeORM', () => {
     expect(spent.code).toBe('FAC-2026-001');
     expect(spent.spentConcepts[0].name).toBe('Papel');
     expect(spent.spentConcepts[0].serials[0].serialNumber).toBe('SN-SPENT-001');
+    expect(itemSerial.status).toBe(ItemSerialStatus.IN_STOCK);
+    expect(stockMovement.direction).toBe(StockDirection.IN);
     expect(invoiceSeries.series).toBe('A');
     expect(quote.status).toBe(QuoteStatus.DRAFT);
     expect(order.status).toBe(OrderStatus.AWAITING_RECEIPT);

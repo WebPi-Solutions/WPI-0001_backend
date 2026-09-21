@@ -1,8 +1,10 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
+import { Invoice } from 'src/entities/invoice/invoice.entity';
 import { InvoiceController } from './invoice.controller';
 import { InvoiceService } from './invoice.service';
+
+import { InvoiceStatus } from 'src/common/enums';
 
 describe('InvoiceController', () => {
   let controller: InvoiceController;

@@ -3,12 +3,14 @@ import { DeleteResult } from 'typeorm';
 import { QuoteConceptRepository } from 'src/entities/quote-concept/quote-concept-repository.service';
 import { QuoteConcept } from 'src/entities/quote-concept/quote-concept.entity';
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
-import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
+import { Quote } from 'src/entities/quote/quote.entity';
 import { ItemRepository } from 'src/entities/item/item-repository.service';
 import { Item } from 'src/entities/item/item.entity';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { PermissionAction } from 'src/common/helpers/enterprise-permission/permission.catalog';
+
+import { QuoteStatus } from 'src/common/enums';
 
 /**
  * Servicio de API de líneas de presupuesto.

@@ -7,10 +7,12 @@ import { SpentConcept } from 'src/entities/spent-concept/spent-concept.entity';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { PermissionAction } from 'src/common/helpers/enterprise-permission/permission.catalog';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
 
 /**
  * Servicio de API de números de serie de línea de gasto.
  * El tenant se resuelve a través de la línea → gasto → proveedor.
+ * El alta crea la identidad canónica y el movimiento de entrada.
  */
 @Injectable()
 export class SpentConceptSerialService {
@@ -20,6 +22,7 @@ export class SpentConceptSerialService {
     private readonly spentConceptSerialRepository: SpentConceptSerialRepository,
     private readonly spentConceptRepository: SpentConceptRepository,
     private readonly enterpriseAccessService: EnterpriseAccessService,
+    private readonly inventoryLedgerService: InventoryLedgerService,
   ) {}
 
   /**
@@ -41,9 +44,21 @@ export class SpentConceptSerialService {
     this.assertLineAllowsSerialNumbers(accessibleSpentConcept);
     await this.assertSerialCountWithinQuantity(accessibleSpentConcept);
 
+    const normalizedSerialNumber = this.inventoryLedgerService.normalizeSerialNumber(
+      spentConceptSerial.serialNumber,
+    );
+    const createdItemSerial = await this.inventoryLedgerService.registerPurchaseSerial(
+      accessibleSpentConcept.item,
+      accessibleSpentConcept,
+      accessibleSpentConcept.spent.status,
+      normalizedSerialNumber,
+      this.resolveSpentOccurredAt(accessibleSpentConcept),
+    );
+
     const persistencePayload: Partial<SpentConceptSerial> = {
       spentConceptId: accessibleSpentConcept.id,
-      serialNumber: this.normalizeSerialNumber(spentConceptSerial.serialNumber),
+      itemSerialId: createdItemSerial.id,
+      serialNumber: createdItemSerial.serialNumber,
     };
 
     try {
@@ -132,6 +147,7 @@ export class SpentConceptSerialService {
       'spentConcept',
       'spentConcept.spent',
       'spentConcept.spent.supplier',
+      'itemSerial',
     ]);
     if (!existingSerial) {
       throw new HttpException(
@@ -140,12 +156,23 @@ export class SpentConceptSerialService {
       );
     }
     this.assertSerialAccessible(existingSerial, 'write');
+    if (this.inventoryLedgerService.isSpentCancelled(existingSerial.spentConcept?.spent?.status)) {
+      throw new HttpException(
+        'No se puede modificar el inventario de un gasto cancelado',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     const persistencePayload: Partial<SpentConceptSerial> = {};
     if (spentConceptSerial.serialNumber !== undefined) {
-      persistencePayload.serialNumber = this.normalizeSerialNumber(
+      const normalizedSerialNumber = this.inventoryLedgerService.normalizeSerialNumber(
         spentConceptSerial.serialNumber,
       );
+      const updatedItemSerial = await this.inventoryLedgerService.renamePurchaseSerial(
+        existingSerial.itemSerial,
+        normalizedSerialNumber,
+      );
+      persistencePayload.serialNumber = updatedItemSerial.serialNumber;
     }
 
     try {
@@ -172,6 +199,7 @@ export class SpentConceptSerialService {
       'spentConcept',
       'spentConcept.spent',
       'spentConcept.spent.supplier',
+      'itemSerial',
     ]);
     if (!existingSerial) {
       throw new HttpException(
@@ -180,9 +208,18 @@ export class SpentConceptSerialService {
       );
     }
     this.assertSerialAccessible(existingSerial, 'delete');
+    if (this.inventoryLedgerService.isSpentCancelled(existingSerial.spentConcept?.spent?.status)) {
+      throw new HttpException(
+        'No se puede modificar el inventario de un gasto cancelado',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
 
     try {
       const result = await this.spentConceptSerialRepository.deleteById(id);
+      if (existingSerial.itemSerial) {
+        await this.inventoryLedgerService.removePurchaseSerial(existingSerial.itemSerial);
+      }
       this.logger.log(
         `Número de serie de línea ${id} eliminado. Filas afectadas: ${result.affected}`,
       );
@@ -333,25 +370,16 @@ export class SpentConceptSerialService {
   }
 
   /**
-   * Recorta y valida el número de serie.
-   * @param rawSerialNumber - Valor recibido
-   * @returns Número de serie no vacío
+   * Fecha del movimiento de compra: emisión del gasto o ahora.
+   * @param spentConcept - Línea con gasto cargado
+   * @returns Fecha del movimiento
    */
-  private normalizeSerialNumber(rawSerialNumber: unknown): string {
-    if (typeof rawSerialNumber !== 'string') {
-      throw new HttpException(
-        'El número de serie debe ser una cadena de texto',
-        HttpStatus.BAD_REQUEST,
-      );
+  private resolveSpentOccurredAt(spentConcept: SpentConcept): Date {
+    const issuedDate = spentConcept.spent?.issuedDate;
+    if (issuedDate) {
+      return new Date(issuedDate);
     }
-    const trimmedSerialNumber = rawSerialNumber.trim();
-    if (trimmedSerialNumber === '') {
-      throw new HttpException(
-        'El número de serie no puede estar vacío',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    return trimmedSerialNumber;
+    return new Date();
   }
 
   /**

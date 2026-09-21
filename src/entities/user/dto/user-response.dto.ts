@@ -3,7 +3,7 @@ import { Expose, Type } from 'class-transformer';
 import { DefaultScheduleResponseDto } from 'src/entities/default-schedule/dto/default-schedule-response.dto';
 import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
 import { EnterpriseRoleResponseDto } from 'src/entities/enterprise-role/dto/enterprise-role-response.dto';
-import { UserRoleTypes, UserStatusTypes } from 'src/entities/user/user.entity';
+import { UserRoleTypes, UserStatusTypes } from 'src/common/enums';
 
 /**
  * Vista pública de usuario para respuestas HTTP.

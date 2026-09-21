@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { E2E_EMAIL, authHeader } from '@e2e/auth';
 import { expectIdorHidden, http } from '@e2e/http';
+import { deletePurchasedItemSerials, purchaseItemSerials } from '@e2e/inventory';
 import { getE2eSeed, startE2eWorld } from '@e2e/world';
 
 describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio', () => {
@@ -335,6 +336,10 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
         pricePvp: 10,
       });
     expect(serialTrackedItem.status).toBe(201);
+    const purchasedInvoiceSerials = await purchaseItemSerials(serialTrackedItem.body.id, [
+      'SN-TMP-1',
+      'SN-TMP-2',
+    ]);
     const invoiceConcept = await http()
       .post('/invoice-concepts')
       .query({ enterpriseId: seed.enterpriseA.id })
@@ -384,6 +389,7 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
           .set(authHeader(E2E_EMAIL.userA))
       ).status,
     ).toBe(200);
+    await deletePurchasedItemSerials(purchasedInvoiceSerials);
     expect(
       (
         await http()

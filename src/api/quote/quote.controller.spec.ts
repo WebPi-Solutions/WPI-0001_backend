@@ -1,8 +1,10 @@
 import { HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
+import { Quote } from 'src/entities/quote/quote.entity';
 import { QuoteController } from './quote.controller';
 import { QuoteService } from './quote.service';
+
+import { QuoteStatus } from 'src/common/enums';
 
 describe('QuoteController', () => {
   let controller: QuoteController;

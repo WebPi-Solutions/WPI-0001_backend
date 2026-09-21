@@ -34,6 +34,7 @@ describe('InvoiceConceptSerialRepository', () => {
   let typeOrmRepositoryMock: {
     save: jest.Mock;
     findOne: jest.Mock;
+    find: jest.Mock;
     delete: jest.Mock;
     count: jest.Mock;
   };
@@ -49,6 +50,7 @@ describe('InvoiceConceptSerialRepository', () => {
     typeOrmRepositoryMock = {
       save: jest.fn(),
       findOne: jest.fn(),
+      find: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
     };
@@ -245,6 +247,19 @@ describe('InvoiceConceptSerialRepository', () => {
       ).resolves.toBe(3);
       expect(typeOrmRepositoryMock.count).toHaveBeenCalledWith({
         where: { invoiceConceptId: 'ic-uuid' },
+      });
+    });
+  });
+
+  describe('findByInvoiceConceptId', () => {
+    it('lista las series de la línea', async () => {
+      typeOrmRepositoryMock.find.mockResolvedValue([]);
+      await invoiceConceptSerialRepositoryService.findByInvoiceConceptId('ic-uuid', [
+        'itemSerial',
+      ]);
+      expect(typeOrmRepositoryMock.find).toHaveBeenCalledWith({
+        where: { invoiceConceptId: 'ic-uuid' },
+        relations: ['itemSerial'],
       });
     });
   });

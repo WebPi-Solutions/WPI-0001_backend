@@ -39,6 +39,7 @@ describe('SpentConceptRepository', () => {
   let typeOrmRepositoryMock: {
     save: jest.Mock;
     findOne: jest.Mock;
+    find: jest.Mock;
     delete: jest.Mock;
     createQueryBuilder: jest.Mock;
   };
@@ -59,6 +60,7 @@ describe('SpentConceptRepository', () => {
     typeOrmRepositoryMock = {
       save: jest.fn(),
       findOne: jest.fn(),
+      find: jest.fn(),
       delete: jest.fn(),
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
     };
@@ -260,6 +262,18 @@ describe('SpentConceptRepository', () => {
       await expect(spentConceptRepositoryService.deleteById('ic-uuid')).resolves.toEqual(
         deleteResult,
       );
+    });
+  });
+
+  describe('findBySpentId', () => {
+    it('lista las líneas del gasto', async () => {
+      typeOrmRepositoryMock.find.mockResolvedValue([]);
+      await spentConceptRepositoryService.findBySpentId('spent-1', ['item']);
+      expect(typeOrmRepositoryMock.find).toHaveBeenCalledWith({
+        where: { spentId: 'spent-1' },
+        relations: ['item'],
+        order: { position: 'ASC' },
+      });
     });
   });
 });

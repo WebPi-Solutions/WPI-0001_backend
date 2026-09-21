@@ -63,6 +63,9 @@ describe('Artículos (e2e) — control de acceso', () => {
       .set(authHeader(E2E_EMAIL.userA));
     expect(response.status).toBe(200);
     expect(response.body.id).toBe(seed.itemA.id);
+    expect(response.body.stockOnHand).toBe(2);
+    expect(response.body.stockEntries).toBe(2);
+    expect(response.body.stockExits).toBe(0);
   });
 
   it('el usuario A no actualiza ni borra el artículo de B', async () => {

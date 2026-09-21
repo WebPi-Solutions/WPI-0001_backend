@@ -11,6 +11,8 @@ const TENANT_LIST_PATHS = [
   '/suppliers',
   '/item-categories',
   '/items',
+  '/item-serials',
+  '/stock-movements',
   '/invoices',
   '/invoice-concepts',
   '/invoice-concept-serials',
@@ -76,6 +78,9 @@ function extraQueryForPath(path: string, seed?: E2eSeed): Record<string, string>
   }
   if (path === '/spent-concept-serials' && seed) {
     return { spentConceptId: seed.spentConceptA.id };
+  }
+  if ((path === '/item-serials' || path === '/stock-movements') && seed) {
+    return { itemId: seed.itemA.id };
   }
   return {};
 }
@@ -168,6 +173,8 @@ describe('Matriz HTTP de acceso (e2e)', () => {
       `/suppliers/${seed.supplierA.id}`,
       `/item-categories/${seed.itemCategoryA.id}`,
       `/items/${seed.itemA.id}`,
+      `/item-serials/${seed.itemSerialA.id}`,
+      `/stock-movements/${seed.stockMovementA.id}`,
       `/invoices/${seed.invoiceA.id}`,
       `/invoice-concepts/${seed.invoiceConceptA.id}`,
       `/invoice-concept-serials/${seed.invoiceConceptSerialA.id}`,
@@ -238,6 +245,8 @@ const BY_ID_RESOLVES_TENANT: Array<{
   { name: 'proveedor', ownPath: (seed) => `/suppliers/${seed.supplierA.id}`, foreignPath: (seed) => `/suppliers/${seed.supplierB.id}` },
   { name: 'categoría de artículos', ownPath: (seed) => `/item-categories/${seed.itemCategoryA.id}`, foreignPath: (seed) => `/item-categories/${seed.itemCategoryB.id}` },
   { name: 'artículo', ownPath: (seed) => `/items/${seed.itemA.id}`, foreignPath: (seed) => `/items/${seed.itemB.id}` },
+  { name: 'número de serie de artículo', ownPath: (seed) => `/item-serials/${seed.itemSerialA.id}`, foreignPath: (seed) => `/item-serials/${seed.itemSerialB.id}` },
+  { name: 'movimiento de stock', ownPath: (seed) => `/stock-movements/${seed.stockMovementA.id}`, foreignPath: (seed) => `/stock-movements/${seed.stockMovementB.id}` },
   { name: 'factura', ownPath: (seed) => `/invoices/${seed.invoiceA.id}`, foreignPath: (seed) => `/invoices/${seed.invoiceB.id}` },
   { name: 'concepto de factura', ownPath: (seed) => `/invoice-concepts/${seed.invoiceConceptA.id}`, foreignPath: (seed) => `/invoice-concepts/${seed.invoiceConceptB.id}` },
   { name: 'número de serie de concepto', ownPath: (seed) => `/invoice-concept-serials/${seed.invoiceConceptSerialA.id}`, foreignPath: (seed) => `/invoice-concept-serials/${seed.invoiceConceptSerialB.id}` },

@@ -21,6 +21,8 @@ import { RecurrentEarningResponseDto } from 'src/entities/recurrent-earning/dto/
 import { InvoiceSeriesResponseDto } from 'src/entities/invoice-series/dto/invoice-series-response.dto';
 import { ItemCategoryResponseDto } from 'src/entities/item-category/dto/item-category-response.dto';
 import { ItemResponseDto } from 'src/entities/item/dto/item-response.dto';
+import { ItemSerialResponseDto } from 'src/entities/item-serial/dto/item-serial-response.dto';
+import { StockMovementResponseDto } from 'src/entities/stock-movement/dto/stock-movement-response.dto';
 import { InvoiceConceptResponseDto } from 'src/entities/invoice-concept/dto/invoice-concept-response.dto';
 import { InvoiceConceptSerialResponseDto } from 'src/entities/invoice-concept-serial/dto/invoice-concept-serial-response.dto';
 import { SpentConceptResponseDto } from 'src/entities/spent-concept/dto/spent-concept-response.dto';
@@ -36,8 +38,8 @@ import { SpentFileUploadDto } from 'src/api/spent/dto/spent-file-upload.dto';
 import { SpentAiFileUploadDto } from 'src/api/spent/dto/spent-ai-file-upload.dto';
 import { Client } from 'src/entities/client/client.entity';
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
-import { User, UserRoleTypes, UserStatusTypes } from 'src/entities/user/user.entity';
-import { SigningAction } from 'src/common/enums';
+import { User } from 'src/entities/user/user.entity';
+import { SigningAction, UserRoleTypes, UserStatusTypes } from 'src/common/enums';
 import { startE2eWorld } from '@e2e/world';
 
 describe('Superficie de producción (e2e) — DTOs, entidades y Swagger', () => {
@@ -76,6 +78,8 @@ describe('Superficie de producción (e2e) — DTOs, entidades y Swagger', () => 
     coverDtoClass(InvoiceSeriesResponseDto, { id: 'is1', series: 'A' });
     coverDtoClass(ItemCategoryResponseDto, { id: 'ic1', name: 'Cat' });
     coverDtoClass(ItemResponseDto, { id: 'it1', name: 'Art' });
+    coverDtoClass(ItemSerialResponseDto, { id: 'is1', serialNumber: 'SN-1' });
+    coverDtoClass(StockMovementResponseDto, { id: 'sm1', quantity: 1 });
     coverDtoClass(InvoiceConceptResponseDto, { id: 'ic1', name: 'Linea', basePrice: 10 });
     coverDtoClass(InvoiceConceptSerialResponseDto, { id: 'ics1', serialNumber: 'SN-1' });
     coverDtoClass(SpentConceptResponseDto, { id: 'sc1', name: 'Linea', basePrice: 10 });

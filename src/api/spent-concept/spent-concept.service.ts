@@ -10,6 +10,7 @@ import { SpentConceptSerialRepository } from 'src/entities/spent-concept-serial/
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { PermissionAction } from 'src/common/helpers/enterprise-permission/permission.catalog';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
 
 /**
  * Servicio de API de líneas de gasto.
@@ -25,6 +26,7 @@ export class SpentConceptService {
     private readonly itemRepository: ItemRepository,
     private readonly spentConceptSerialRepository: SpentConceptSerialRepository,
     private readonly enterpriseAccessService: EnterpriseAccessService,
+    private readonly inventoryLedgerService: InventoryLedgerService,
   ) {}
 
   /**
@@ -57,6 +59,12 @@ export class SpentConceptService {
     try {
       const createdSpentConcept = await this.spentConceptRepository.create(
         persistencePayload,
+      );
+      await this.inventoryLedgerService.syncPurchaseQuantityMovement(
+        createdSpentConcept,
+        resolvedItem,
+        accessibleSpent.status,
+        this.resolveSpentOccurredAt(accessibleSpent),
       );
       this.logger.log(`Línea de gasto creada con ID: ${createdSpentConcept.id}`);
       return createdSpentConcept;
@@ -134,6 +142,7 @@ export class SpentConceptService {
     const existingSpentConcept = await this.spentConceptRepository.findById(id, [
       'spent',
       'spent.supplier',
+      'item',
     ]);
     if (!existingSpentConcept) {
       throw new HttpException('Concepto de gasto no encontrado', HttpStatus.NOT_FOUND);
@@ -160,6 +169,13 @@ export class SpentConceptService {
         id,
         persistencePayload,
       );
+      const itemForInventory = resolvedItem ?? updatedSpentConcept.item ?? existingSpentConcept.item;
+      await this.inventoryLedgerService.syncPurchaseQuantityMovement(
+        updatedSpentConcept,
+        itemForInventory,
+        existingSpentConcept.spent.status,
+        this.resolveSpentOccurredAt(existingSpentConcept.spent),
+      );
       this.logger.log(`Línea de gasto ${id} actualizada`);
       return updatedSpentConcept;
     } catch (error) {
@@ -185,6 +201,7 @@ export class SpentConceptService {
     this.assertSpentConceptAccessible(existingSpentConcept, 'delete');
 
     try {
+      await this.inventoryLedgerService.purgeSpentConceptInventory(id);
       const result = await this.spentConceptRepository.deleteById(id);
       this.logger.log(`Línea de gasto ${id} eliminada. Filas afectadas: ${result.affected}`);
       return result;
@@ -715,5 +732,17 @@ export class SpentConceptService {
         .map((identifier) => identifier?.trim())
         .filter((identifier): identifier is string => Boolean(identifier)),
     )];
+  }
+
+  /**
+   * Fecha del movimiento de compra: emisión del gasto o ahora.
+   * @param spent - Gasto propietario
+   * @returns Fecha del movimiento
+   */
+  private resolveSpentOccurredAt(spent: Spent): Date {
+    if (spent.issuedDate) {
+      return new Date(spent.issuedDate);
+    }
+    return new Date();
   }
 }

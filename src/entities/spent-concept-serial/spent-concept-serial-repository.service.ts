@@ -132,6 +132,23 @@ export class SpentConceptSerialRepository {
   }
 
   /**
+   * Lista los números de serie de una línea de gasto.
+   * @param spentConceptId - UUID de la línea
+   * @param relations - Relaciones opcionales
+   * @returns Series persistidas
+   */
+  findBySpentConceptId(
+    spentConceptId: string,
+    relations?: string[],
+  ): Promise<SpentConceptSerial[]> {
+    this.logger.log(`Listando números de serie de la línea ${spentConceptId}`);
+    return this.spentConceptSerialRepository.find({
+      where: { spentConceptId },
+      relations,
+    });
+  }
+
+  /**
    * Traduce la violación de unicidad de serie a un 409.
    * @param error - Error de TypeORM/PostgreSQL
    */

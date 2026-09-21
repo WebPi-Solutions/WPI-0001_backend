@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
 import { ClientResponseDto } from 'src/entities/client/dto/client-response.dto';
 import { QuoteConceptResponseDto } from 'src/entities/quote-concept/dto/quote-concept-response.dto';
-import { QuoteStatus } from '../quote.entity';
+import { QuoteStatus } from 'src/common/enums';
 
 /**
  * Vista pública de cotización para respuestas HTTP.

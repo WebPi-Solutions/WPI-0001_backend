@@ -1,16 +1,9 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { QuoteStatus } from 'src/common/enums';
 import { Client } from '../client/client.entity';
 import { Invoice } from '../invoice/invoice.entity';
 import { Order } from '../order/order.entity';
 import { QuoteConcept } from '../quote-concept/quote-concept.entity';
-
-export enum QuoteStatus {
-  DRAFT = 'draft',
-  ISSUED = 'issued',
-  ORDERED = 'ordered',
-  CONVERTED = 'converted',
-  REJECTED = 'rejected'
-}
 
 /**
  * Entidad Cotización que representa la tabla quotes en la base de datos

@@ -19,7 +19,15 @@ import { Supplier } from 'src/entities/supplier/supplier.entity';
 import { SpentConcept } from 'src/common/models/Concept';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { AiRequestService } from 'src/api/ai-request/ai-request.service';
-import { AiMode, AiRequestType, isPremiumAiMode } from 'src/common/enums';
+import {
+  AiMode,
+  AiRequestType,
+  isPremiumAiMode,
+  SpentStatus,
+  SupplierType,
+} from 'src/common/enums';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+import { SpentGraphPersistenceService } from 'src/common/helpers/spent-graph/spent-graph-persistence.service';
 
 /**
  * Origen de la factura para extraer emisor y conceptos con IA.
@@ -58,7 +66,7 @@ export class SpentService {
   /**
    * Estado por defecto de un gasto extraído con IA.
    */
-  private readonly defaultAiSpentStatus = 'paid';
+  private readonly defaultAiSpentStatus = SpentStatus.PAID;
 
   constructor(
     private readonly spentRepository: SpentRepository,
@@ -68,6 +76,8 @@ export class SpentService {
     private readonly supplierRepository: SupplierRepository,
     private readonly aiRequestService: AiRequestService,
     private readonly enterpriseAccessService: EnterpriseAccessService,
+    private readonly inventoryLedgerService: InventoryLedgerService,
+    private readonly spentGraphPersistenceService: SpentGraphPersistenceService,
   ){}
 
   /**
@@ -79,13 +89,17 @@ export class SpentService {
     this.logger.log(`Iniciando proceso de creación de gasto: ${spent.name}`);
     this.logger.log(`Datos del gasto a crear:`, JSON.stringify(spent, null, 2));
 
-    await this.assertSpentTenantAccessible(spent);
-    this.stripSpentConceptRelation(spent);
+    const nestedSpentConcepts = this.extractNestedSpentConcepts(spent);
+    const enterpriseId = await this.assertSpentTenantAccessible(spent);
 
     try {
-      const newSpent = await this.spentRepository.create(spent);
-      this.logger.log(`Gasto creado exitosamente con ID: ${newSpent.id}`);
-      return newSpent;
+      const createdSpent = await this.spentGraphPersistenceService.createSpentGraph(
+        spent,
+        nestedSpentConcepts,
+        enterpriseId,
+      );
+      this.logger.log(`Gasto creado exitosamente con ID: ${createdSpent.id}`);
+      return createdSpent;
     } catch (error) {
       this.logger.error(`Error al crear gasto ${spent.name}:`, error);
       throw error;
@@ -156,20 +170,57 @@ export class SpentService {
     }
     this.assertSpentAccessible(existingSpent, 'write');
 
+    const nestedSpentConcepts = this.extractNestedSpentConcepts(spent);
     const mergedSpent = {
       ...existingSpent,
       ...spent,
     } as Spent;
     // Revalida el proveedor tras el merge: el cuerpo puede apuntar a un proveedor de otra empresa.
-    await this.assertSpentTenantAccessible(mergedSpent);
-    this.stripSpentConceptRelation(spent);
-    
+    const enterpriseId = await this.assertSpentTenantAccessible(mergedSpent);
+
+    const previousStatus = existingSpent.status;
+    const nextStatus = mergedSpent.status ?? previousStatus;
+    if (
+      this.inventoryLedgerService.isSpentCancelled(previousStatus) &&
+      !this.inventoryLedgerService.isSpentCancelled(nextStatus)
+    ) {
+      throw new HttpException(
+        'No se puede reactivar un gasto cancelado',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (
+      !this.inventoryLedgerService.isSpentCancelled(previousStatus) &&
+      this.inventoryLedgerService.isSpentCancelled(nextStatus)
+    ) {
+      await this.inventoryLedgerService.cancelSpentInventory(
+        id,
+        existingSpent.issuedDate ? new Date(existingSpent.issuedDate) : new Date(),
+      );
+    }
+
+    if (nestedSpentConcepts === undefined) {
+      try {
+        const updatedSpent = await this.spentRepository.updateById(id, spent);
+        this.logger.log(`Gasto ${id} actualizado exitosamente`);
+        return updatedSpent;
+      } catch (error) {
+        this.logger.error(`Error al actualizar gasto ${id}:`, error);
+        throw error;
+      }
+    }
+
     try {
-      const updatedSpent = await this.spentRepository.updateById(id, spent);
-      this.logger.log(`Gasto ${id} actualizado exitosamente`);
+      const updatedSpent = await this.spentGraphPersistenceService.updateSpentGraph(
+        existingSpent,
+        spent,
+        nestedSpentConcepts,
+        enterpriseId,
+      );
+      this.logger.log(`Gasto ${id} actualizado atómicamente con ${nestedSpentConcepts.length} líneas`);
       return updatedSpent;
     } catch (error) {
-      this.logger.error(`Error al actualizar gasto ${id}:`, error);
+      this.logger.error(`Error al actualizar el grafo del gasto ${id}:`, error);
       throw error;
     }
   }
@@ -564,9 +615,9 @@ export class SpentService {
    * Infiere si el emisor es empresa o particular a partir del CIF/NIF.
    * Un NIF/NIE español se trata como particular; el resto, como empresa.
    * @param nif CIF/NIF propuesto
-   * @returns `company` o `individual`
+   * @returns Tipo de proveedor inferido
    */
-  private inferSupplierTypeFromNif(nif: string): 'company' | 'individual' {
+  private inferSupplierTypeFromNif(nif: string): SupplierType {
     const normalizedNif = nif.replace(/[\s.\-]/g, '').toUpperCase();
     const nifWithoutCountryPrefix = normalizedNif.startsWith('ES')
       ? normalizedNif.slice(2)
@@ -575,10 +626,10 @@ export class SpentService {
     const isSpanishIndividualNif = /^\d{8}[A-Z]$/.test(nifWithoutCountryPrefix);
     const isSpanishNie = /^[XYZ]\d{7}[A-Z]$/.test(nifWithoutCountryPrefix);
     if (isSpanishIndividualNif || isSpanishNie) {
-      return 'individual';
+      return SupplierType.INDIVIDUAL;
     }
 
-    return 'company';
+    return SupplierType.COMPANY;
   }
 
   /**
@@ -717,6 +768,7 @@ export class SpentService {
       const spent = await this.spentRepository.findById(spentId, ['supplier']);
       if (!spent) throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
       this.assertSpentAccessible(spent, 'delete');
+      await this.inventoryLedgerService.purgeSpentInventory(spentId);
       
       // Si tiene un documento, intentar eliminarlo de Dropbox
       if (spent && spent.file) {
@@ -805,12 +857,26 @@ export class SpentService {
   }
 
   /**
-   * Quita la colección de líneas del payload de gasto: se persisten por `/spent-concepts`.
-   * @param spent - Gasto a persistir
+   * Extrae las líneas anidadas del cuerpo y quita el JSONB legado `concepts`.
+   * `undefined` deja las líneas intactas (actualización solo de cabecera).
+   *
+   * @param spent - Gasto recibido
+   * @returns Líneas a persistir atómicamente, o undefined
    */
-  private stripSpentConceptRelation(spent: Spent): void {
+  private extractNestedSpentConcepts(spent: Spent): Spent['spentConcepts'] | undefined {
+    const nestedSpentConcepts = spent.spentConcepts;
     delete (spent as { spentConcepts?: unknown }).spentConcepts;
     delete (spent as { concepts?: unknown }).concepts;
+    if (nestedSpentConcepts === undefined || nestedSpentConcepts === null) {
+      return undefined;
+    }
+    if (!Array.isArray(nestedSpentConcepts)) {
+      throw new HttpException(
+        'Los conceptos del gasto deben ser un array',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return nestedSpentConcepts;
   }
 
   /**
@@ -834,8 +900,9 @@ export class SpentService {
    * Cubre `supplierId` y `supplier.id` para no omitir un retargeteo cruzado.
    *
    * @param spent - Gasto a persistir o ya cargado
+   * @returns UUID de la empresa del proveedor
    */
-  private async assertSpentTenantAccessible(spent: Spent): Promise<void> {
+  private async assertSpentTenantAccessible(spent: Spent): Promise<string> {
     const supplierIds = this.collectUniqueIdentifiers(spent.supplierId, spent.supplier?.id);
     if (supplierIds.length === 0) {
       this.logger.error('El gasto debe tener un proveedor');
@@ -863,6 +930,8 @@ export class SpentService {
       );
       throw new HttpException('Gasto no encontrado', HttpStatus.NOT_FOUND);
     }
+
+    return [...supplierEnterpriseIds][0];
   }
 
   /**

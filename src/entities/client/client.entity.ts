@@ -1,19 +1,10 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
-import { PaymentMethod } from 'src/common/enums';
+import { ClientType, PaymentMethod } from 'src/common/enums';
 import { Enterprise } from '../enterprise/enterprise.entity';
 import { Invoice } from '../invoice/invoice.entity';
 import { Quote } from '../quote/quote.entity';
 import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 import { Order } from '../order/order.entity';
-
-/**
- * Tipo de cliente persistido en `clients.type`.
- * El valor `particular` sustituye al antiguo `individual`.
- */
-export enum ClientType {
-  COMPANY = 'company',
-  PARTICULAR = 'particular',
-}
 
 /**
  * Entidad Cliente que representa la tabla clients en la base de datos
@@ -67,7 +58,7 @@ export class Client {
    * Tipo de cliente (`company` o `particular`)
    */
   @Column({ nullable: true })
-  type: string;
+  type: ClientType | null;
 
   /**
    * Número de cuenta bancaria del cliente

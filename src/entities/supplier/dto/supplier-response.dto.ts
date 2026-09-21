@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Expose, Type } from 'class-transformer';
 import { EnterpriseResponseDto } from 'src/entities/enterprise/dto/enterprise-response.dto';
+import { SupplierType } from 'src/common/enums';
 
 /**
  * Vista pública de proveedor para respuestas HTTP.
@@ -72,13 +73,14 @@ export class SupplierResponseDto {
    * Tipo de proveedor (`company` o `individual`)
    */
   @ApiProperty({
-    description: 'Tipo de proveedor',
+    description: 'Tipo de proveedor (`company` o `individual`)',
     required: false,
     nullable: true,
-    example: 'company',
+    enum: SupplierType,
+    example: SupplierType.COMPANY,
   })
   @Expose()
-  type: string | null;
+  type: SupplierType | null;
 
   /**
    * Cuenta bancaria del proveedor (opcional)

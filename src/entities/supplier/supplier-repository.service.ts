@@ -5,6 +5,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/common/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 
+import { SupplierType } from 'src/common/enums';
+
 @Injectable()
 export class SupplierRepository {
 
@@ -54,8 +56,8 @@ export class SupplierRepository {
     const base: Record<string, unknown> = { enterpriseId, ...filter };
     const [total, individuals, companies] = await Promise.all([
       this.count(base as Record<string, any>),
-      this.count({ ...base, type: 'individual' } as Record<string, any>),
-      this.count({ ...base, type: 'company' } as Record<string, any>),
+      this.count({ ...base, type: SupplierType.INDIVIDUAL } as Record<string, any>),
+      this.count({ ...base, type: SupplierType.COMPANY } as Record<string, any>),
     ]);
     return { total, individuals, companies };
   }

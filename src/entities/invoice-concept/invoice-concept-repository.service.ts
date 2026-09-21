@@ -100,6 +100,21 @@ export class InvoiceConceptRepository {
   }
 
   /**
+   * Lista las líneas de una factura.
+   * @param invoiceId - UUID de la factura
+   * @param relations - Relaciones opcionales
+   * @returns Líneas encontradas
+   */
+  findByInvoiceId(invoiceId: string, relations?: string[]): Promise<InvoiceConcept[]> {
+    this.logger.log(`Listando líneas de la factura ${invoiceId}`);
+    return this.invoiceConceptRepository.find({
+      where: { invoiceId },
+      relations,
+      order: { position: 'ASC' },
+    });
+  }
+
+  /**
    * Actualiza una línea
    * @param id - UUID
    * @param partial - Campos a actualizar

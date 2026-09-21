@@ -1,5 +1,6 @@
 import { E2E_EMAIL, authHeader } from '@e2e/auth';
 import { expectIdorHidden, http } from '@e2e/http';
+import { deletePurchasedItemSerials, purchaseItemSerials } from '@e2e/inventory';
 import { getE2eSeed, startE2eWorld } from '@e2e/world';
 
 describe('Conceptos de factura (e2e) — control de acceso', () => {
@@ -318,6 +319,7 @@ describe('Conceptos de factura (e2e) — reglas de negocio', () => {
         quantity: 2,
       });
     expect(createdConcept.status).toBe(201);
+    const purchased = await purchaseItemSerials(serialTrackedItemId, ['SN-QTY-1']);
     const createdSerial = await http()
       .post('/invoice-concept-serials')
       .query({ enterpriseId: seed.enterpriseA.id })
@@ -369,6 +371,7 @@ describe('Conceptos de factura (e2e) — reglas de negocio', () => {
     expect(
       (await http().delete(`/invoices/${invoiceId}`).set(authHeader(E2E_EMAIL.userA))).status,
     ).toBe(200);
+    await deletePurchasedItemSerials(purchased);
     expect(
       (
         await http()

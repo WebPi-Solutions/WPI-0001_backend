@@ -3,13 +3,16 @@ import { DeleteResult } from 'typeorm';
 import { InvoiceConceptRepository } from 'src/entities/invoice-concept/invoice-concept-repository.service';
 import { InvoiceConcept } from 'src/entities/invoice-concept/invoice-concept.entity';
 import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.service';
-import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
+import { Invoice } from 'src/entities/invoice/invoice.entity';
 import { ItemRepository } from 'src/entities/item/item-repository.service';
 import { Item } from 'src/entities/item/item.entity';
 import { InvoiceConceptSerialRepository } from 'src/entities/invoice-concept-serial/invoice-concept-serial-repository.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { PermissionAction } from 'src/common/helpers/enterprise-permission/permission.catalog';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+
+import { InvoiceStatus } from 'src/common/enums';
 
 /**
  * Servicio de API de líneas de factura.
@@ -26,6 +29,7 @@ export class InvoiceConceptService {
     private readonly itemRepository: ItemRepository,
     private readonly invoiceConceptSerialRepository: InvoiceConceptSerialRepository,
     private readonly enterpriseAccessService: EnterpriseAccessService,
+    private readonly inventoryLedgerService: InventoryLedgerService,
   ) {}
 
   /**
@@ -190,6 +194,7 @@ export class InvoiceConceptService {
     this.assertInvoiceIsDraft(existingInvoiceConcept.invoice);
 
     try {
+      await this.inventoryLedgerService.releaseInvoiceConceptReservationsById(id);
       const result = await this.invoiceConceptRepository.deleteById(id);
       this.logger.log(`Línea de factura ${id} eliminada. Filas afectadas: ${result.affected}`);
       return result;

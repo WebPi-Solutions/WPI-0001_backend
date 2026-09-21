@@ -2,11 +2,14 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ClientRepository } from 'src/entities/client/client-repository.service';
 import { InvoiceSeriesRepository } from 'src/entities/invoice-series/invoice-series-repository.service';
 import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.service';
-import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
+import { Invoice } from 'src/entities/invoice/invoice.entity';
 import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recurrent-earning-repository.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+
+import { InvoiceStatus } from 'src/common/enums';
 
 @Injectable()
 export class InvoiceService {
@@ -17,6 +20,7 @@ export class InvoiceService {
               private readonly invoiceSeriesRepository: InvoiceSeriesRepository,
               private readonly recurrentEarningRepository: RecurrentEarningRepository,
               private readonly enterpriseAccessService: EnterpriseAccessService,
+              private readonly inventoryLedgerService: InventoryLedgerService,
   ){}
 
   /**
@@ -172,6 +176,22 @@ export class InvoiceService {
       // Mandamos la factura actual reemplazando el status en el objeto para que al setear la información persistente lo tenga en cuenta, ya que para generar el número de factura es necesario
       // un status !== DRAFT que todavía no ha sido asignado para no interferir con las validaciones if.
       invoiceToUpdate = await this.setInvoicePersistentData({...invoiceToUpdate, status: status});
+      if (status === InvoiceStatus.CANCELLED) {
+        await this.inventoryLedgerService.releaseDraftInvoiceReservations(id);
+      } else {
+        await this.inventoryLedgerService.confirmInvoiceIssue(
+          id,
+          this.resolveInvoiceOccurredAt(invoiceToUpdate),
+        );
+      }
+    } else if (
+      invoiceToUpdate.status !== InvoiceStatus.CANCELLED &&
+      status === InvoiceStatus.CANCELLED
+    ) {
+      await this.inventoryLedgerService.reverseInvoiceCancellation(
+        id,
+        this.resolveInvoiceOccurredAt(invoiceToUpdate),
+      );
     }
 
     await this.invoiceRepository.updateById(id, { ...invoiceToUpdate, status });
@@ -200,8 +220,9 @@ export class InvoiceService {
       this.logger.error(`No se puede eliminar la factura ${id} porque ya ha sido emitida`);
       throw new HttpException(`No se puede eliminar la factura ${id} porque ya ha sido emitida`, HttpStatus.BAD_REQUEST);
     }
-    
+
     try {
+      await this.inventoryLedgerService.releaseDraftInvoiceReservations(id);
       const result = await this.invoiceRepository.deleteById(id);
       this.logger.log(`Factura ${id} eliminada exitosamente. Filas afectadas: ${result.affected}`);
       return result;
@@ -416,10 +437,17 @@ export class InvoiceService {
   }
 
   /**
-   * Comprueba que la factura pertenece a una empresa accesible para el caller.
-   *
-   * @param invoice - Factura con relación `client` cargada
+   * Fecha del movimiento de venta: emisión de la factura o ahora.
+   * @param invoice - Factura
+   * @returns Fecha del movimiento
    */
+  private resolveInvoiceOccurredAt(invoice: Invoice): Date {
+    if (invoice.issuedDate) {
+      return new Date(invoice.issuedDate);
+    }
+    return new Date();
+  }
+
   /**
    * Comprueba tenant y permiso sobre la factura.
    *

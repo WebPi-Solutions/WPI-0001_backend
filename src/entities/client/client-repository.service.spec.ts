@@ -17,6 +17,8 @@ import { QueryBuilderService } from 'src/common/helpers/query-builder/query-buil
 import { Client } from './client.entity';
 import { ClientRepository } from './client-repository.service';
 
+import { ClientType } from 'src/common/enums';
+
 /**
  * Extrae la HttpException lanzada por una promesa rechazada.
  * @param rejectedPromise - Promesa que debe fallar
@@ -161,7 +163,7 @@ describe('ClientRepository', () => {
         expect.objectContaining({
           enterpriseId: 'enterprise-uuid',
           name_ilike: 'acme',
-          type: 'particular',
+          type: ClientType.PARTICULAR,
         }),
         undefined,
       );

@@ -3,12 +3,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { QuoteConceptRepository } from 'src/entities/quote-concept/quote-concept-repository.service';
 import { QuoteConcept } from 'src/entities/quote-concept/quote-concept.entity';
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
-import { Quote, QuoteStatus } from 'src/entities/quote/quote.entity';
+import { Quote } from 'src/entities/quote/quote.entity';
 import { ItemRepository } from 'src/entities/item/item-repository.service';
 import { Item } from 'src/entities/item/item.entity';
 import { ItemCategory } from 'src/entities/item-category/item-category.entity';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { QuoteConceptService } from './quote-concept.service';
+
+import { QuoteStatus } from 'src/common/enums';
 
 describe('QuoteConceptService', () => {
   let service: QuoteConceptService;

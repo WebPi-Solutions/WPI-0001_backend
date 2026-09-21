@@ -6,10 +6,12 @@ import {
   REQUIRE_ENTERPRISE_ID_KEY,
   SKIP_ENTERPRISE_ACCESS_KEY,
 } from 'src/common/decorators/enterprise-access.decorator';
-import { User, UserRoleTypes } from 'src/entities/user/user.entity';
+import { User } from 'src/entities/user/user.entity';
 import { UserRepository } from 'src/entities/user/user-repository.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { EnterpriseAccessGuard } from './enterprise-access.guard';
+
+import { UserRoleTypes } from 'src/common/enums';
 
 /**
  * Pruebas del guard global de pertenencia a empresa.

@@ -5,6 +5,8 @@ import { glob } from 'glob';
 import { join } from 'path';
 import { EntitiesModule } from 'src/entities/entities.module';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+import { SpentGraphPersistenceService } from 'src/common/helpers/spent-graph/spent-graph-persistence.service';
 import { StripeService } from 'src/services/stripe/stripe.service';
 import { DropboxModule } from 'src/services/dropbox/dropbox.module';
 import { FirebaseModule } from 'src/services/firebase/firebase.module';
@@ -96,6 +98,8 @@ export class ApiModule {
      */
     const auxiliaryProviders: Provider[] = [
       EnterpriseAccessService,
+      InventoryLedgerService,
+      SpentGraphPersistenceService,
       StripeService,
       EnterpriseAccessGuard,
       EnterprisePermissionGuard,

@@ -196,7 +196,9 @@ describe('Números de serie de conceptos de gasto (e2e) — reglas de negocio', 
         serialNumber: seed.spentConceptSerialA.serialNumber,
       });
     expect(response.status).toBe(409);
-    expect(response.body.message).toBe('El número de serie ya está asignado a este concepto');
+    expect(response.body.message).toBe(
+      `El número de serie ${seed.spentConceptSerialA.serialNumber} ya existe para este artículo`,
+    );
   });
 
   it('no asigna series a un concepto manual ni a un artículo sin número de serie', async () => {

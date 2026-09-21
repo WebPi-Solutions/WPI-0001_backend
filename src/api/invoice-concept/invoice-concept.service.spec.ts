@@ -3,13 +3,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { InvoiceConceptRepository } from 'src/entities/invoice-concept/invoice-concept-repository.service';
 import { InvoiceConcept } from 'src/entities/invoice-concept/invoice-concept.entity';
 import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.service';
-import { Invoice, InvoiceStatus } from 'src/entities/invoice/invoice.entity';
+import { Invoice } from 'src/entities/invoice/invoice.entity';
 import { ItemRepository } from 'src/entities/item/item-repository.service';
 import { Item } from 'src/entities/item/item.entity';
 import { ItemCategory } from 'src/entities/item-category/item-category.entity';
 import { InvoiceConceptSerialRepository } from 'src/entities/invoice-concept-serial/invoice-concept-serial-repository.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { InvoiceConceptService } from './invoice-concept.service';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+
+import { InvoiceStatus } from 'src/common/enums';
 
 describe('InvoiceConceptService', () => {
   let service: InvoiceConceptService;
@@ -28,6 +31,7 @@ describe('InvoiceConceptService', () => {
     assertCurrentEntityAccessible: jest.Mock;
     mergeRelationNames: (relations: string[] | undefined, required: string[]) => string[];
   };
+  let inventoryLedgerService: { releaseInvoiceConceptReservationsById: jest.Mock };
 
   const invoiceConceptId = 'ic-uuid';
   const invoiceId = 'invoice-uuid';
@@ -81,6 +85,9 @@ describe('InvoiceConceptService', () => {
       mergeRelationNames: (relations?: string[], required: string[] = []) =>
         [...new Set([...(relations ?? []), ...required])],
     };
+    inventoryLedgerService = {
+      releaseInvoiceConceptReservationsById: jest.fn().mockResolvedValue(undefined),
+    };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -93,6 +100,7 @@ describe('InvoiceConceptService', () => {
           useValue: invoiceConceptSerialRepository,
         },
         { provide: EnterpriseAccessService, useValue: enterpriseAccessService },
+        { provide: InventoryLedgerService, useValue: inventoryLedgerService },
       ],
     }).compile();
 

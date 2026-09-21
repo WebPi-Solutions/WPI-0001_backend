@@ -4,10 +4,13 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { ItemCategory } from '../item-category/item-category.entity';
+import { ItemSerial } from '../item-serial/item-serial.entity';
+import { StockMovement } from '../stock-movement/stock-movement.entity';
 import { itemNumericAmountTransformer } from './item-numeric.transformer';
 
 /**
@@ -95,6 +98,21 @@ export class Item {
   stock: boolean;
 
   /**
+   * Suma de entradas de kardex. Campo calculado, no persistido.
+   */
+  stockEntries?: number;
+
+  /**
+   * Suma de salidas de kardex. Campo calculado, no persistido.
+   */
+  stockExits?: number;
+
+  /**
+   * Existencias (entradas menos salidas). Campo calculado, no persistido.
+   */
+  stockOnHand?: number;
+
+  /**
    * Fecha de creación del registro
    */
   @CreateDateColumn({ name: 'created_at' })
@@ -112,4 +130,16 @@ export class Item {
   @ManyToOne(() => ItemCategory, (itemCategory) => itemCategory.items)
   @JoinColumn({ name: 'item_category_id' })
   itemCategory: ItemCategory;
+
+  /**
+   * Unidades físicas con número de serie de este artículo
+   */
+  @OneToMany(() => ItemSerial, (itemSerial) => itemSerial.item)
+  itemSerials: ItemSerial[];
+
+  /**
+   * Movimientos de kardex de este artículo
+   */
+  @OneToMany(() => StockMovement, (stockMovement) => stockMovement.item)
+  stockMovements: StockMovement[];
 }

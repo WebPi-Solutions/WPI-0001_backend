@@ -1,6 +1,6 @@
 import { ForbiddenException, HttpException, HttpStatus } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { User, UserRoleTypes } from 'src/entities/user/user.entity';
+import { User } from 'src/entities/user/user.entity';
 import { UserRepository } from 'src/entities/user/user-repository.service';
 import { AccessContext } from './access-context';
 import {
@@ -8,6 +8,8 @@ import {
   buildMissingEnterprisePermissionMessage,
 } from './enterprise-access.service';
 import { runWithEnterpriseAccessContext } from './enterprise-access.storage';
+
+import { UserRoleTypes } from 'src/common/enums';
 
 describe('EnterpriseAccessService', () => {
   let service: EnterpriseAccessService;

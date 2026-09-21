@@ -84,6 +84,36 @@ export class ItemResponseDto {
   stock: boolean;
 
   /**
+   * Suma de entradas de kardex
+   */
+  @ApiProperty({
+    description: 'Unidades de entrada acumuladas',
+    required: false,
+  })
+  @Expose()
+  stockEntries?: number;
+
+  /**
+   * Suma de salidas de kardex
+   */
+  @ApiProperty({
+    description: 'Unidades de salida acumuladas',
+    required: false,
+  })
+  @Expose()
+  stockExits?: number;
+
+  /**
+   * Existencias actuales
+   */
+  @ApiProperty({
+    description: 'Existencias (entradas menos salidas)',
+    required: false,
+  })
+  @Expose()
+  stockOnHand?: number;
+
+  /**
    * Fecha de creación
    */
   @ApiProperty({ description: 'Fecha de creación del registro' })

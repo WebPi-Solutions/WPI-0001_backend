@@ -1,5 +1,5 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { Client, ClientType } from './client.entity';
+import { Client } from './client.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
@@ -8,6 +8,8 @@ import {
   QueryRelation,
 } from 'src/common/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
+
+import { ClientType } from 'src/common/enums';
 
 @Injectable()
 export class ClientRepository {

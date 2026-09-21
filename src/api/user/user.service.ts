@@ -5,11 +5,13 @@ import { CreateUserEnterpriseDto } from 'src/entities/user/dto/create-user-enter
 import { CreateUserDto } from 'src/entities/user/dto/create-user.dto';
 import { UserEnterprise } from 'src/entities/user/user-enterprise.entity';
 import { UserRepository } from 'src/entities/user/user-repository.service';
-import { User, UserStatusTypes } from 'src/entities/user/user.entity';
+import { User } from 'src/entities/user/user.entity';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { DeleteResult } from 'typeorm';
 import { FirebaseService } from 'src/services/firebase/firebase.service';
 import { EnterpriseRoleService } from 'src/api/enterprise-role/enterprise-role.service';
+
+import { UserStatusTypes } from 'src/common/enums';
 
 @Injectable()
 export class UserService {

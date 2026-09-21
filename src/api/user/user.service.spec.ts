@@ -5,10 +5,12 @@ import { DefaultScheduleRepository } from 'src/entities/default-schedule/default
 import { CreateUserDto } from 'src/entities/user/dto/create-user.dto';
 import { UserRepository } from 'src/entities/user/user-repository.service';
 import { UserEnterprise } from 'src/entities/user/user-enterprise.entity';
-import { User, UserStatusTypes } from 'src/entities/user/user.entity';
+import { User } from 'src/entities/user/user.entity';
 import { FirebaseService } from 'src/services/firebase/firebase.service';
 import { EnterpriseRoleService } from 'src/api/enterprise-role/enterprise-role.service';
 import { UserService } from './user.service';
+
+import { UserRoleTypes, UserStatusTypes } from 'src/common/enums';
 
 describe('UserService', () => {
   let service: UserService;
@@ -613,7 +615,7 @@ describe('UserService', () => {
     it('ignora users.role si el caller no es administrador global', async () => {
       await service.updateById(userId, {
         name: 'Ana',
-        role: 'administrator',
+        role: UserRoleTypes.ADMIN,
       } as User);
 
       const patch = userRepository.updateById.mock.calls[0][1] as Record<string, unknown>;
@@ -630,12 +632,12 @@ describe('UserService', () => {
 
       await service.updateById(userId, {
         name: 'Ana',
-        role: 'administrator',
+        role: UserRoleTypes.ADMIN,
       } as User);
 
       expect(userRepository.updateById).toHaveBeenCalledWith(
         userId,
-        expect.objectContaining({ name: 'Ana', role: 'administrator' }),
+        expect.objectContaining({ name: 'Ana', role: UserRoleTypes.ADMIN }),
       );
     });
 

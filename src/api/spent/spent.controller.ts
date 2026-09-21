@@ -30,8 +30,10 @@ export class SpentController {
   @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Crear un nuevo gasto' })
   @ApiOkResponse({ type: SpentResponseDto, description: 'Gasto creado (vista pública).' })
-  @ApiResponse({ status: 201, description: 'El gasto ha sido creado correctamente.' })
+  @ApiResponse({ status: 201, description: 'El gasto ha sido creado correctamente, con conceptos y series si se enviaron en el mismo cuerpo.' })
+  @ApiResponse({ status: 400, description: 'El grafo del gasto no es válido (proveedor, artículos o números de serie).' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 409, description: 'Hay números de serie duplicados; no se ha persistido nada.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async create(@Body() spent: Spent) {
     return this.spentService.create(spent);
@@ -229,8 +231,10 @@ export class SpentController {
   @MapResponse(SpentResponseDto)
   @ApiOperation({ summary: 'Actualizar un gasto por su id' })
   @ApiOkResponse({ type: SpentResponseDto, description: 'Gasto actualizado (vista pública).' })
-  @ApiResponse({ status: 200, description: 'El gasto ha sido actualizado correctamente.' })
+  @ApiResponse({ status: 200, description: 'El gasto ha sido actualizado correctamente, con conceptos y series si se enviaron en el mismo cuerpo.' })
+  @ApiResponse({ status: 400, description: 'El grafo del gasto no es válido (proveedor, artículos o números de serie).' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 409, description: 'Hay números de serie duplicados; no se ha persistido el cambio.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async updateById(@Param('id') id: string, @Body() spent: Spent) {
     return this.spentService.updateById(id, spent);

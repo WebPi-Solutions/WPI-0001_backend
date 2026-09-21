@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { InvoiceConcept } from '../invoice-concept/invoice-concept.entity';
+import { ItemSerial } from '../item-serial/item-serial.entity';
 
 /**
  * Número de serie asociado a una línea de factura (`invoice_concept_serials`).
@@ -31,6 +32,12 @@ export class InvoiceConceptSerial {
    */
   @Column({ name: 'invoice_concept_id' })
   invoiceConceptId: string;
+
+  /**
+   * Identidad canónica de la unidad vendida
+   */
+  @Column({ name: 'item_serial_id' })
+  itemSerialId: string;
 
   /**
    * Número de serie capturado en la línea (instantánea fiscal)
@@ -60,4 +67,13 @@ export class InvoiceConceptSerial {
   )
   @JoinColumn({ name: 'invoice_concept_id' })
   invoiceConcept: InvoiceConcept;
+
+  /**
+   * Unidad física de catálogo
+   */
+  @ManyToOne(() => ItemSerial, (itemSerial) => itemSerial.invoiceConceptSerials, {
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'item_serial_id' })
+  itemSerial: ItemSerial;
 }

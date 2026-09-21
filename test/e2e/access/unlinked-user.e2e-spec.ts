@@ -68,6 +68,14 @@ describe('Usuario sin empresas (e2e) — control de acceso', () => {
       .get(`/items/${seed.itemA.id}`)
       .set(authHeader(E2E_EMAIL.outsider));
     expect(item.status).toBe(404);
+    const itemSerial = await http()
+      .get(`/item-serials/${seed.itemSerialA.id}`)
+      .set(authHeader(E2E_EMAIL.outsider));
+    expect(itemSerial.status).toBe(404);
+    const stockMovement = await http()
+      .get(`/stock-movements/${seed.stockMovementA.id}`)
+      .set(authHeader(E2E_EMAIL.outsider));
+    expect(stockMovement.status).toBe(404);
   });
 
   it('sí puede leer su propio perfil y el catálogo Stripe (skip de empresa)', async () => {

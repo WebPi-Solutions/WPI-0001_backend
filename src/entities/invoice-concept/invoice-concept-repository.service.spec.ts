@@ -39,6 +39,7 @@ describe('InvoiceConceptRepository', () => {
   let typeOrmRepositoryMock: {
     save: jest.Mock;
     findOne: jest.Mock;
+    find: jest.Mock;
     delete: jest.Mock;
     createQueryBuilder: jest.Mock;
   };
@@ -59,6 +60,7 @@ describe('InvoiceConceptRepository', () => {
     typeOrmRepositoryMock = {
       save: jest.fn(),
       findOne: jest.fn(),
+      find: jest.fn(),
       delete: jest.fn(),
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
     };
@@ -260,6 +262,18 @@ describe('InvoiceConceptRepository', () => {
       await expect(invoiceConceptRepositoryService.deleteById('ic-uuid')).resolves.toEqual(
         deleteResult,
       );
+    });
+  });
+
+  describe('findByInvoiceId', () => {
+    it('lista las líneas de la factura', async () => {
+      typeOrmRepositoryMock.find.mockResolvedValue([]);
+      await invoiceConceptRepositoryService.findByInvoiceId('inv-1', ['item']);
+      expect(typeOrmRepositoryMock.find).toHaveBeenCalledWith({
+        where: { invoiceId: 'inv-1' },
+        relations: ['item'],
+        order: { position: 'ASC' },
+      });
     });
   });
 });

@@ -1,10 +1,12 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { Invoice, InvoiceStatus } from './invoice.entity';
+import { Invoice } from './invoice.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryBuilderService, QueryFilterOptions } from 'src/common/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { InvoiceSubtotalsByStatusDto, InvoiceStatusMetricsDto } from 'src/api/metrics/dto';
+
+import { InvoiceStatus } from 'src/common/enums';
 
 @Injectable()
 export class InvoiceRepository {
@@ -204,7 +206,13 @@ export class InvoiceRepository {
     }
 
     metrics.total.subtotal = Math.round(metrics.total.subtotal * 100) / 100;
-    const statusKeys = ['draft', 'issued', 'paid', 'partially_paid', 'cancelled'] as const;
+    const statusKeys = [
+      InvoiceStatus.DRAFT,
+      InvoiceStatus.ISSUED,
+      InvoiceStatus.PAID,
+      InvoiceStatus.PARTIALLY_PAID,
+      InvoiceStatus.CANCELLED,
+    ] as const;
     statusKeys.forEach((key) => {
       metrics[key].subtotal = Math.round(metrics[key].subtotal * 100) / 100;
     });

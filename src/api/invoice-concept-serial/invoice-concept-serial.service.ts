@@ -4,15 +4,18 @@ import { InvoiceConceptSerialRepository } from 'src/entities/invoice-concept-ser
 import { InvoiceConceptSerial } from 'src/entities/invoice-concept-serial/invoice-concept-serial.entity';
 import { InvoiceConceptRepository } from 'src/entities/invoice-concept/invoice-concept-repository.service';
 import { InvoiceConcept } from 'src/entities/invoice-concept/invoice-concept.entity';
-import { InvoiceStatus } from 'src/entities/invoice/invoice.entity';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { PermissionAction } from 'src/common/helpers/enterprise-permission/permission.catalog';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+
+import { InvoiceStatus } from 'src/common/enums';
 
 /**
  * Servicio de API de números de serie de línea de factura.
  * El tenant se resuelve a través de la línea → factura → cliente.
  * Las mutaciones solo se permiten si la factura sigue en borrador.
+ * La venta reserva una unidad ya existente en stock.
  */
 @Injectable()
 export class InvoiceConceptSerialService {
@@ -22,6 +25,7 @@ export class InvoiceConceptSerialService {
     private readonly invoiceConceptSerialRepository: InvoiceConceptSerialRepository,
     private readonly invoiceConceptRepository: InvoiceConceptRepository,
     private readonly enterpriseAccessService: EnterpriseAccessService,
+    private readonly inventoryLedgerService: InventoryLedgerService,
   ) {}
 
   /**
@@ -44,9 +48,20 @@ export class InvoiceConceptSerialService {
     this.assertLineAllowsSerialNumbers(accessibleInvoiceConcept);
     await this.assertSerialCountWithinQuantity(accessibleInvoiceConcept);
 
+    const availableItemSerial = await this.inventoryLedgerService.resolveAvailableSaleSerial(
+      accessibleInvoiceConcept.item,
+      invoiceConceptSerial.itemSerialId,
+      invoiceConceptSerial.serialNumber,
+    );
+    const reservedItemSerial = await this.inventoryLedgerService.reserveSaleSerial(
+      accessibleInvoiceConcept.item,
+      availableItemSerial.id,
+    );
+
     const persistencePayload: Partial<InvoiceConceptSerial> = {
       invoiceConceptId: accessibleInvoiceConcept.id,
-      serialNumber: this.normalizeSerialNumber(invoiceConceptSerial.serialNumber),
+      itemSerialId: reservedItemSerial.id,
+      serialNumber: reservedItemSerial.serialNumber,
     };
 
     try {
@@ -135,6 +150,8 @@ export class InvoiceConceptSerialService {
       'invoiceConcept',
       'invoiceConcept.invoice',
       'invoiceConcept.invoice.client',
+      'invoiceConcept.item',
+      'itemSerial',
     ]);
     if (!existingSerial) {
       throw new HttpException(
@@ -146,10 +163,23 @@ export class InvoiceConceptSerialService {
     this.assertInvoiceIsDraft(existingSerial.invoiceConcept);
 
     const persistencePayload: Partial<InvoiceConceptSerial> = {};
-    if (invoiceConceptSerial.serialNumber !== undefined) {
-      persistencePayload.serialNumber = this.normalizeSerialNumber(
+    const nextItemSerialId =
+      invoiceConceptSerial.itemSerialId ?? invoiceConceptSerial.itemSerial?.id;
+    const shouldReplaceSerial =
+      nextItemSerialId !== undefined || invoiceConceptSerial.serialNumber !== undefined;
+    if (shouldReplaceSerial) {
+      const availableItemSerial = await this.inventoryLedgerService.resolveAvailableSaleSerial(
+        existingSerial.invoiceConcept.item,
+        nextItemSerialId,
         invoiceConceptSerial.serialNumber,
       );
+      const reservedItemSerial = await this.inventoryLedgerService.replaceReservedSaleSerial(
+        existingSerial.invoiceConcept.item,
+        existingSerial.itemSerial,
+        availableItemSerial.id,
+      );
+      persistencePayload.itemSerialId = reservedItemSerial.id;
+      persistencePayload.serialNumber = reservedItemSerial.serialNumber;
     }
 
     try {
@@ -176,6 +206,7 @@ export class InvoiceConceptSerialService {
       'invoiceConcept',
       'invoiceConcept.invoice',
       'invoiceConcept.invoice.client',
+      'itemSerial',
     ]);
     if (!existingSerial) {
       throw new HttpException(
@@ -187,6 +218,9 @@ export class InvoiceConceptSerialService {
     this.assertInvoiceIsDraft(existingSerial.invoiceConcept);
 
     try {
+      if (existingSerial.itemSerial) {
+        await this.inventoryLedgerService.releaseReservedSaleSerial(existingSerial.itemSerial);
+      }
       const result = await this.invoiceConceptSerialRepository.deleteById(id);
       this.logger.log(
         `Número de serie de línea ${id} eliminado. Filas afectadas: ${result.affected}`,
@@ -349,28 +383,6 @@ export class InvoiceConceptSerialService {
       'Número de serie de concepto no encontrado',
       { resource: 'invoices', action },
     );
-  }
-
-  /**
-   * Recorta y valida el número de serie.
-   * @param rawSerialNumber - Valor recibido
-   * @returns Número de serie no vacío
-   */
-  private normalizeSerialNumber(rawSerialNumber: unknown): string {
-    if (typeof rawSerialNumber !== 'string') {
-      throw new HttpException(
-        'El número de serie debe ser una cadena de texto',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    const trimmedSerialNumber = rawSerialNumber.trim();
-    if (trimmedSerialNumber === '') {
-      throw new HttpException(
-        'El número de serie no puede estar vacío',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-    return trimmedSerialNumber;
   }
 
   /**

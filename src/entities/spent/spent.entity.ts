@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { SpentStatus } from 'src/common/enums';
 import { Supplier } from '../supplier/supplier.entity';
 import { SpentConcept } from '../spent-concept/spent-concept.entity';
 
@@ -51,10 +52,10 @@ export class Spent {
   declarationDate: Date;
 
   /**
-   * Estado actual del gasto (ej., 'pagado', 'pendiente', etc.)
+   * Estado actual del gasto (pendiente, pagado, pago parcial o cancelado)
    */
   @Column()
-  status: string;
+  status: SpentStatus;
   
   /**
    * Flag para indicar si el gasto tiene un archivo adjunto

@@ -7,6 +7,9 @@ import { SpentConcept } from 'src/entities/spent-concept/spent-concept.entity';
 import { Spent } from 'src/entities/spent/spent.entity';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { SpentConceptSerialService } from './spent-concept-serial.service';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+
+import { SpentStatus } from 'src/common/enums';
 
 describe('SpentConceptSerialService', () => {
   let service: SpentConceptSerialService;
@@ -23,6 +26,13 @@ describe('SpentConceptSerialService', () => {
     assertCurrentEntityAccessible: jest.Mock;
     mergeRelationNames: (relations: string[] | undefined, required: string[]) => string[];
   };
+  let inventoryLedgerService: {
+    normalizeSerialNumber: jest.Mock;
+    registerPurchaseSerial: jest.Mock;
+    renamePurchaseSerial: jest.Mock;
+    removePurchaseSerial: jest.Mock;
+    isSpentCancelled: jest.Mock;
+  };
 
   const serialId = 'ics-uuid';
   const spentConceptId = 'ic-uuid';
@@ -36,7 +46,8 @@ describe('SpentConceptSerialService', () => {
       quantity: 2,
       item: { serialNumber: true },
       spent: {
-        status: 'paid',
+        status: SpentStatus.PAID,
+        issuedDate: new Date('2026-06-01'),
         supplier: { enterpriseId },
       } as Spent,
       ...overrides,
@@ -47,6 +58,7 @@ describe('SpentConceptSerialService', () => {
       id: serialId,
       spentConceptId,
       serialNumber: 'SN-1',
+      itemSerial: { id: 'item-serial-uuid', serialNumber: 'SN-1' },
       spentConcept: buildSpentConcept(),
       ...overrides,
     }) as SpentConceptSerial;
@@ -66,6 +78,34 @@ describe('SpentConceptSerialService', () => {
       mergeRelationNames: (relations?: string[], required: string[] = []) =>
         [...new Set([...(relations ?? []), ...required])],
     };
+    inventoryLedgerService = {
+      normalizeSerialNumber: jest.fn((raw: unknown) => {
+        if (typeof raw !== 'string') {
+          throw new HttpException(
+            'El número de serie debe ser una cadena de texto',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        const trimmedSerialNumber = raw.trim();
+        if (trimmedSerialNumber === '') {
+          throw new HttpException(
+            'El número de serie no puede estar vacío',
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        return trimmedSerialNumber;
+      }),
+      registerPurchaseSerial: jest.fn(async (_item, _concept, _status, serialNumber: string) => ({
+        id: 'item-serial-uuid',
+        serialNumber,
+      })),
+      renamePurchaseSerial: jest.fn(async (_itemSerial, serialNumber: string) => ({
+        id: 'item-serial-uuid',
+        serialNumber,
+      })),
+      removePurchaseSerial: jest.fn().mockResolvedValue(undefined),
+      isSpentCancelled: jest.fn((status: string) => status === SpentStatus.CANCELLED),
+    };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -73,6 +113,7 @@ describe('SpentConceptSerialService', () => {
         { provide: SpentConceptSerialRepository, useValue: spentConceptSerialRepository },
         { provide: SpentConceptRepository, useValue: spentConceptRepository },
         { provide: EnterpriseAccessService, useValue: enterpriseAccessService },
+        { provide: InventoryLedgerService, useValue: inventoryLedgerService },
       ],
     }).compile();
 
@@ -136,7 +177,7 @@ describe('SpentConceptSerialService', () => {
     it('lanza 404 si la línea es de otra empresa', async () => {
       spentConceptRepository.findById.mockResolvedValue(
         buildSpentConcept({
-          spent: { status: 'paid', supplier: { enterpriseId: 'otra' } } as Spent,
+          spent: { status: SpentStatus.PAID, supplier: { enterpriseId: 'otra' } } as Spent,
         }),
       );
 
@@ -197,8 +238,31 @@ describe('SpentConceptSerialService', () => {
       ).resolves.toEqual(created);
       expect(spentConceptSerialRepository.create).toHaveBeenCalledWith({
         spentConceptId,
+        itemSerialId: 'item-serial-uuid',
         serialNumber: 'SN-1',
       });
+    });
+
+    it('usa ahora si el gasto no tiene fecha de emisión', async () => {
+      spentConceptRepository.findById.mockResolvedValue(
+        buildSpentConcept({
+          spent: { status: SpentStatus.PAID, supplier: { enterpriseId } } as Spent,
+        }),
+      );
+      spentConceptSerialRepository.create.mockResolvedValue(buildSerial());
+
+      await service.create(
+        { spentConceptId, serialNumber: 'SN-NOW' } as SpentConceptSerial,
+        enterpriseId,
+      );
+
+      expect(inventoryLedgerService.registerPurchaseSerial).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        SpentStatus.PAID,
+        'SN-NOW',
+        expect.any(Date),
+      );
     });
 
     it('propaga el error del repositorio', async () => {
@@ -300,7 +364,7 @@ describe('SpentConceptSerialService', () => {
     it('lanza 404 si la línea es de otra empresa', async () => {
       spentConceptRepository.findById.mockResolvedValue(
         buildSpentConcept({
-          spent: { status: 'paid', supplier: { enterpriseId: 'otra' } } as Spent,
+          spent: { status: SpentStatus.PAID, supplier: { enterpriseId: 'otra' } } as Spent,
         }),
       );
 
@@ -356,6 +420,22 @@ describe('SpentConceptSerialService', () => {
       });
     });
 
+    it('rechaza mutar el inventario de un gasto cancelado', async () => {
+      spentConceptSerialRepository.findById.mockResolvedValue(
+        buildSerial({
+          spentConcept: buildSpentConcept({
+            spent: { status: SpentStatus.CANCELLED, supplier: { enterpriseId } } as Spent,
+          }),
+        }),
+      );
+
+      await expect(
+        service.updateById(serialId, { serialNumber: 'SN-2' } as SpentConceptSerial),
+      ).rejects.toMatchObject({
+        message: 'No se puede modificar el inventario de un gasto cancelado',
+      });
+    });
+
     it('no incluye serialNumber si no viene en el cuerpo', async () => {
       spentConceptSerialRepository.findById.mockResolvedValue(buildSerial());
       spentConceptSerialRepository.updateById.mockResolvedValue(buildSerial());
@@ -390,6 +470,21 @@ describe('SpentConceptSerialService', () => {
       spentConceptSerialRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });
 
       await expect(service.deleteById(serialId)).resolves.toEqual({ affected: 1, raw: [] });
+      expect(inventoryLedgerService.removePurchaseSerial).toHaveBeenCalled();
+    });
+
+    it('rechaza borrar el inventario de un gasto cancelado', async () => {
+      spentConceptSerialRepository.findById.mockResolvedValue(
+        buildSerial({
+          spentConcept: buildSpentConcept({
+            spent: { status: SpentStatus.CANCELLED, supplier: { enterpriseId } } as Spent,
+          }),
+        }),
+      );
+
+      await expect(service.deleteById(serialId)).rejects.toMatchObject({
+        message: 'No se puede modificar el inventario de un gasto cancelado',
+      });
     });
 
     it('propaga el error del repositorio', async () => {

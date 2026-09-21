@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { SpentConcept } from '../spent-concept/spent-concept.entity';
+import { ItemSerial } from '../item-serial/item-serial.entity';
 
 /**
  * Número de serie asociado a una línea de gasto (`spent_concept_serials`).
@@ -31,6 +32,12 @@ export class SpentConceptSerial {
    */
   @Column({ name: 'spent_concept_id' })
   spentConceptId: string;
+
+  /**
+   * Identidad canónica de la unidad
+   */
+  @Column({ name: 'item_serial_id' })
+  itemSerialId: string;
 
   /**
    * Número de serie capturado en la línea
@@ -60,4 +67,13 @@ export class SpentConceptSerial {
   )
   @JoinColumn({ name: 'spent_concept_id' })
   spentConcept: SpentConcept;
+
+  /**
+   * Unidad física de catálogo
+   */
+  @ManyToOne(() => ItemSerial, (itemSerial) => itemSerial.spentConceptSerials, {
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'item_serial_id' })
+  itemSerial: ItemSerial;
 }

@@ -222,6 +222,32 @@ export const DENIED_PERMISSION_CASES: DeniedPermissionCase[] = [
     query: enterpriseAQuery,
   },
   {
+    name: 'GET /item-serials',
+    method: 'get',
+    path: () => '/item-serials',
+    permission: 'items.read',
+    query: (seed) => ({ enterpriseId: seed.enterpriseA.id, itemId: seed.itemA.id }),
+  },
+  {
+    name: 'GET /item-serials/:id',
+    method: 'get',
+    path: (seed) => `/item-serials/${seed.itemSerialA.id}`,
+    permission: 'items.read',
+  },
+  {
+    name: 'GET /stock-movements',
+    method: 'get',
+    path: () => '/stock-movements',
+    permission: 'items.read',
+    query: (seed) => ({ enterpriseId: seed.enterpriseA.id, itemId: seed.itemA.id }),
+  },
+  {
+    name: 'GET /stock-movements/:id',
+    method: 'get',
+    path: (seed) => `/stock-movements/${seed.stockMovementA.id}`,
+    permission: 'items.read',
+  },
+  {
     name: 'GET /invoices',
     method: 'get',
     path: () => '/invoices',

@@ -3,7 +3,7 @@ import { Expose, Type } from 'class-transformer';
 import { ClientResponseDto } from 'src/entities/client/dto/client-response.dto';
 import { InvoiceSeriesResponseDto } from 'src/entities/invoice-series/dto/invoice-series-response.dto';
 import { InvoiceConceptResponseDto } from 'src/entities/invoice-concept/dto/invoice-concept-response.dto';
-import { InvoiceStatus } from '../invoice.entity';
+import { InvoiceStatus } from 'src/common/enums';
 
 /**
  * Vista pública de factura para respuestas HTTP.

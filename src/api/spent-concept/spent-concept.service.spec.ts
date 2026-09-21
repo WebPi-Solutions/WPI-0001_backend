@@ -10,6 +10,7 @@ import { ItemCategory } from 'src/entities/item-category/item-category.entity';
 import { SpentConceptSerialRepository } from 'src/entities/spent-concept-serial/spent-concept-serial-repository.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { SpentConceptService } from './spent-concept.service';
+import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
 
 describe('SpentConceptService', () => {
   let service: SpentConceptService;
@@ -27,6 +28,10 @@ describe('SpentConceptService', () => {
   let enterpriseAccessService: {
     assertCurrentEntityAccessible: jest.Mock;
     mergeRelationNames: (relations: string[] | undefined, required: string[]) => string[];
+  };
+  let inventoryLedgerService: {
+    syncPurchaseQuantityMovement: jest.Mock;
+    purgeSpentConceptInventory: jest.Mock;
   };
 
   const spentConceptId = 'sc-uuid';
@@ -81,6 +86,10 @@ describe('SpentConceptService', () => {
       mergeRelationNames: (relations?: string[], required: string[] = []) =>
         [...new Set([...(relations ?? []), ...required])],
     };
+    inventoryLedgerService = {
+      syncPurchaseQuantityMovement: jest.fn().mockResolvedValue(undefined),
+      purgeSpentConceptInventory: jest.fn().mockResolvedValue(undefined),
+    };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -93,6 +102,7 @@ describe('SpentConceptService', () => {
           useValue: spentConceptSerialRepository,
         },
         { provide: EnterpriseAccessService, useValue: enterpriseAccessService },
+        { provide: InventoryLedgerService, useValue: inventoryLedgerService },
       ],
     }).compile();
 
@@ -178,7 +188,6 @@ describe('SpentConceptService', () => {
       await expect(
         service.create({ spentId, name: '  Hora  ' } as SpentConcept, enterpriseId),
       ).resolves.toEqual(created);
-
       expect(spentConceptRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           spentId,
@@ -191,6 +200,22 @@ describe('SpentConceptService', () => {
           quantity: 1,
           ean: null,
         }),
+      );
+    });
+
+    it('usa la fecha de emisión del gasto en el kardex', async () => {
+      spentRepository.findById.mockResolvedValue(
+        buildSpent({ issuedDate: new Date('2026-06-01') }),
+      );
+      spentConceptRepository.create.mockResolvedValue(buildSpentConcept());
+
+      await service.create({ spentId, name: 'Hora' } as SpentConcept, enterpriseId);
+
+      expect(inventoryLedgerService.syncPurchaseQuantityMovement).toHaveBeenCalledWith(
+        expect.anything(),
+        null,
+        undefined,
+        new Date('2026-06-01'),
       );
     });
 

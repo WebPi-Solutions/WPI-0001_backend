@@ -1,5 +1,6 @@
 import { E2E_EMAIL, authHeader } from '@e2e/auth';
 import { expectIdorHidden, http } from '@e2e/http';
+import { deletePurchasedItemSerials, purchaseItemSerials } from '@e2e/inventory';
 import { getE2eSeed, startE2eWorld } from '@e2e/world';
 
 describe('Números de serie de conceptos de factura (e2e) — control de acceso', () => {
@@ -185,7 +186,7 @@ describe('Números de serie de conceptos de factura (e2e) — reglas de negocio'
     expect(response.body.invoiceConceptId).toBe(seed.invoiceConceptA.id);
   });
 
-  it('rechaza un número de serie duplicado con 409', async () => {
+  it('rechaza vender un número de serie que no está en stock', async () => {
     const seed = getE2eSeed();
     const response = await http()
       .post('/invoice-concept-serials')
@@ -195,8 +196,8 @@ describe('Números de serie de conceptos de factura (e2e) — reglas de negocio'
         invoiceConceptId: seed.invoiceConceptA.id,
         serialNumber: seed.invoiceConceptSerialA.serialNumber,
       });
-    expect(response.status).toBe(409);
-    expect(response.body.message).toBe('El número de serie ya está asignado a este concepto');
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('El número de serie no está disponible en stock');
   });
 
   it('no asigna series a un concepto manual ni a un artículo sin número de serie', async () => {
@@ -280,6 +281,7 @@ describe('Números de serie de conceptos de factura (e2e) — reglas de negocio'
         pricePvp: 8,
       });
     expect(serialTrackedItem.status).toBe(201);
+    const purchased = await purchaseItemSerials(serialTrackedItem.body.id, ['SN-CAP-1']);
     const concept = await http()
       .post('/invoice-concepts')
       .query({ enterpriseId: seed.enterpriseA.id })
@@ -319,6 +321,7 @@ describe('Números de serie de conceptos de factura (e2e) — reglas de negocio'
       .delete(`/invoice-concepts/${concept.body.id}`)
       .set(authHeader(E2E_EMAIL.userA));
     await http().delete(`/invoices/${invoiceId}`).set(authHeader(E2E_EMAIL.userA));
+    await deletePurchasedItemSerials(purchased);
     await http()
       .delete(`/items/${serialTrackedItem.body.id}`)
       .set(authHeader(E2E_EMAIL.userA));
@@ -339,6 +342,7 @@ describe('Números de serie de conceptos de factura (e2e) — reglas de negocio'
         pricePvp: 8,
       });
     expect(serialTrackedItem.status).toBe(201);
+    const purchased = await purchaseItemSerials(serialTrackedItem.body.id, ['SN-ISSUED-1']);
     const concept = await http()
       .post('/invoice-concepts')
       .query({ enterpriseId: seed.enterpriseA.id })
@@ -346,7 +350,7 @@ describe('Números de serie de conceptos de factura (e2e) — reglas de negocio'
       .send({
         invoiceId,
         itemId: serialTrackedItem.body.id,
-        quantity: 2,
+        quantity: 1,
       });
     expect(concept.status).toBe(201);
     const createdSerial = await http()
