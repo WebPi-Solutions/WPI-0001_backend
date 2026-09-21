@@ -1,6 +1,9 @@
 /**
  * Arranca un PostgreSQL efímero con Testcontainers antes de la suite e2e.
  * Requiere Docker. La conexión se escribe en `.postgres.json` para los workers de Jest.
+ *
+ * Se usa Testcontainers 11 (no 12): la v12 tira de undici 8 (`markAsUncloneable`)
+ * y exige Node ≥ 22.22; CI y la imagen de producción siguen en Node 20.
  */
 const { PostgreSqlContainer } = require('@testcontainers/postgresql');
 const fs = require('fs');

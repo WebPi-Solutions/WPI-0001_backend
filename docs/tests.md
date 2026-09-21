@@ -216,7 +216,7 @@ Enfoque HTTP: **control de acceso multi-empresa** y ciclo de vida CRUD. La cober
 | Alta de usuario con query de A y vínculo a B | 403 |
 | Crear empresa si no eres administrador global | 403 |
 
-Requisitos: Node.js, `npm install --legacy-peer-deps` en `backend/`, **Docker**. No hace falta `.env` ni Postgres en la nube.
+Requisitos: Node.js **20** (el mismo que CI y `docker/Dockerfile`), `npm install --legacy-peer-deps` en `backend/`, **Docker**. No hace falta `.env` ni Postgres en la nube. Testcontainers queda en **11.x**: la 12 exige Node ≥ 22.22 y en GitHub Actions (Node 20) el `globalSetup` revienta con `webidl.util.markAsUncloneable is not a function`.
 
 Si Docker no está arrancado, el `globalSetup` falla con un mensaje pidiendo comprobar el daemon.
 
