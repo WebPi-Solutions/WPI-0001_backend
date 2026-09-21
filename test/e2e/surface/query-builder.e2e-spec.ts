@@ -135,7 +135,7 @@ describe('QueryBuilderService (e2e) — Postgres real', () => {
     expect(page.totalPages).toBeGreaterThanOrEqual(1);
   });
 
-  it('cubre rangos de fecha unilaterales, JSON LIKE, leftJoin y filtros $or anidados', async () => {
+  it('cubre rangos de fecha unilaterales, LIKE de líneas de presupuesto, leftJoin y filtros $or anidados', async () => {
     const seed = getE2eSeed();
     const clientRepository = getE2eDataSource().getRepository(Client);
     const invoiceRepository = getE2eDataSource().getRepository(Invoice);
@@ -165,18 +165,30 @@ describe('QueryBuilderService (e2e) — Postgres real', () => {
     });
     expect(toOnly.total).toBeGreaterThanOrEqual(1);
 
-    const jsonLike = await QueryBuilderService.getPaginatedResults(quoteRepository, 'quote', {
-      page: 1,
-      pageSize: 5,
-      sort: 'name',
-      order: 'ASC',
-      filter: {
-        clientId: seed.clientA.id,
-        'concepts.name_like': 'Hora',
-        'concepts.name_ilike': 'hora',
+    // `quotes.concepts` JSON desapareció: las líneas viven en `quote_concepts`.
+    const quoteConceptLike = await QueryBuilderService.getPaginatedResults(
+      quoteRepository,
+      'quote',
+      {
+        page: 1,
+        pageSize: 5,
+        sort: 'name',
+        order: 'ASC',
+        filter: {
+          clientId: seed.clientA.id,
+          'quoteConcepts.name_like': 'Concepto',
+          'quoteConcepts.name_ilike': 'concepto',
+        },
+        relations: [
+          {
+            property: 'quoteConcepts',
+            alias: 'quoteConcepts',
+            isLeftJoinAndSelect: true,
+          },
+        ],
       },
-    });
-    expect(jsonLike.total).toBeGreaterThanOrEqual(0);
+    );
+    expect(quoteConceptLike.total).toBeGreaterThanOrEqual(1);
 
     const nestedJoin = await QueryBuilderService.getPaginatedResults(invoiceRepository, 'invoice', {
       page: 1,
