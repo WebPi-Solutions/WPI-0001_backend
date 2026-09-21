@@ -24,11 +24,6 @@ process.env.DATABASE_NAME = String(connection.database);
 process.env.TYPEORM_SYNCHRONIZE = 'true';
 process.env.TYPEORM_LOGGING = 'false';
 process.env.MAX_FILE_SIZE = process.env.MAX_FILE_SIZE || '10';
-process.env.FIREBASE_TYPE = process.env.FIREBASE_TYPE || 'service_account';
-process.env.FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'e2e-project';
-process.env.FIREBASE_PRIVATE_KEY_ID = process.env.FIREBASE_PRIVATE_KEY_ID || 'e2e-key-id';
-process.env.FIREBASE_PRIVATE_KEY =
-  process.env.FIREBASE_PRIVATE_KEY ||
-  '-----BEGIN PRIVATE KEY-----\\nMII\\n-----END PRIVATE KEY-----\\n';
-process.env.FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || 'firebase@e2e.test';
-process.env.FIREBASE_CLIENT_ID = process.env.FIREBASE_CLIENT_ID || '1';
+
+const { applyTestThirdPartyEnvironment } = require('../../jest-third-party-env');
+applyTestThirdPartyEnvironment();

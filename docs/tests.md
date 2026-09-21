@@ -72,7 +72,7 @@ Así el HTML de `coverage-e2e` refleja el 100% del código de producción, no so
 
 ## Alcance de la suite unitaria
 
-Los tests unitarios **no levantan Postgres, Stripe, Firebase, OpenAI ni Dropbox**. Las dependencias se sustituyen por mocks (`jest.fn()`, `getRepositoryToken`, módulos `jest.mock`).
+Los tests unitarios **no levantan Postgres, Stripe, Firebase, OpenAI ni Dropbox**. Las dependencias se sustituyen por mocks (`jest.fn()`, `getRepositoryToken`, módulos `jest.mock`). Jest pisa las claves reales en `test/jest-third-party-env.js` (antes de importar producción) y mockea `firebase-admin` en `test/jest-unit-setup-after-env.js`. Un spec de Stripe/OpenAI/Dropbox/Firebase **nunca** usa el SDK real ni secretos de `.env`/CI; si aparece un proveedor nuevo, mockearlo igual y añadir su clave a `applyTestThirdPartyEnvironment`.
 
 ### Qué sí se prueba
 

@@ -112,4 +112,36 @@ describe('DTO de petición de usuario', () => {
     expect(emptyUpdate.email).toBeUndefined();
     expect(errors).toHaveLength(0);
   });
+
+  it('rechaza una contraseña de menos de 6 caracteres y acepta la vacía (se ignora en edición)', async () => {
+    const userEnterprise = new UserEnterprise();
+    userEnterprise.id = SAMPLE_UUID;
+    const validationOptions = { forbidUnknownValues: false };
+
+    const tooShort = await validate(
+      plainToInstance(CreateUserDto, {
+        name: 'Juan Pérez',
+        email: 'juan.perez@example.com',
+        userEnterprises: [userEnterprise],
+        password: '123',
+      }),
+      validationOptions,
+    );
+    const emptyPassword = await validate(
+      plainToInstance(CreateUserDto, {
+        name: 'Juan Pérez',
+        email: 'juan.perez@example.com',
+        userEnterprises: [userEnterprise],
+        password: '',
+      }),
+      validationOptions,
+    );
+    const updateWithPassword = coverDtoClass(UpdateUserDto, {
+      password: 'abcdef',
+    });
+
+    expect(tooShort.some((error) => error.property === 'password')).toBe(true);
+    expect(emptyPassword).toHaveLength(0);
+    expect(updateWithPassword.password).toBe('abcdef');
+  });
 });

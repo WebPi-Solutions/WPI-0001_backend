@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsEmail, IsOptional, IsEnum, IsArray, ValidateNested, IsUUID, ValidateIf } from 'class-validator';
+import { IsString, IsNotEmpty, IsEmail, IsOptional, IsEnum, IsArray, ValidateNested, IsUUID, ValidateIf, MinLength } from 'class-validator';
 import { UserEnterprise } from '../user-enterprise.entity';
 import { Type } from 'class-transformer';
 
@@ -33,9 +33,16 @@ export class CreateUserDto {
   @Type(() => UserEnterprise)
   userEnterprises: UserEnterprise[];
 
-  @ApiProperty({ description: 'Contraseña del usuario (obligatoria solo para usuarios nuevos)', required: false, example: '123456' })
-  @IsString()
+  @ApiProperty({
+    description:
+      'Contraseña del usuario. Obligatoria al crear un usuario nuevo; en edición, si se envía, actualiza la contraseña en Firebase (mínimo 6 caracteres).',
+    required: false,
+    example: '123456',
+  })
   @IsOptional()
+  @ValidateIf((_, value) => typeof value === 'string' && value.trim() !== '')
+  @IsString()
+  @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
   password?: string;
 
   /**

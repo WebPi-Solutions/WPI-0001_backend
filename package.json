@@ -92,6 +92,8 @@
       "!**/test-utils/**"
     ],
     "coverageDirectory": "../coverage",
+    "setupFiles": ["<rootDir>/../test/jest-third-party-env.js"],
+    "setupFilesAfterEnv": ["<rootDir>/../test/jest-unit-setup-after-env.js"],
     "coverageThreshold": {
       "global": {
         "branches": 100,

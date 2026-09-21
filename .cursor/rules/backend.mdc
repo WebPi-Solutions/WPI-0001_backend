@@ -117,7 +117,7 @@ Los workflows `.github/workflows/build-and-push-*.yml` ejecutan `npm test` y `np
 
 ### Unitarios (`src/**/*.spec.ts`, al lado del fichero)
 
-- Cada controller, servicio y repositorio nuevo tiene spec. Mocks de repos y SDKs; no Postgres real.
+- Cada controller, servicio y repositorio nuevo tiene spec. Mocks de repos y SDKs; no Postgres real. Stripe, Firebase, Dropbox, OpenAI y cualquier integración de terceros se mockean: nunca API ni keys reales (`test/jest-third-party-env.js`).
 - Incluir `EnterpriseAccessService` en el testing module; `mergeRelationNames` debe ser implementación real si el `findById` fusiona relaciones.
 - Casos: validación, 404, conflicto, freeze de `enterpriseId`, rechazo de FKs ajenas, ignore de `users.role` si no es admin global.
 

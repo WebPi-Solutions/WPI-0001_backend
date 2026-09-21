@@ -203,7 +203,7 @@ export class UserController {
     name: 'enterpriseId',
     required: false,
     description:
-      'Empresa activa. Obligatorio si el cuerpo incluye defaultScheduleId (validación de la plantilla de horario).',
+      'Empresa activa. Obligatorio si el cuerpo incluye defaultScheduleId (validación de la plantilla de horario) o para actualizar el rol. La contraseña, si se envía, se actualiza en Firebase.',
   })
   @ApiResponse({ status: 200, description: 'El usuario ha sido actualizado correctamente.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })

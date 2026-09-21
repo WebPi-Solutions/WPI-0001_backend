@@ -5,11 +5,23 @@ if (process.env.E2E_TEST !== 'true') {
   dotenv.config();
 }
 
+/**
+ * Normaliza la clave privada de la cuenta de servicio.
+ * En `.env` los saltos de línea van escapados (`\\n`); si la variable no existe
+ * (CI unitario sin secretos) se usa cadena vacía para no romper el import.
+ * Los tests pisan esta variable con un valor ficticio y mockean `firebase-admin`.
+ * @param rawPrivateKey - Valor de `FIREBASE_PRIVATE_KEY`, o indefinido
+ * @returns Clave con saltos de línea reales, o cadena vacía
+ */
+function normalizeFirebasePrivateKey(rawPrivateKey: string | undefined): string {
+  return (rawPrivateKey ?? '').replace(/\\n/g, '\n');
+}
+
 const serviceAccount = {
   type: process.env.FIREBASE_TYPE,
   project_id: process.env.FIREBASE_PROJECT_ID,
   private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-  private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // Reemplazo para el caso de que la clave la añadamos en un archivo .env
+  private_key: normalizeFirebasePrivateKey(process.env.FIREBASE_PRIVATE_KEY),
   client_email: process.env.FIREBASE_CLIENT_EMAIL,
   client_id: process.env.FIREBASE_CLIENT_ID,
   auth_uri: process.env.FIREBASE_AUTH_URI,

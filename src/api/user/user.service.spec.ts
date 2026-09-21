@@ -43,6 +43,7 @@ describe('UserService', () => {
     verifyUserExistsByEmail: jest.Mock;
     createUser: jest.Mock;
     deleteUser: jest.Mock;
+    updateUserPassword: jest.Mock;
   };
   let defaultScheduleRepository: {
     findById: jest.Mock;
@@ -129,6 +130,7 @@ describe('UserService', () => {
       verifyUserExistsByEmail: jest.fn().mockResolvedValue(false),
       createUser: jest.fn().mockResolvedValue({ uid: 'firebase-uid' }),
       deleteUser: jest.fn().mockResolvedValue(undefined),
+      updateUserPassword: jest.fn().mockResolvedValue({ uid: 'firebase-uid' }),
     };
     defaultScheduleRepository = {
       findById: jest.fn(),
@@ -714,6 +716,64 @@ describe('UserService', () => {
       await expect(service.updateById(userId, { name: 'Ana' } as User)).rejects.toThrow(
         'fallo de persistencia',
       );
+    });
+  });
+
+  describe('updateById — contraseña', () => {
+    it('actualiza la contraseña en Firebase y no la persiste en el parche de Postgres', async () => {
+      await service.updateById(userId, {
+        name: 'Ana',
+        password: '  NuevaClave1  ',
+      } as unknown as User);
+
+      expect(firebaseService.updateUserPassword).toHaveBeenCalledWith(
+        'ana@example.com',
+        'NuevaClave1',
+      );
+      const patch = userRepository.updateById.mock.calls[0][1] as Record<string, unknown>;
+      expect(patch.password).toBeUndefined();
+      expect(patch.name).toBe('Ana');
+    });
+
+    it('ignora la contraseña vacía, en blanco o que no es una cadena', async () => {
+      await service.updateById(userId, { name: 'Ana', password: '   ' } as unknown as User);
+      await service.updateById(userId, { name: 'Ana', password: '' } as unknown as User);
+      await service.updateById(userId, { name: 'Ana', password: 123456 } as unknown as User);
+
+      expect(firebaseService.updateUserPassword).not.toHaveBeenCalled();
+    });
+
+    it('rechaza una contraseña de menos de 6 caracteres', async () => {
+      await expect(
+        service.updateById(userId, { password: '123' } as unknown as User),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'La contraseña debe tener al menos 6 caracteres.',
+      });
+      expect(firebaseService.updateUserPassword).not.toHaveBeenCalled();
+      expect(userRepository.updateById).not.toHaveBeenCalled();
+    });
+
+    it('devuelve 500 si Firebase no puede actualizar la contraseña', async () => {
+      firebaseService.updateUserPassword.mockRejectedValue(new Error('firebase caído'));
+
+      await expect(
+        service.updateById(userId, { password: 'NuevaClave1' } as unknown as User),
+      ).rejects.toMatchObject({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'No se pudo actualizar la contraseña del usuario.',
+      });
+    });
+
+    it('registra el fallo de Firebase aunque el error no sea una instancia de Error', async () => {
+      firebaseService.updateUserPassword.mockRejectedValue({ message: 'token inválido' });
+
+      await expect(
+        service.updateById(userId, { password: 'NuevaClave1' } as unknown as User),
+      ).rejects.toMatchObject({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'No se pudo actualizar la contraseña del usuario.',
+      });
     });
   });
 

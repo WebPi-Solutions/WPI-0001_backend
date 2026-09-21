@@ -51,4 +51,34 @@ describe('firebaseAdmin', () => {
       expect(admin.initializeApp).toHaveBeenCalled();
     });
   });
+
+  it('usa clave vacía si FIREBASE_PRIVATE_KEY no está definida', async () => {
+    delete process.env.FIREBASE_PRIVATE_KEY;
+
+    await jest.isolateModulesAsync(async () => {
+      const admin = await import('firebase-admin');
+      await import('./firebase.service');
+
+      expect(admin.credential.cert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          private_key: '',
+        }),
+      );
+    });
+  });
+
+  it('convierte los saltos de línea escapados de la clave privada', async () => {
+    process.env.FIREBASE_PRIVATE_KEY = '-----BEGIN PRIVATE KEY-----\\nABC\\n-----END PRIVATE KEY-----\\n';
+
+    await jest.isolateModulesAsync(async () => {
+      const admin = await import('firebase-admin');
+      await import('./firebase.service');
+
+      expect(admin.credential.cert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          private_key: '-----BEGIN PRIVATE KEY-----\nABC\n-----END PRIVATE KEY-----\n',
+        }),
+      );
+    });
+  });
 });

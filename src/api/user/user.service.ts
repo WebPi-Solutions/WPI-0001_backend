@@ -513,8 +513,53 @@ export class UserService {
   }
 
   /**
+   * Actualiza la contraseña en Firebase si el cuerpo incluye una cadena no vacía.
+   * No se persiste en Postgres: la autenticación vive en Firebase.
+   *
+   * @param targetUser - Usuario ya cargado (se usa su email de Firebase)
+   * @param requestedPassword - Valor recibido en el PATCH
+   */
+  private async applyPasswordUpdateIfRequested(
+    targetUser: User,
+    requestedPassword: unknown,
+  ): Promise<void> {
+    if (typeof requestedPassword !== 'string') {
+      return;
+    }
+    const trimmedPassword = requestedPassword.trim();
+    if (!trimmedPassword) {
+      return;
+    }
+    if (trimmedPassword.length < 6) {
+      this.logger.warn(
+        `Contraseña rechazada por longitud insuficiente al actualizar el usuario ${targetUser.id}`,
+      );
+      throw new HttpException(
+        'La contraseña debe tener al menos 6 caracteres.',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    try {
+      this.logger.log(
+        `Actualizando la contraseña de Firebase del usuario ${targetUser.email}`,
+      );
+      await this.firebaseService.updateUserPassword(targetUser.email, trimmedPassword);
+    } catch (error) {
+      this.logger.error(
+        `Error al actualizar la contraseña en Firebase del usuario ${targetUser.id}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new HttpException(
+        'No se pudo actualizar la contraseña del usuario.',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
    * Actualiza un usuario por su ID.
    * Si el cuerpo incluye `defaultScheduleId`, es obligatorio el query `enterpriseId` para validar titularidad de la plantilla.
+   * Si incluye `password`, se actualiza en Firebase (no se guarda en Postgres).
    *
    * @param id - El ID del usuario
    * @param user - Campos a actualizar
@@ -526,8 +571,19 @@ export class UserService {
     user: Partial<User>,
     enterpriseId?: string,
   ): Promise<User> {
+    const userPayload = user as Partial<User> & { password?: string };
     this.logger.log(`Iniciando actualización de usuario con ID: ${id}`);
-    this.logger.log(`Datos a actualizar:`, JSON.stringify(user, null, 2));
+    this.logger.log(
+      `Datos a actualizar:`,
+      JSON.stringify(
+        {
+          ...userPayload,
+          password: userPayload.password ? '[REDACTED]' : undefined,
+        },
+        null,
+        2,
+      ),
+    );
 
     try {
       const targetUser = await this.userRepository.findById(id, ['userEnterprises']);
@@ -560,6 +616,8 @@ export class UserService {
       // Evitar que el `save` del usuario intente persistir relaciones `userEnterprises` con payload incompleto.
       // Las actualizaciones del vínculo usuario–empresa se gestionan explícitamente con métodos dedicados.
       delete (patch as { userEnterprises?: unknown }).userEnterprises;
+      // La contraseña no es columna de `users`; se aplica en Firebase.
+      delete (patch as { password?: unknown }).password;
 
       const accessContext = this.enterpriseAccessService.getCurrentAccessContextOrThrow();
       // `users.role = administrator` salta el aislamiento multi-empresa. Solo un admin global puede asignarlo.
@@ -577,11 +635,11 @@ export class UserService {
             HttpStatus.BAD_REQUEST,
           );
         }
-        const userPayload = user as Partial<User> & {
+        const schedulePayload = user as Partial<User> & {
           defaultScheduleId?: string | null;
         };
         const resolvedScheduleId = await this.resolveDefaultScheduleIdForUserPatch(
-          userPayload.defaultScheduleId,
+          schedulePayload.defaultScheduleId,
           enterpriseId,
         );
         await this.userRepository.updateUserEnterpriseDefaultSchedule(
@@ -623,6 +681,8 @@ export class UserService {
           requestedRoleIdNormalized,
         );
       }
+
+      await this.applyPasswordUpdateIfRequested(targetUser, userPayload.password);
 
       const updatedUser = await this.userRepository.updateById(id, patch);
       this.logger.log(`Usuario ${id} actualizado exitosamente`);
