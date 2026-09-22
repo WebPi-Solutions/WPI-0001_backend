@@ -202,6 +202,20 @@ describe('InvoiceRepository', () => {
     });
   });
 
+  describe('findOneByQuoteId', () => {
+    it('busca una factura vinculada al presupuesto', async () => {
+      const foundInvoice = { id: 'invoice-uuid', quoteId: 'quote-uuid' } as Invoice;
+      typeOrmRepositoryMock.findOne.mockResolvedValue(foundInvoice);
+
+      const result = await invoiceRepositoryService.findOneByQuoteId('quote-uuid');
+
+      expect(typeOrmRepositoryMock.findOne).toHaveBeenCalledWith({
+        where: { quoteId: 'quote-uuid' },
+      });
+      expect(result).toEqual(foundInvoice);
+    });
+  });
+
   describe('updateById', () => {
     it('lanza 404 si la factura no existe', async () => {
       typeOrmRepositoryMock.findOne.mockResolvedValue(null);

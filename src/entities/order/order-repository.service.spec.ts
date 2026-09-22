@@ -167,6 +167,20 @@ describe('OrderRepository', () => {
     });
   });
 
+  describe('findOneByQuoteId', () => {
+    it('busca un pedido vinculado al presupuesto', async () => {
+      const foundOrder = { id: 'order-uuid', quoteId: 'quote-uuid' } as Order;
+      typeOrmRepositoryMock.findOne.mockResolvedValue(foundOrder);
+
+      const result = await orderRepositoryService.findOneByQuoteId('quote-uuid');
+
+      expect(typeOrmRepositoryMock.findOne).toHaveBeenCalledWith({
+        where: { quoteId: 'quote-uuid' },
+      });
+      expect(result).toEqual(foundOrder);
+    });
+  });
+
   describe('updateById', () => {
     it('lanza 404 si el pedido no existe', async () => {
       typeOrmRepositoryMock.findOne.mockResolvedValue(null);
