@@ -3,6 +3,8 @@ import { ClientRepository } from 'src/entities/client/client-repository.service'
 import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-repository.service';
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
 import { Quote } from 'src/entities/quote/quote.entity';
+import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.service';
+import { OrderRepository } from 'src/entities/order/order-repository.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
@@ -17,6 +19,8 @@ export class QuoteService {
               private readonly clientRepository: ClientRepository,
               private readonly enterpriseRepository: EnterpriseRepository,
               private readonly enterpriseAccessService: EnterpriseAccessService,
+              private readonly invoiceRepository: InvoiceRepository,
+              private readonly orderRepository: OrderRepository,
   ){}
 
   /**
@@ -185,9 +189,16 @@ export class QuoteService {
 
     this.assertQuoteAccessible(quote, 'delete');
 
-    if (quote.status !== QuoteStatus.DRAFT) {
-      this.logger.error(`No se puede eliminar la cotización ${id} porque ya ha sido emitida`);
-      throw new HttpException(`No se puede eliminar la cotización ${id} porque ya ha sido emitida`, HttpStatus.BAD_REQUEST);
+    const [linkedInvoice, linkedOrder] = await Promise.all([
+      this.invoiceRepository.findOneByQuoteId(id),
+      this.orderRepository.findOneByQuoteId(id),
+    ]);
+    if (linkedInvoice || linkedOrder) {
+      this.logger.error(`No se puede eliminar la cotización ${id} porque tiene documentos vinculados`);
+      throw new HttpException(
+        'No se puede eliminar el presupuesto porque tiene una factura o pedido vinculado',
+        HttpStatus.CONFLICT,
+      );
     }
     
     try {
@@ -323,4 +334,3 @@ export class QuoteService {
     );
   }
 }
-

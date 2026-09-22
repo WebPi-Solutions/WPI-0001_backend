@@ -78,6 +78,16 @@ export class OrderRepository {
   }
 
   /**
+   * Comprueba si existe un pedido asociado a un presupuesto.
+   *
+   * @param quoteId Identificador del presupuesto
+   * @returns El primer pedido vinculado o `null` si no existe ninguno
+   */
+  findOneByQuoteId(quoteId: string): Promise<Order | null> {
+    return this.orderTypeOrmRepository.findOne({ where: { quoteId } });
+  }
+
+  /**
    * Actualiza un pedido existente por su identificador.
    *
    * @param id - UUID del pedido

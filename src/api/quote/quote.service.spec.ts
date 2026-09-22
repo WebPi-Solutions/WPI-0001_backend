@@ -4,6 +4,8 @@ import { ClientRepository } from 'src/entities/client/client-repository.service'
 import { Client } from 'src/entities/client/client.entity';
 import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-repository.service';
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
+import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.service';
+import { OrderRepository } from 'src/entities/order/order-repository.service';
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
 import { Quote } from 'src/entities/quote/quote.entity';
 import { QuoteService } from './quote.service';
@@ -22,6 +24,8 @@ describe('QuoteService', () => {
   };
   let clientRepository: { findById: jest.Mock };
   let enterpriseRepository: { findById: jest.Mock };
+  let invoiceRepository: { findOneByQuoteId: jest.Mock };
+  let orderRepository: { findOneByQuoteId: jest.Mock };
 
   const quoteId = 'quote-uuid';
   const clientId = 'client-uuid';
@@ -90,6 +94,8 @@ describe('QuoteService', () => {
     };
     clientRepository = { findById: jest.fn() };
     enterpriseRepository = { findById: jest.fn() };
+    invoiceRepository = { findOneByQuoteId: jest.fn().mockResolvedValue(null) };
+    orderRepository = { findOneByQuoteId: jest.fn().mockResolvedValue(null) };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -97,6 +103,8 @@ describe('QuoteService', () => {
         { provide: QuoteRepository, useValue: quoteRepository },
         { provide: ClientRepository, useValue: clientRepository },
         { provide: EnterpriseRepository, useValue: enterpriseRepository },
+        { provide: InvoiceRepository, useValue: invoiceRepository },
+        { provide: OrderRepository, useValue: orderRepository },
         {
           provide: EnterpriseAccessService,
           useValue: {
@@ -411,21 +419,35 @@ describe('QuoteService', () => {
       expect(quoteRepository.deleteById).not.toHaveBeenCalled();
     });
 
-    it('impide eliminar una cotización ya emitida', async () => {
-      quoteRepository.findById.mockResolvedValue(buildQuote({ status: QuoteStatus.ISSUED }));
+    it('impide eliminar una cotización con una factura vinculada', async () => {
+      quoteRepository.findById.mockResolvedValue(buildQuote());
+      invoiceRepository.findOneByQuoteId.mockResolvedValue({ id: 'invoice-uuid' });
 
       await expect(service.deleteById(quoteId)).rejects.toMatchObject({
-        status: HttpStatus.BAD_REQUEST,
-        message: `No se puede eliminar la cotización ${quoteId} porque ya ha sido emitida`,
+        status: HttpStatus.CONFLICT,
+        message: 'No se puede eliminar el presupuesto porque tiene una factura o pedido vinculado',
       });
       expect(quoteRepository.deleteById).not.toHaveBeenCalled();
     });
 
-    it('elimina una cotización en borrador', async () => {
-      quoteRepository.findById.mockResolvedValue(buildQuote({ status: QuoteStatus.DRAFT }));
+    it('impide eliminar una cotización con un pedido vinculado', async () => {
+      quoteRepository.findById.mockResolvedValue(buildQuote());
+      orderRepository.findOneByQuoteId.mockResolvedValue({ id: 'order-uuid' });
+
+      await expect(service.deleteById(quoteId)).rejects.toMatchObject({
+        status: HttpStatus.CONFLICT,
+        message: 'No se puede eliminar el presupuesto porque tiene una factura o pedido vinculado',
+      });
+      expect(quoteRepository.deleteById).not.toHaveBeenCalled();
+    });
+
+    it('elimina una cotización sin facturas ni pedidos vinculados', async () => {
+      quoteRepository.findById.mockResolvedValue(buildQuote({ status: QuoteStatus.ISSUED }));
       quoteRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });
 
       await expect(service.deleteById(quoteId)).resolves.toEqual({ affected: 1, raw: [] });
+      expect(invoiceRepository.findOneByQuoteId).toHaveBeenCalledWith(quoteId);
+      expect(orderRepository.findOneByQuoteId).toHaveBeenCalledWith(quoteId);
       expect(quoteRepository.deleteById).toHaveBeenCalledWith(quoteId);
     });
 

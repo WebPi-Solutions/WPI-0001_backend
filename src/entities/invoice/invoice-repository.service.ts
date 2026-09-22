@@ -79,6 +79,16 @@ export class InvoiceRepository {
   }
 
   /**
+   * Comprueba si existe una factura asociada a un presupuesto.
+   *
+   * @param quoteId Identificador del presupuesto
+   * @returns La primera factura vinculada o `null` si no existe ninguna
+   */
+  findOneByQuoteId(quoteId: string): Promise<Invoice | null> {
+    return this.invoiceRepository.findOne({ where: { quoteId } });
+  }
+
+  /**
    * Actualiza una factura existente por su ID
    * @param id - El ID de la factura a actualizar
    * @param invoice - La factura con datos actualizados
