@@ -564,6 +564,8 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
         type: 'monthly',
         name: 'Cuota tmp',
         concepts: [],
+        initialDate: '2026-01-01',
+        payday: 1,
       });
     expect(recurrent.status).toBe(201);
     expect(
@@ -571,7 +573,7 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
         await http()
           .patch(`/recurrent-earnings/${recurrent.body.id}`)
           .set(authHeader(E2E_EMAIL.userA))
-          .send({ name: 'Cuota tmp 2' })
+          .send({ name: 'Cuota tmp 2', type: 'quarterly' })
       ).status,
     ).toBe(200);
     expect(

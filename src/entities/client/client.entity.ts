@@ -5,6 +5,7 @@ import { Invoice } from '../invoice/invoice.entity';
 import { Quote } from '../quote/quote.entity';
 import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 import { Order } from '../order/order.entity';
+import { ClientDocument } from '../client-document/client-document.entity';
 
 /**
  * Entidad Cliente que representa la tabla clients en la base de datos
@@ -126,4 +127,10 @@ export class Client {
    */
   @OneToMany(() => RecurrentEarning, recurrentEarning => recurrentEarning.client)
   recurrentEarnings: RecurrentEarning[];
-} 
+
+  /**
+   * Relación con Documentos - Metadatos de los archivos asociados al cliente.
+   */
+  @OneToMany(() => ClientDocument, (clientDocument) => clientDocument.client)
+  documents: ClientDocument[];
+}

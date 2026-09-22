@@ -25,21 +25,30 @@ describe('permission.catalog helpers', () => {
     expect(isCatalogPermissionResource('invoices')).toBe(true);
     expect(isCatalogPermissionResource('itemCategories')).toBe(true);
     expect(isCatalogPermissionResource('items')).toBe(true);
+    expect(isCatalogPermissionResource('documentManagement')).toBe(true);
     expect(isCatalogPermissionResource('foo')).toBe(false);
     expect(isCatalogPermissionAction('read')).toBe(true);
     expect(isCatalogPermissionAction('publish')).toBe(false);
     expect(isCatalogPermissionResource('userEnterprises')).toBe(false);
-    expect(isPermissionActionAllowedForResource('aiRequests', 'read')).toBe(true);
-    expect(isPermissionActionAllowedForResource('aiRequests', 'write')).toBe(false);
+    expect(isPermissionActionAllowedForResource('aiRequests', 'read')).toBe(
+      true,
+    );
+    expect(isPermissionActionAllowedForResource('aiRequests', 'write')).toBe(
+      false,
+    );
     expect(isCatalogPermissionResource('metrics')).toBe(false);
-    expect(isPermissionActionAllowedForResource('enterprises', 'delete')).toBe(false);
+    expect(isPermissionActionAllowedForResource('enterprises', 'delete')).toBe(
+      false,
+    );
   });
 
   it('identifica los roles por defecto no eliminables', () => {
-    expect(isProtectedDefaultEnterpriseRoleName(ENTERPRISE_ROLE_NAME_ADMINISTRATOR)).toBe(
-      true,
-    );
-    expect(isProtectedDefaultEnterpriseRoleName(ENTERPRISE_ROLE_NAME_EMPLOYEE)).toBe(true);
+    expect(
+      isProtectedDefaultEnterpriseRoleName(ENTERPRISE_ROLE_NAME_ADMINISTRATOR),
+    ).toBe(true);
+    expect(
+      isProtectedDefaultEnterpriseRoleName(ENTERPRISE_ROLE_NAME_EMPLOYEE),
+    ).toBe(true);
     expect(isProtectedDefaultEnterpriseRoleName('Contable')).toBe(false);
     expect(isProtectedDefaultEnterpriseRoleName('  ')).toBe(false);
     expect(isProtectedDefaultEnterpriseRoleName(null)).toBe(false);
@@ -47,20 +56,22 @@ describe('permission.catalog helpers', () => {
     expect(getAllowedPermissionActions('invoices')).toEqual(
       expect.arrayContaining(['read', 'write', 'delete']),
     );
-    expect(
-      getAllowedPermissionActions('recurso-inventado' as never),
-    ).toEqual([]);
+    expect(getAllowedPermissionActions('recurso-inventado' as never)).toEqual(
+      [],
+    );
   });
 });
 
 describe('permission.evaluator', () => {
   describe('hasEnterprisePermission', () => {
     it('deniega si no hay mapa, no es objeto o está vacío', () => {
-      expect(hasEnterprisePermission(undefined, 'invoices', 'read')).toBe(false);
-      expect(hasEnterprisePermission(null, 'invoices', 'read')).toBe(false);
-      expect(hasEnterprisePermission(EMPLOYEE_ROLE_PERMISSIONS, 'invoices', 'read')).toBe(
+      expect(hasEnterprisePermission(undefined, 'invoices', 'read')).toBe(
         false,
       );
+      expect(hasEnterprisePermission(null, 'invoices', 'read')).toBe(false);
+      expect(
+        hasEnterprisePermission(EMPLOYEE_ROLE_PERMISSIONS, 'invoices', 'read'),
+      ).toBe(false);
       expect(
         hasEnterprisePermission(
           [] as unknown as Record<string, never>,
@@ -72,43 +83,81 @@ describe('permission.evaluator', () => {
 
     it('concede solo la acción marcada a true en el recurso', () => {
       const permissions = { invoices: { read: true, write: false } };
-      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(true);
-      expect(hasEnterprisePermission(permissions, 'invoices', 'write')).toBe(false);
-      expect(hasEnterprisePermission(permissions, 'invoices', 'delete')).toBe(false);
-      expect(hasEnterprisePermission(permissions, 'clients', 'read')).toBe(false);
+      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(
+        true,
+      );
+      expect(hasEnterprisePermission(permissions, 'invoices', 'write')).toBe(
+        false,
+      );
+      expect(hasEnterprisePermission(permissions, 'invoices', 'delete')).toBe(
+        false,
+      );
+      expect(hasEnterprisePermission(permissions, 'clients', 'read')).toBe(
+        false,
+      );
     });
 
     it('el comodín * concede la acción a cualquier recurso del catálogo', () => {
       expect(
-        hasEnterprisePermission(ADMINISTRATOR_ROLE_PERMISSIONS, 'invoices', 'delete'),
+        hasEnterprisePermission(
+          ADMINISTRATOR_ROLE_PERMISSIONS,
+          'invoices',
+          'delete',
+        ),
       ).toBe(true);
       expect(
-        hasEnterprisePermission(ADMINISTRATOR_ROLE_PERMISSIONS, 'billing', 'write'),
+        hasEnterprisePermission(
+          ADMINISTRATOR_ROLE_PERMISSIONS,
+          'billing',
+          'write',
+        ),
       ).toBe(true);
     });
 
     it('el comodín * no abre acciones fuera del contrato del recurso', () => {
       expect(
-        hasEnterprisePermission(ADMINISTRATOR_ROLE_PERMISSIONS, 'aiRequests', 'write'),
+        hasEnterprisePermission(
+          ADMINISTRATOR_ROLE_PERMISSIONS,
+          'aiRequests',
+          'write',
+        ),
       ).toBe(false);
       expect(
-        hasEnterprisePermission(ADMINISTRATOR_ROLE_PERMISSIONS, 'aiRequests', 'delete'),
+        hasEnterprisePermission(
+          ADMINISTRATOR_ROLE_PERMISSIONS,
+          'aiRequests',
+          'delete',
+        ),
       ).toBe(false);
       expect(
-        hasEnterprisePermission(ADMINISTRATOR_ROLE_PERMISSIONS, 'enterprises', 'delete'),
+        hasEnterprisePermission(
+          ADMINISTRATOR_ROLE_PERMISSIONS,
+          'enterprises',
+          'delete',
+        ),
       ).toBe(false);
       expect(
-        hasEnterprisePermission(ADMINISTRATOR_ROLE_PERMISSIONS, 'aiRequests', 'read'),
+        hasEnterprisePermission(
+          ADMINISTRATOR_ROLE_PERMISSIONS,
+          'aiRequests',
+          'read',
+        ),
       ).toBe(true);
       expect(
-        hasEnterprisePermission(ADMINISTRATOR_ROLE_PERMISSIONS, 'enterprises', 'write'),
+        hasEnterprisePermission(
+          ADMINISTRATOR_ROLE_PERMISSIONS,
+          'enterprises',
+          'write',
+        ),
       ).toBe(true);
     });
 
     it('un * parcial no abre el resto de acciones', () => {
       const permissions = { '*': { read: true } };
       expect(hasEnterprisePermission(permissions, 'spents', 'read')).toBe(true);
-      expect(hasEnterprisePermission(permissions, 'spents', 'write')).toBe(false);
+      expect(hasEnterprisePermission(permissions, 'spents', 'write')).toBe(
+        false,
+      );
     });
 
     it('el comodín * gana aunque el recurso niegue la misma acción', () => {
@@ -116,7 +165,9 @@ describe('permission.evaluator', () => {
         '*': { read: true },
         invoices: { read: false },
       };
-      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(true);
+      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(
+        true,
+      );
     });
 
     it('si * niega la acción, el recurso puede concederla', () => {
@@ -124,16 +175,27 @@ describe('permission.evaluator', () => {
         '*': { read: false },
         invoices: { read: true },
       };
-      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(true);
-      expect(hasEnterprisePermission(permissions, 'clients', 'read')).toBe(false);
+      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(
+        true,
+      );
+      expect(hasEnterprisePermission(permissions, 'clients', 'read')).toBe(
+        false,
+      );
     });
 
     it('valores no booleanos nunca abren la acción', () => {
       const permissions = {
-        invoices: { read: 'true' as unknown as boolean, write: 1 as unknown as boolean },
+        invoices: {
+          read: 'true' as unknown as boolean,
+          write: 1 as unknown as boolean,
+        },
       };
-      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(false);
-      expect(hasEnterprisePermission(permissions, 'invoices', 'write')).toBe(false);
+      expect(hasEnterprisePermission(permissions, 'invoices', 'read')).toBe(
+        false,
+      );
+      expect(hasEnterprisePermission(permissions, 'invoices', 'write')).toBe(
+        false,
+      );
     });
   });
 
@@ -152,24 +214,28 @@ describe('permission.evaluator', () => {
 
     it('rechaza arrays, recursos u acciones desconocidas y valores no booleanos', () => {
       expect(validateEnterpriseRolePermissionsPayload([])).toContain('objeto');
-      expect(validateEnterpriseRolePermissionsPayload({ foo: { read: true } })).toContain(
-        'desconocido',
-      );
       expect(
-        validateEnterpriseRolePermissionsPayload({ invoices: { publish: true } }),
+        validateEnterpriseRolePermissionsPayload({ foo: { read: true } }),
+      ).toContain('desconocido');
+      expect(
+        validateEnterpriseRolePermissionsPayload({
+          invoices: { publish: true },
+        }),
       ).toContain('desconocida');
       expect(
         validateEnterpriseRolePermissionsPayload({ invoices: { read: 'yes' } }),
       ).toContain('booleano');
       expect(
-        validateEnterpriseRolePermissionsPayload({ invoices: { read: 'true' } }),
+        validateEnterpriseRolePermissionsPayload({
+          invoices: { read: 'true' },
+        }),
       ).toContain('booleano');
       expect(
         validateEnterpriseRolePermissionsPayload({ invoices: { write: 1 } }),
       ).toContain('booleano');
-      expect(validateEnterpriseRolePermissionsPayload({ invoices: [] })).toContain(
-        'acciones',
-      );
+      expect(
+        validateEnterpriseRolePermissionsPayload({ invoices: [] }),
+      ).toContain('acciones');
       expect(
         validateEnterpriseRolePermissionsPayload({ invoices: undefined }),
       ).toBeNull();
@@ -177,16 +243,22 @@ describe('permission.evaluator', () => {
 
     it('rechaza acciones que el recurso no admite y el recurso userEnterprises', () => {
       expect(
-        validateEnterpriseRolePermissionsPayload({ aiRequests: { write: true } }),
+        validateEnterpriseRolePermissionsPayload({
+          aiRequests: { write: true },
+        }),
       ).toContain('no está disponible');
       expect(
         validateEnterpriseRolePermissionsPayload({ metrics: { read: true } }),
       ).toContain('desconocido');
       expect(
-        validateEnterpriseRolePermissionsPayload({ enterprises: { delete: true } }),
+        validateEnterpriseRolePermissionsPayload({
+          enterprises: { delete: true },
+        }),
       ).toContain('no está disponible');
       expect(
-        validateEnterpriseRolePermissionsPayload({ userEnterprises: { read: true } }),
+        validateEnterpriseRolePermissionsPayload({
+          userEnterprises: { read: true },
+        }),
       ).toContain('desconocido');
     });
   });
@@ -201,10 +273,14 @@ describe('permission.evaluator', () => {
     });
 
     it('añade lectura si solo llega escritura o borrado', () => {
-      expect(implyReadWhenMutationIsGranted({ invoices: { write: true } })).toEqual({
+      expect(
+        implyReadWhenMutationIsGranted({ invoices: { write: true } }),
+      ).toEqual({
         invoices: { write: true, read: true },
       });
-      expect(implyReadWhenMutationIsGranted({ clients: { delete: true } })).toEqual({
+      expect(
+        implyReadWhenMutationIsGranted({ clients: { delete: true } }),
+      ).toEqual({
         clients: { delete: true, read: true },
       });
     });
@@ -255,9 +331,9 @@ describe('permission.evaluator', () => {
     });
 
     it('quita escritura y borrado si no hay lectura', () => {
-      expect(revokeMutationsWhenReadIsNotGranted({ invoices: { write: true } })).toEqual(
-        {},
-      );
+      expect(
+        revokeMutationsWhenReadIsNotGranted({ invoices: { write: true } }),
+      ).toEqual({});
       expect(
         revokeMutationsWhenReadIsNotGranted({
           clients: { delete: true, read: false },
@@ -274,7 +350,9 @@ describe('permission.evaluator', () => {
     });
 
     it('revoca mutaciones del comodín * sin lectura', () => {
-      expect(revokeMutationsWhenReadIsNotGranted({ '*': { write: true } })).toEqual({});
+      expect(
+        revokeMutationsWhenReadIsNotGranted({ '*': { write: true } }),
+      ).toEqual({});
     });
 
     it('omite mapas de acción que no son objeto', () => {

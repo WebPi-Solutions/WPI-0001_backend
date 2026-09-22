@@ -37,6 +37,7 @@ describe('Enums de la aplicación', () => {
     expect(StockDirection.IN).toBe('in');
     expect(StockType.PURCHASE).toBe('purchase');
     expect(RecurrentEarningType.MONTHLY).toBe('monthly');
+    expect(RecurrentEarningType.QUARTERLY).toBe('quarterly');
     expect(SigningAction.START).toBe('start');
     expect(InvoiceStatus.DRAFT).toBe('draft');
     expect(QuoteStatus.ISSUED).toBe('issued');
@@ -60,4 +61,3 @@ describe('Enums de la aplicación', () => {
     expect(isValidStockType(StockType.REVERSAL)).toBe(true);
   });
 });
-

@@ -3,5 +3,6 @@
  */
 export enum RecurrentEarningType {
   MONTHLY = 'monthly',
+  QUARTERLY = 'quarterly',
   YEARLY = 'yearly',
 }

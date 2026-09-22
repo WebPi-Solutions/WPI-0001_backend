@@ -289,6 +289,25 @@ describe('QuoteService', () => {
       );
     });
 
+    it.each([
+      QuoteStatus.ORDERED,
+      QuoteStatus.CONVERTED,
+      QuoteStatus.REJECTED,
+    ])('permite editar una cotización en estado %s', async (status) => {
+      mockPersistentDataSources();
+      const quote = buildQuote({ status });
+      quoteRepository.findById.mockResolvedValue(quote);
+      quoteRepository.updateById.mockResolvedValue({ ...quote, name: 'Nueva' });
+
+      await expect(service.updateById(quoteId, { name: 'Nueva' } as Quote))
+        .resolves.toEqual(expect.objectContaining({ name: 'Nueva' }));
+
+      expect(quoteRepository.updateById).toHaveBeenCalledWith(
+        quoteId,
+        expect.objectContaining({ name: 'Nueva', status }),
+      );
+    });
+
     it('actualiza un borrador llamando a setQuotePersistentData y al repositorio', async () => {
       const draftQuote = buildQuote({ status: QuoteStatus.DRAFT });
       const updatedQuote = buildQuote({ name: 'Actualizada' });

@@ -39,6 +39,8 @@ describe('RecurrentEarningService', () => {
       clientId,
       invoiceSerieId: seriesId,
       type: RecurrentEarningType.MONTHLY,
+      initialDate: '2026-01-01',
+      payday: 5,
       concepts: [{ name: 'Cuota', base_price: 100 }],
       invoices: [],
       ...overrides,
@@ -96,6 +98,8 @@ describe('RecurrentEarningService', () => {
         enterpriseId,
         clientId,
         invoiceSerieId: seriesId,
+        initialDate: '2026-01-01',
+        payday: 5,
       } as RecurrentEarning);
 
       expect(recurrentEarningRepository.create).toHaveBeenCalledWith(
@@ -117,6 +121,8 @@ describe('RecurrentEarningService', () => {
         enterpriseId,
         type: RecurrentEarningType.YEARLY,
         concepts: [{ name: 'Anual' }],
+        initialDate: '2026-01-01',
+        payday: 5,
         client: { id: clientId },
         invoiceSeries: { id: seriesId },
       } as RecurrentEarning);
@@ -131,7 +137,20 @@ describe('RecurrentEarningService', () => {
       );
     });
 
-    it('rechaza un tipo distinto de monthly o yearly', async () => {
+    it('acepta la periodicidad trimestral', async () => {
+      mockRelatedEntitiesForSameEnterprise();
+      recurrentEarningRepository.create.mockImplementation((payload: RecurrentEarning) =>
+        Promise.resolve({ ...payload, id: recurrentEarningId }),
+      );
+      await expect(
+        service.create({
+          ...buildRecurrentEarning(),
+          type: RecurrentEarningType.QUARTERLY,
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it('rechaza un tipo de periodicidad no soportado', async () => {
       await expect(
         service.create({
           name: 'Cuota',
@@ -142,7 +161,7 @@ describe('RecurrentEarningService', () => {
         } as RecurrentEarning),
       ).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
-        message: 'El tipo del ingreso recurrente debe ser monthly o yearly',
+        message: 'El tipo del ingreso recurrente debe ser monthly, quarterly o yearly',
       });
       expect(recurrentEarningRepository.create).not.toHaveBeenCalled();
     });
@@ -175,7 +194,7 @@ describe('RecurrentEarningService', () => {
       );
 
       await expect(
-        service.create({ enterpriseId, clientId, invoiceSerieId: seriesId } as RecurrentEarning),
+        service.create({ enterpriseId, clientId, invoiceSerieId: seriesId, initialDate: '2026-01-01', payday: 5 } as RecurrentEarning),
       ).resolves.toMatchObject({ id: recurrentEarningId });
       expect(recurrentEarningRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({ enterpriseId, clientId, invoiceSerieId: seriesId }),
@@ -323,7 +342,7 @@ describe('RecurrentEarningService', () => {
         } as RecurrentEarning),
       ).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
-        message: 'El tipo del ingreso recurrente debe ser monthly o yearly',
+        message: 'El tipo del ingreso recurrente debe ser monthly, quarterly o yearly',
       });
     });
 

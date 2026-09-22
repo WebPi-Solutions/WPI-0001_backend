@@ -10,12 +10,9 @@ import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { PermissionAction } from 'src/common/helpers/enterprise-permission/permission.catalog';
 
-import { QuoteStatus } from 'src/common/enums';
-
 /**
  * Servicio de API de líneas de presupuesto.
  * El tenant se resuelve a través de `quote.client.enterpriseId`.
- * Las mutaciones solo se permiten si el presupuesto sigue en borrador.
  */
 @Injectable()
 export class QuoteConceptService {
@@ -44,8 +41,6 @@ export class QuoteConceptService {
       'write',
       expectedEnterpriseId,
     );
-    this.assertQuoteIsDraft(accessibleQuote);
-
     const resolvedItem = await this.resolveOptionalAccessibleItem(
       quoteConcept,
       accessibleQuote.client.enterpriseId,
@@ -121,7 +116,7 @@ export class QuoteConceptService {
   }
 
   /**
-   * Actualiza una línea. Congela `quoteId` y exige presupuesto en borrador.
+   * Actualiza una línea y congela `quoteId`.
    * @param id - UUID de la línea
    * @param quoteConcept - Campos a actualizar
    * @returns La línea actualizada
@@ -136,8 +131,6 @@ export class QuoteConceptService {
       throw new HttpException('Concepto de presupuesto no encontrado', HttpStatus.NOT_FOUND);
     }
     this.assertQuoteConceptAccessible(existingQuoteConcept, 'write');
-    this.assertQuoteIsDraft(existingQuoteConcept.quote);
-
     const resolvedItem = await this.resolveOptionalAccessibleItem(
       quoteConcept,
       existingQuoteConcept.quote.client.enterpriseId,
@@ -162,7 +155,7 @@ export class QuoteConceptService {
   }
 
   /**
-   * Elimina una línea si el presupuesto sigue en borrador.
+   * Elimina una línea de presupuesto.
    * @param id - UUID de la línea
    * @returns Resultado del borrado
    */
@@ -176,8 +169,6 @@ export class QuoteConceptService {
       throw new HttpException('Concepto de presupuesto no encontrado', HttpStatus.NOT_FOUND);
     }
     this.assertQuoteConceptAccessible(existingQuoteConcept, 'delete');
-    this.assertQuoteIsDraft(existingQuoteConcept.quote);
-
     try {
       const result = await this.quoteConceptRepository.deleteById(id);
       this.logger.log(`Línea de presupuesto ${id} eliminada. Filas afectadas: ${result.affected}`);
@@ -275,22 +266,6 @@ export class QuoteConceptService {
       throw new HttpException('Concepto de presupuesto no encontrado', HttpStatus.NOT_FOUND);
     }
     return item;
-  }
-
-  /**
-   * Impide mutar líneas de un presupuesto que ya no está en borrador.
-   * @param quote - Presupuesto propietario
-   */
-  private assertQuoteIsDraft(quote: Quote): void {
-    if (quote.status !== QuoteStatus.DRAFT) {
-      this.logger.error(
-        `No se pueden modificar los conceptos del presupuesto ${quote.id} porque ya ha sido emitido`,
-      );
-      throw new HttpException(
-        'No se pueden modificar los conceptos de un presupuesto ya emitido',
-        HttpStatus.BAD_REQUEST,
-      );
-    }
   }
 
   /**

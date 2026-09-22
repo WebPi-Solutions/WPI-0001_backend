@@ -509,6 +509,8 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     type: RecurrentEarningType.MONTHLY,
     name: 'Cuota A',
     concepts: [],
+    initialDate: '2026-01-01',
+    payday: 1,
   });
   const recurrentB = await dataSource.getRepository(RecurrentEarning).save({
     enterpriseId: enterpriseB.id,
@@ -517,6 +519,8 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     type: RecurrentEarningType.MONTHLY,
     name: 'Cuota B',
     concepts: [],
+    initialDate: '2026-01-01',
+    payday: 1,
   });
 
   const holidayA = await dataSource.getRepository(Holiday).save({

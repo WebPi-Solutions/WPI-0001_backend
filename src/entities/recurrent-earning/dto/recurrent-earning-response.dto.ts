@@ -69,6 +69,14 @@ export class RecurrentEarningResponseDto {
   @Type(() => ConceptResponseDto)
   concepts: ConceptResponseDto[];
 
+  @ApiProperty({ description: 'Fecha inicial de la recurrencia', example: '2026-01-01' })
+  @Expose()
+  initialDate: string;
+
+  @ApiProperty({ description: 'Día del mes de cobro', minimum: 1, maximum: 31, example: 5 })
+  @Expose()
+  payday: number;
+
   /**
    * Fecha de creación
    */

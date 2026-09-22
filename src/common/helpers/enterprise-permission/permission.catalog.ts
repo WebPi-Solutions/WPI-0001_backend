@@ -14,6 +14,7 @@ export type PermissionAction = 'read' | 'write' | 'delete';
 export type PermissionResource =
   | 'dashboard'
   | 'clients'
+  | 'documentManagement'
   | 'suppliers'
   | 'invoices'
   | 'quotes'
@@ -53,6 +54,7 @@ export type EnterpriseRolePermissions = {
 export const PERMISSION_RESOURCES: readonly PermissionResource[] = [
   'dashboard',
   'clients',
+  'documentManagement',
   'suppliers',
   'invoices',
   'quotes',
@@ -103,7 +105,10 @@ function buildAllowedActionsByResource(): Record<
   PermissionResource,
   readonly PermissionAction[]
 > {
-  const allowedActions = {} as Record<PermissionResource, readonly PermissionAction[]>;
+  const allowedActions = {} as Record<
+    PermissionResource,
+    readonly PermissionAction[]
+  >;
   for (const resource of PERMISSION_RESOURCES) {
     allowedActions[resource] = PERMISSION_ACTIONS;
   }
@@ -188,9 +193,9 @@ export const PROTECTED_DEFAULT_ENTERPRISE_ROLE_NAMES = [
 export function isProtectedDefaultEnterpriseRoleName(
   roleName: string | undefined | null,
 ): boolean {
-  return (PROTECTED_DEFAULT_ENTERPRISE_ROLE_NAMES as readonly string[]).includes(
-    (roleName ?? '').trim(),
-  );
+  return (
+    PROTECTED_DEFAULT_ENTERPRISE_ROLE_NAMES as readonly string[]
+  ).includes((roleName ?? '').trim());
 }
 
 /**

@@ -36,6 +36,7 @@ export class RecurrentEarningService {
     this.applyDefaultTypeIfMissing(recurrentEarning);
     this.validateType(recurrentEarning);
     this.validateRequiredFields(recurrentEarning);
+    this.validateSchedule(recurrentEarning);
     await this.validateRelatedEntitiesBelongToEnterprise(recurrentEarning);
 
     if (!recurrentEarning.concepts) {
@@ -142,6 +143,7 @@ export class RecurrentEarningService {
     } as RecurrentEarning;
 
     this.validateRequiredFields(mergedRecurrentEarning);
+    this.validateSchedule(mergedRecurrentEarning);
     await this.validateRelatedEntitiesBelongToEnterprise(mergedRecurrentEarning);
 
     try {
@@ -205,7 +207,7 @@ export class RecurrentEarningService {
   }
 
   /**
-   * Rechaza un tipo distinto de monthly o yearly.
+   * Rechaza un tipo de periodicidad no soportado.
    * @param recurrentEarning - El ingreso recurrente a validar
    */
   private validateType(recurrentEarning: RecurrentEarning): void {
@@ -213,7 +215,7 @@ export class RecurrentEarningService {
     if (!isValidType) {
       this.logger.error(`Tipo de ingreso recurrente no válido: ${recurrentEarning.type}`);
       throw new HttpException(
-        'El tipo del ingreso recurrente debe ser monthly o yearly',
+        'El tipo del ingreso recurrente debe ser monthly, quarterly o yearly',
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -248,6 +250,16 @@ export class RecurrentEarningService {
 
     if (!recurrentEarning.invoiceSerieId) {
       throw new HttpException('El ingreso recurrente debe tener una serie de factura', HttpStatus.BAD_REQUEST);
+    }
+  }
+
+  /** Comprueba la fecha inicial y el día de cobro exigidos por la recurrencia. */
+  private validateSchedule(recurrentEarning: RecurrentEarning): void {
+    if (!recurrentEarning.initialDate || Number.isNaN(Date.parse(recurrentEarning.initialDate))) {
+      throw new HttpException('El ingreso recurrente debe tener una fecha inicial válida', HttpStatus.BAD_REQUEST);
+    }
+    if (!Number.isInteger(recurrentEarning.payday) || recurrentEarning.payday < 1 || recurrentEarning.payday > 31) {
+      throw new HttpException('El día de cobro debe estar entre 1 y 31', HttpStatus.BAD_REQUEST);
     }
   }
 

@@ -67,6 +67,14 @@ export class RecurrentEarning {
   @Column({ type: 'jsonb', default: '[]' })
   concepts: Concept[];
 
+  /** Fecha desde la que comienza a aplicarse la recurrencia. */
+  @Column({ name: 'initial_date', type: 'date' })
+  initialDate: string;
+
+  /** Día del mes en que se genera el cobro (1 a 31). */
+  @Column({ name: 'payday', type: 'integer' })
+  payday: number;
+
   /**
    * Fecha de creación del ingreso recurrente en el sistema.
    */

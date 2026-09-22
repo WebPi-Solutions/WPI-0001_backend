@@ -194,15 +194,14 @@ describe('QuoteConceptService', () => {
       ).rejects.toMatchObject({ status: HttpStatus.FORBIDDEN });
     });
 
-    it('rechaza mutar un presupuesto emitido', async () => {
+    it('permite crear líneas en un presupuesto emitido', async () => {
       quoteRepository.findById.mockResolvedValue(buildQuote({ status: QuoteStatus.ISSUED }));
+      quoteConceptRepository.create.mockResolvedValue(buildQuoteConcept());
 
       await expect(
         service.create({ quoteId, itemId, name: 'Hora' } as QuoteConcept, enterpriseId),
-      ).rejects.toMatchObject({
-        status: HttpStatus.BAD_REQUEST,
-        message: 'No se pueden modificar los conceptos de un presupuesto ya emitido',
-      });
+      ).resolves.toEqual(buildQuoteConcept());
+      expect(quoteConceptRepository.create).toHaveBeenCalled();
     });
 
     it('rechaza un nombre que no es texto', async () => {
@@ -519,16 +518,16 @@ describe('QuoteConceptService', () => {
       });
     });
 
-    it('rechaza mutar un presupuesto emitido', async () => {
+    it('permite actualizar líneas de un presupuesto emitido', async () => {
       quoteConceptRepository.findById.mockResolvedValue(
         buildQuoteConcept({ quote: buildQuote({ status: QuoteStatus.ISSUED }) }),
       );
+      quoteConceptRepository.updateById.mockResolvedValue(buildQuoteConcept({ name: 'X' }));
 
       await expect(
         service.updateById(quoteConceptId, { name: 'X' } as QuoteConcept),
-      ).rejects.toMatchObject({
-        message: 'No se pueden modificar los conceptos de un presupuesto ya emitido',
-      });
+      ).resolves.toEqual(buildQuoteConcept({ name: 'X' }));
+      expect(quoteConceptRepository.updateById).toHaveBeenCalled();
     });
 
     it('congela quoteId, desvincula el artículo y actualiza campos', async () => {
@@ -622,14 +621,17 @@ describe('QuoteConceptService', () => {
       });
     });
 
-    it('rechaza borrar líneas de un presupuesto emitido', async () => {
+    it('permite borrar líneas de un presupuesto emitido', async () => {
       quoteConceptRepository.findById.mockResolvedValue(
         buildQuoteConcept({ quote: buildQuote({ status: QuoteStatus.ISSUED }) }),
       );
+      quoteConceptRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });
 
-      await expect(service.deleteById(quoteConceptId)).rejects.toMatchObject({
-        message: 'No se pueden modificar los conceptos de un presupuesto ya emitido',
+      await expect(service.deleteById(quoteConceptId)).resolves.toEqual({
+        affected: 1,
+        raw: [],
       });
+      expect(quoteConceptRepository.deleteById).toHaveBeenCalledWith(quoteConceptId);
     });
 
     it('elimina la línea', async () => {
