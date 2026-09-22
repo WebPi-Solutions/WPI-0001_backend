@@ -100,7 +100,7 @@ describe('InvoiceSeriesRepository', () => {
 
       expect(QueryBuilderService.getCount).toHaveBeenCalledWith(
         typeOrmRepositoryMock,
-        'invoiceSeries',
+        'invoice_series',
         { enterpriseId: 'enterprise-uuid' },
         undefined,
       );
@@ -113,7 +113,7 @@ describe('InvoiceSeriesRepository', () => {
 
       expect(QueryBuilderService.getCount).toHaveBeenCalledWith(
         typeOrmRepositoryMock,
-        'invoiceSeries',
+        'invoice_series',
         {},
         [
           {
@@ -125,7 +125,7 @@ describe('InvoiceSeriesRepository', () => {
       );
       expect(QueryBuilderService.getCount).toHaveBeenCalledWith(
         typeOrmRepositoryMock,
-        'invoiceSeries',
+        'invoice_series',
         {},
         undefined,
       );
@@ -164,7 +164,7 @@ describe('InvoiceSeriesRepository', () => {
 
       expect(QueryBuilderService.getPaginatedResults).toHaveBeenCalledWith(
         typeOrmRepositoryMock,
-        'invoiceSeries',
+        'invoice_series',
         expect.objectContaining({
           relations: [
             {
@@ -183,7 +183,7 @@ describe('InvoiceSeriesRepository', () => {
 
       expect(QueryBuilderService.getPaginatedResults).toHaveBeenCalledWith(
         typeOrmRepositoryMock,
-        'invoiceSeries',
+        'invoice_series',
         expect.objectContaining({
           page: 1,
           pageSize: 10,

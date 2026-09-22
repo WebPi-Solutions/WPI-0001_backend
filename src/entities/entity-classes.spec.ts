@@ -253,6 +253,7 @@ describe('Entidades TypeORM', () => {
       enterpriseId: enterprise.id,
       series: 'A',
       description: 'Serie A',
+      active: true,
       createdAt: now,
       updatedAt: now,
       enterprise,

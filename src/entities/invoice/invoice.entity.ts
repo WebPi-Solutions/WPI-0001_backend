@@ -51,8 +51,8 @@ export class Invoice {
   /**
    * Nombre de la factura
    */
-  @Column()
-  name: string;
+  @Column({ nullable: true })
+  name: string | null;
 
   /**
    * Fecha en que se emitió la factura
@@ -63,8 +63,8 @@ export class Invoice {
   /**
    * Fecha en que vence la factura para su cobro
    */
-  @Column({ name: 'collection_date', type: 'date' })
-  collectionDate: Date;
+  @Column({ name: 'collection_date', type: 'date', nullable: true })
+  collectionDate: Date | null;
 
   /**
    * Estado actual de la factura (ej., 'pagada', 'pendiente', etc.)

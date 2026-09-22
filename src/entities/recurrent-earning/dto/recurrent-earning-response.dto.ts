@@ -54,9 +54,9 @@ export class RecurrentEarningResponseDto {
   /**
    * Nombre descriptivo
    */
-  @ApiProperty({ description: 'Nombre del ingreso recurrente' })
+  @ApiProperty({ description: 'Nombre del ingreso recurrente', required: false, nullable: true })
   @Expose()
-  name: string;
+  name: string | null;
 
   /**
    * Conceptos plantilla que se copian a cada factura

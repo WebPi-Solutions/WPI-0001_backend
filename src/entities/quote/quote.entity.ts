@@ -26,8 +26,8 @@ export class Quote {
   /**
    * Nombre de la cotización
    */
-  @Column()
-  name: string;
+  @Column({ nullable: true })
+  name: string | null;
 
   /**
    * Fecha en que se emitió la cotización

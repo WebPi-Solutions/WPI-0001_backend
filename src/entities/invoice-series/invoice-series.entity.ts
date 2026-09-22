@@ -34,6 +34,12 @@ export class InvoiceSeries {
   description: string;
 
   /**
+   * Indica si la serie puede utilizarse para registrar o editar facturas.
+   */
+  @Column({ default: true })
+  active: boolean;
+
+  /**
    * Fecha en que se creó la serie de factura
    */
   @CreateDateColumn({ name: 'created_at' })
@@ -63,4 +69,4 @@ export class InvoiceSeries {
    */
   @OneToMany(() => RecurrentEarning, recurrentEarning => recurrentEarning.invoiceSeries)
   recurrentEarnings: RecurrentEarning[];
-} 
+}

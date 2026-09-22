@@ -234,14 +234,10 @@ export class RecurrentEarningService {
   }
 
   /**
-   * Comprueba que nombre, empresa, cliente y serie estén informados.
+   * Comprueba que empresa, cliente y serie estén informados.
    * @param recurrentEarning - El ingreso recurrente a validar
    */
   private validateRequiredFields(recurrentEarning: RecurrentEarning): void {
-    if (!recurrentEarning.name) {
-      throw new HttpException('El ingreso recurrente debe tener un nombre', HttpStatus.BAD_REQUEST);
-    }
-
     if (!recurrentEarning.enterpriseId) {
       throw new HttpException('El ingreso recurrente debe pertenecer a una empresa', HttpStatus.BAD_REQUEST);
     }

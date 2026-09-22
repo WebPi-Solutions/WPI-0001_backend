@@ -30,8 +30,8 @@ export class Spent {
   /**
    * Nombre del gasto
    */
-  @Column()
-  name: string;
+  @Column({ nullable: true })
+  name: string | null;
 
   /**
    * Fecha en que se emitió el gasto

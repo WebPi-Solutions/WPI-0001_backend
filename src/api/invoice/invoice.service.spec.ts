@@ -84,6 +84,7 @@ describe('InvoiceService', () => {
         address: 'Calle 2',
         bankAccount: 'ES1200000000000000000000',
       },
+      active: true,
       ...overrides,
     }) as InvoiceSeries;
 
@@ -192,6 +193,19 @@ describe('InvoiceService', () => {
         status: HttpStatus.NOT_FOUND,
         message: 'Serie de factura no encontrada',
       });
+    });
+
+    it('rechaza crear una factura con una serie inactiva', async () => {
+      clientRepository.findById.mockResolvedValue(buildClient());
+      invoiceSeriesRepository.findById.mockResolvedValue(
+        buildInvoiceSeries({ active: false }),
+      );
+
+      await expect(service.create(buildInvoice())).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'No se puede usar una serie de factura inactiva',
+      });
+      expect(invoiceRepository.create).not.toHaveBeenCalled();
     });
 
     it('crea un borrador sin numerar ni copiar datos persistentes', async () => {
@@ -357,6 +371,24 @@ describe('InvoiceService', () => {
           seriesNumber: null,
         }),
       );
+    });
+
+    it('rechaza editar una factura que usa una serie inactiva', async () => {
+      invoiceRepository.findById.mockResolvedValue(
+        buildInvoice({ status: InvoiceStatus.DRAFT }),
+      );
+      clientRepository.findById.mockResolvedValue(buildClient());
+      invoiceSeriesRepository.findById.mockResolvedValue(
+        buildInvoiceSeries({ active: false }),
+      );
+
+      await expect(
+        service.updateById(invoiceId, { name: 'Actualizada' } as Invoice),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'No se puede usar una serie de factura inactiva',
+      });
+      expect(invoiceRepository.updateById).not.toHaveBeenCalled();
     });
 
     it('relanza el error del repositorio', async () => {

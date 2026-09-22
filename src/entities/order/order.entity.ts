@@ -31,8 +31,8 @@ export class Order {
   /**
    * Nombre o referencia del pedido
    */
-  @Column()
-  name: string;
+  @Column({ nullable: true })
+  name: string | null;
 
   /**
    * Fecha del pedido

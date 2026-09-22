@@ -83,6 +83,7 @@ describe('DTO de respuesta de entidades', () => {
       enterpriseId: 'ent-1',
       series: 'A',
       description: 'Serie A',
+      active: true,
       createdAt: now,
       updatedAt: now,
       enterprise,
@@ -300,6 +301,7 @@ describe('DTO de respuesta de entidades', () => {
       enterpriseId: 'ent-1',
       series: 'A',
       description: null,
+      active: false,
       createdAt: now,
       updatedAt: now,
     });

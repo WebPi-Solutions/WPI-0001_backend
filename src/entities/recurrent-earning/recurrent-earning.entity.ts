@@ -58,8 +58,8 @@ export class RecurrentEarning {
   /**
    * Nombre descriptivo del ingreso recurrente.
    */
-  @Column()
-  name: string;
+  @Column({ nullable: true })
+  name: string | null;
 
   /**
    * Conceptos o ítems que se copiarán a cada factura generada.

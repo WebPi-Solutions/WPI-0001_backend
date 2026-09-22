@@ -26,9 +26,9 @@ export class QuoteResponseDto {
   /**
    * Nombre de la cotización
    */
-  @ApiProperty({ description: 'Nombre de la cotización' })
+  @ApiProperty({ description: 'Nombre de la cotización', required: false, nullable: true })
   @Expose()
-  name: string;
+  name: string | null;
 
   /**
    * Fecha de emisión

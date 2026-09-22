@@ -33,9 +33,9 @@ export class OrderResponseDto {
   /**
    * Nombre o referencia del pedido
    */
-  @ApiProperty({ description: 'Nombre del pedido' })
+  @ApiProperty({ description: 'Nombre del pedido', required: false, nullable: true })
   @Expose()
-  name: string;
+  name: string | null;
 
   /**
    * Fecha del pedido

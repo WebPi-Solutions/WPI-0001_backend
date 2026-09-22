@@ -110,7 +110,11 @@ export class InvoiceSeriesService {
       { resource: 'invoiceSeries', action: 'write' },
     );
 
-    if(seriesExists.invoices.length > 0 && seriesExists.series !== invoiceSeries.series) {
+    if(
+      seriesExists.invoices.length > 0
+      && invoiceSeries.series !== undefined
+      && seriesExists.series !== invoiceSeries.series
+    ) {
       this.logger.error(`No se puede modificar la identificación de la serie de facturas porque ya tiene facturas emitidas`);
       throw new HttpException(`No se puede modificar la identificación de la serie de facturas porque ya tiene facturas emitidas`, HttpStatus.BAD_REQUEST);
     }

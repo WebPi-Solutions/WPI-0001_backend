@@ -57,9 +57,9 @@ export class InvoiceResponseDto {
   /**
    * Nombre de la factura
    */
-  @ApiProperty({ description: 'Nombre de la factura' })
+  @ApiProperty({ description: 'Nombre de la factura', required: false, nullable: true })
   @Expose()
-  name: string;
+  name: string | null;
 
   /**
    * Fecha de emisión
@@ -71,9 +71,9 @@ export class InvoiceResponseDto {
   /**
    * Fecha de cobro
    */
-  @ApiProperty({ description: 'Fecha de cobro' })
+  @ApiProperty({ description: 'Fecha de cobro', required: false, nullable: true })
   @Expose()
-  collectionDate: Date;
+  collectionDate: Date | null;
 
   /**
    * Líneas de concepto persistidas en `invoice_concepts`

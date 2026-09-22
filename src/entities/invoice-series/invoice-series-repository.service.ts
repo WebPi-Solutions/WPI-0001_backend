@@ -35,7 +35,7 @@ export class InvoiceSeriesRepository {
       : undefined;
     return QueryBuilderService.getCount(
       this.invoiceSeriesRepository,
-      'invoiceSeries',
+      'invoice_series',
       filter,
       queryRelations,
     );
@@ -103,7 +103,7 @@ export class InvoiceSeriesRepository {
     // Usar el servicio genérico para construir la consulta
     return QueryBuilderService.getPaginatedResults(
       this.invoiceSeriesRepository,
-      'invoiceSeries',
+      'invoice_series',
       options
     );
   }

@@ -12,6 +12,7 @@ export type PermissionAction = 'read' | 'write' | 'delete';
  * Recurso de negocio sobre el que se puede conceder un permiso.
  */
 export type PermissionResource =
+  | 'dashboard'
   | 'clients'
   | 'suppliers'
   | 'invoices'
@@ -50,6 +51,7 @@ export type EnterpriseRolePermissions = {
  * Recursos reconocidos por el backend (sin el comodín).
  */
 export const PERMISSION_RESOURCES: readonly PermissionResource[] = [
+  'dashboard',
   'clients',
   'suppliers',
   'invoices',
@@ -107,6 +109,7 @@ function buildAllowedActionsByResource(): Record<
   }
   allowedActions.enterprises = ['read', 'write'];
   allowedActions.aiRequests = ['read'];
+  allowedActions.dashboard = ['read'];
   return allowedActions;
 }
 

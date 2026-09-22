@@ -41,6 +41,13 @@ export class InvoiceSeriesResponseDto {
   description: string | null;
 
   /**
+   * Indica si la serie está disponible para nuevas facturas.
+   */
+  @ApiProperty({ description: 'Indica si la serie está activa', example: true })
+  @Expose()
+  active: boolean;
+
+  /**
    * Fecha de creación
    */
   @ApiProperty({ description: 'Fecha de creación del registro' })

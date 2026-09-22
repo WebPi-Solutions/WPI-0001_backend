@@ -197,6 +197,24 @@ describe('InvoiceSeriesService', () => {
       await expect(service.updateById(seriesId, updated)).resolves.toEqual(updated);
     });
 
+    it('permite dar de baja una serie con facturas sin enviar de nuevo su código', async () => {
+      const existing = buildInvoiceSeries({
+        invoices: [{ id: 'invoice-uuid' }] as InvoiceSeries['invoices'],
+        active: true,
+      });
+      const updated = buildInvoiceSeries({ active: false });
+      invoiceSeriesRepository.findById.mockResolvedValue(existing);
+      invoiceSeriesRepository.updateById.mockResolvedValue(updated);
+
+      await expect(
+        service.updateById(seriesId, { active: false } as InvoiceSeries),
+      ).resolves.toEqual(updated);
+      expect(invoiceSeriesRepository.updateById).toHaveBeenCalledWith(
+        seriesId,
+        expect.objectContaining({ active: false }),
+      );
+    });
+
     it('permite actualizar otros datos de una serie sin facturas', async () => {
       const existing = buildInvoiceSeries();
       const updated = buildInvoiceSeries({ series: 'B' });

@@ -38,9 +38,9 @@ export class SpentResponseDto {
   /**
    * Nombre del gasto
    */
-  @ApiProperty({ description: 'Nombre del gasto' })
+  @ApiProperty({ description: 'Nombre del gasto', required: false, nullable: true })
   @Expose()
-  name: string;
+  name: string | null;
 
   /**
    * Fecha de emisión

@@ -411,6 +411,13 @@ export class InvoiceService {
         this.logger.error(`Serie de factura no encontrada con ID: ${seriesId}`);
         throw new HttpException('Serie de factura no encontrada', HttpStatus.NOT_FOUND);
       }
+      if (!invoiceSeries.active) {
+        this.logger.error(`La serie de factura ${seriesId} está inactiva`);
+        throw new HttpException(
+          'No se puede usar una serie de factura inactiva',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
       this.enterpriseAccessService.assertCurrentEntityAccessible(
         invoiceSeries.enterpriseId,
         'Factura no encontrada',
@@ -465,4 +472,3 @@ export class InvoiceService {
     );
   }
 }
-

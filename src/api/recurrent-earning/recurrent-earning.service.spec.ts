@@ -147,31 +147,39 @@ describe('RecurrentEarningService', () => {
       expect(recurrentEarningRepository.create).not.toHaveBeenCalled();
     });
 
-    it('exige nombre, empresa, cliente y serie', async () => {
+    it('exige empresa, cliente y serie', async () => {
       await expect(
-        service.create({ enterpriseId, clientId, invoiceSerieId: seriesId } as RecurrentEarning),
-      ).rejects.toMatchObject({
-        status: HttpStatus.BAD_REQUEST,
-        message: 'El ingreso recurrente debe tener un nombre',
-      });
-      await expect(
-        service.create({ name: 'Cuota', clientId, invoiceSerieId: seriesId } as RecurrentEarning),
+        service.create({ clientId, invoiceSerieId: seriesId } as RecurrentEarning),
       ).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
         message: 'El ingreso recurrente debe pertenecer a una empresa',
       });
       await expect(
-        service.create({ name: 'Cuota', enterpriseId, invoiceSerieId: seriesId } as RecurrentEarning),
+        service.create({ enterpriseId, invoiceSerieId: seriesId } as RecurrentEarning),
       ).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
         message: 'El ingreso recurrente debe tener un cliente',
       });
       await expect(
-        service.create({ name: 'Cuota', enterpriseId, clientId } as RecurrentEarning),
+        service.create({ enterpriseId, clientId } as RecurrentEarning),
       ).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
         message: 'El ingreso recurrente debe tener una serie de factura',
       });
+    });
+
+    it('permite crear un ingreso recurrente sin nombre', async () => {
+      mockRelatedEntitiesForSameEnterprise();
+      recurrentEarningRepository.create.mockImplementation((payload: RecurrentEarning) =>
+        Promise.resolve({ ...payload, id: recurrentEarningId }),
+      );
+
+      await expect(
+        service.create({ enterpriseId, clientId, invoiceSerieId: seriesId } as RecurrentEarning),
+      ).resolves.toMatchObject({ id: recurrentEarningId });
+      expect(recurrentEarningRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ enterpriseId, clientId, invoiceSerieId: seriesId }),
+      );
     });
 
     it('lanza 404 si el cliente no existe', async () => {
