@@ -137,6 +137,7 @@ describe('DTO de respuesta de entidades', () => {
           basePrice: 10,
           vat: 21,
           irpf: 0,
+          percentage: 100,
           quantity: 1,
           ean: null,
           createdAt: now,

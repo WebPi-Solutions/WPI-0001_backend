@@ -383,6 +383,30 @@ describe('MetricsService', () => {
       expect(metrics.spentCount).toBe(1);
     });
 
+    it('calcula subtotal, IVA e IRPF sobre la base imputable de cada gasto', async () => {
+      spentRepository.getSpentsForMetrics.mockResolvedValue([
+        buildSpent({
+          spentConcepts: [
+            {
+              name: 'Gasto compartido',
+              basePrice: 200,
+              quantity: 1,
+              percentage: 50,
+              vat: 21,
+              irpf: 7,
+            } as Spent['spentConcepts'][number],
+          ],
+        }),
+      ]);
+
+      const metrics = await service.getSpentMetrics(periodStart, periodEnd, enterpriseId);
+
+      expect(metrics.subtotal).toBe(100);
+      expect(metrics.vat).toBe(21);
+      expect(metrics.irpf).toBe(7);
+      expect(metrics.total).toBe(114);
+    });
+
     it('usa quantity 1 y precios informados cuando no hay defaults extra', async () => {
       spentRepository.getSpentsForMetrics.mockResolvedValue([
         buildSpent({
@@ -548,6 +572,43 @@ describe('MetricsService', () => {
       expect(yearlyMetrics.months[1].total).toBe(197);
       expect(yearlyMetrics.totals.count).toBe(4);
       expect(yearlyMetrics.totals.subtotal).toBe(180);
+    });
+
+    it('calcula los importes mensuales sobre la base imputable', async () => {
+      spentRepository.getSpentsForMetrics.mockImplementation((startDate: Date) => {
+        if (startDate.getMonth() !== 1) {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve([
+          buildSpent({
+            spentConcepts: [
+              {
+                name: 'Gasto compartido',
+                basePrice: 200,
+                quantity: 1,
+                percentage: 50,
+                vat: 21,
+                irpf: 7,
+              } as Spent['spentConcepts'][number],
+            ],
+          }),
+        ]);
+      });
+
+      const yearlyMetrics = await service.getYearlySpentMetrics(2026, enterpriseId);
+
+      expect(yearlyMetrics.months[1]).toMatchObject({
+        subtotal: 100,
+        vat: 21,
+        irpf: 7,
+        total: 114,
+      });
+      expect(yearlyMetrics.totals).toMatchObject({
+        subtotal: 100,
+        vat: 21,
+        irpf: 7,
+        total: 114,
+      });
     });
   });
 });

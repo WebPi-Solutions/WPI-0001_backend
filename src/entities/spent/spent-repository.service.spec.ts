@@ -428,6 +428,9 @@ describe('SpentRepository', () => {
 
       const [sql, parameters] = getLastQueryCall();
       expect(sql).toContain('sup.enterprise_id = $1');
+      expect(sql).toContain(
+        'sc.base_price * COALESCE(sc.quantity, 1) * COALESCE(sc.percentage, 100) / 100',
+      );
       expect(sql).not.toContain('s.status IN');
       expect(parameters).toEqual([enterpriseId]);
     });

@@ -32,6 +32,8 @@ interface NormalizedSpentGraphLine {
   vat: number;
   /** IRPF */
   irpf: number;
+  /** Porcentaje declarado */
+  percentage: number;
   /** Cantidad */
   quantity: number;
   /** EAN congelado */
@@ -254,6 +256,10 @@ export class SpentGraphPersistenceService {
       basePrice: this.parseFiniteNumber(spentConcept.basePrice ?? 0, 'El precio base'),
       vat: this.parseNonNegativeInteger(spentConcept.vat ?? 21, 'El IVA'),
       irpf: this.parseNonNegativeInteger(spentConcept.irpf ?? 0, 'El IRPF'),
+      percentage: Math.min(
+        100,
+        this.parseNonNegativeInteger(spentConcept.percentage ?? 100, 'El porcentaje'),
+      ),
       quantity,
       ean: this.normalizeOptionalEan(spentConcept.ean, resolvedItem),
       serialNumbers,
@@ -835,6 +841,7 @@ export class SpentGraphPersistenceService {
       basePrice: normalizedLine.basePrice,
       vat: normalizedLine.vat,
       irpf: normalizedLine.irpf,
+      percentage: normalizedLine.percentage,
       quantity: normalizedLine.quantity,
       ean: normalizedLine.ean,
     };

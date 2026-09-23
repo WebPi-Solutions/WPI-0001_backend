@@ -68,6 +68,13 @@ export class SpentConceptResponseDto {
   irpf: number;
 
   /**
+   * Porcentaje declarado de la línea
+   */
+  @ApiProperty({ description: 'Porcentaje declarado de la línea' })
+  @Expose()
+  percentage: number;
+
+  /**
    * Unidades
    */
   @ApiProperty({ description: 'Cantidad de unidades' })

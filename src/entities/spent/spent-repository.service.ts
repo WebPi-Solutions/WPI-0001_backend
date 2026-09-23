@@ -220,7 +220,7 @@ export class SpentRepository {
    * Obtiene los importes imponibles (subtotales) de gastos desglosados por estado
    * mediante consulta SQL con agregación en base de datos (GROUP BY status).
    * Aplica los mismos filtros que la vista de gastos.
-   * El subtotal por concepto se calcula como: base_price * quantity.
+   * El subtotal por concepto se calcula como: base_price * quantity * percentage / 100.
    * @param enterpriseId - ID de la empresa
    * @param filter - Filtros aplicados (status, supplier.id, fechas, búsquedas)
    * @returns Subtotales y conteos por estado (total, pending, paid, partially_paid, cancelled)
@@ -239,7 +239,7 @@ export class SpentRepository {
         COUNT(*)::int AS count,
         ROUND(CAST(SUM(
           (SELECT COALESCE(SUM(
-            sc.base_price * COALESCE(sc.quantity, 1)
+            sc.base_price * COALESCE(sc.quantity, 1) * COALESCE(sc.percentage, 100) / 100
           ), 0)
            FROM spent_concepts sc
            WHERE sc.spent_id = s.id)

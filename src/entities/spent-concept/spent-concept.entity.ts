@@ -77,6 +77,12 @@ export class SpentConcept {
   irpf: number;
 
   /**
+   * Porcentaje declarado de la línea
+   */
+  @Column({ type: 'int', nullable: false, default: 100 })
+  percentage: number;
+
+  /**
    * Unidades de la línea
    */
   @Column({ type: 'int', nullable: false, default: 1 })

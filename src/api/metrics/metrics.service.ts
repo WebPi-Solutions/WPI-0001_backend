@@ -271,8 +271,9 @@ export class MetricsService {
           const basePrice = concept.basePrice || 0;
           const vatPercentage = concept.vat || 0;
           const irpfPercentage = concept.irpf || 0;
+          const declarationPercentage = concept.percentage ?? 100;
 
-          const conceptSubtotal = basePrice * quantity;
+          const conceptSubtotal = (basePrice * quantity * declarationPercentage) / 100;
           totalSubtotal += conceptSubtotal;
 
           const conceptVat = (conceptSubtotal * vatPercentage) / 100;
@@ -430,8 +431,9 @@ export class MetricsService {
             const basePrice = concept.basePrice || 0;
             const vatPercentage = concept.vat || 0;
             const irpfPercentage = concept.irpf || 0;
+            const declarationPercentage = concept.percentage ?? 100;
 
-            const conceptSubtotal = basePrice * quantity;
+            const conceptSubtotal = (basePrice * quantity * declarationPercentage) / 100;
             monthSubtotal += conceptSubtotal;
             monthVat += (conceptSubtotal * vatPercentage) / 100;
             monthIrpf += (conceptSubtotal * irpfPercentage) / 100;
