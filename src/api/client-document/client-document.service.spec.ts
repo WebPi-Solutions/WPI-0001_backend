@@ -95,6 +95,24 @@ describe('ClientDocumentService', () => {
     expect(documentRepository.create).not.toHaveBeenCalled();
   });
 
+  it('valida cliente, nombre y tamaño antes de crear metadatos', async () => {
+    await expect(service.create(undefined as unknown as string, { originalname: 'a.pdf', size: 1 } as MulterFile, client.enterpriseId)).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+    clientRepository.findById.mockResolvedValue(null);
+    await expect(service.create(client.id, { originalname: 'a.pdf', size: 1 } as MulterFile, client.enterpriseId)).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+    clientRepository.findById.mockResolvedValue(client);
+    await expect(service.create(client.id, { originalname: ' ', size: 1 } as MulterFile, client.enterpriseId)).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+    await expect(service.create(client.id, { originalname: 'a.pdf', size: -1 } as MulterFile, client.enterpriseId)).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+  });
+
+  it('delega el listado y valida el cliente al listar', async () => {
+    const page = { items: [], total: 0, currentPage: 1, totalPages: 0 };
+    documentRepository.findAll.mockResolvedValue(page);
+    clientRepository.findById.mockResolvedValue(client);
+    await expect(service.findAll(2, 20, 'name', 'ASC', { clientId: client.id }, ['client'])).resolves.toEqual(page);
+    await expect(service.assertClientAccessibleForList(client.id, client.enterpriseId)).resolves.toBeUndefined();
+    expect(documentRepository.findAll).toHaveBeenCalledWith(2, 20, 'name', 'ASC', { clientId: client.id }, ['client']);
+  });
+
   it('carga el cliente para proteger el acceso por UUID', async () => {
     const document = {
       id: 'document-uuid',
@@ -113,6 +131,13 @@ describe('ClientDocumentService', () => {
       'Documento de cliente no encontrado',
       { resource: 'documentManagement', action: 'read' },
     );
+  });
+
+  it('rechaza buscar o mutar un documento inexistente', async () => {
+    documentRepository.findById.mockResolvedValue(null);
+    await expect(service.findById('missing')).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+    await expect(service.updateById('missing', { name: 'nuevo.pdf' } as ClientDocument)).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+    await expect(service.deleteById('missing')).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
   });
 
   it('revierte el registro si Dropbox rechaza la subida', async () => {
@@ -134,6 +159,18 @@ describe('ClientDocumentService', () => {
     expect(documentRepository.deleteById).toHaveBeenCalledWith('document-uuid');
   });
 
+  it('mantiene el error de Dropbox si falla el rollback', async () => {
+    clientRepository.findById.mockResolvedValue(client);
+    documentRepository.create.mockResolvedValue({ id: 'document-uuid' });
+    documentRepository.getClientDocumentFilePath = jest.fn().mockReturnValue('/empresa/cliente/documento');
+    const uploadError = new Error('Dropbox no disponible');
+    dropboxService.uploadFile.mockRejectedValue(uploadError);
+    documentRepository.deleteById.mockRejectedValue(new Error('Rollback no disponible'));
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    await expect(service.create(client.id, { originalname: 'contrato.pdf', size: 42 } as MulterFile, client.enterpriseId)).rejects.toBe(uploadError);
+    errorSpy.mockRestore();
+  });
+
   it('solo permite actualizar el nombre del documento', async () => {
     const existing = {
       id: 'document-uuid',
@@ -150,6 +187,12 @@ describe('ClientDocumentService', () => {
     expect(documentRepository.updateById).toHaveBeenCalledWith(existing.id, {
       name: 'nuevo.pdf',
     });
+  });
+
+  it('exige un nombre al actualizar', async () => {
+    const existing = { id: 'document-uuid', clientId: client.id, client } as ClientDocument;
+    documentRepository.findById.mockResolvedValue(existing);
+    await expect(service.updateById(existing.id, { name: ' ' } as ClientDocument)).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
   });
 
   it('elimina primero el archivo de Dropbox y después los metadatos', async () => {

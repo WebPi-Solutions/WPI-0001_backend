@@ -21,7 +21,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { MulterFile } from 'multer';
+import type { MulterFile } from 'multer';
 import { Response } from 'express';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';

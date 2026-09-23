@@ -201,6 +201,24 @@ describe('RecurrentEarningService', () => {
       );
     });
 
+    it('rechaza una fecha inicial inválida', async () => {
+      await expect(
+        service.create(buildRecurrentEarning({ initialDate: 'fecha-inválida' })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'El ingreso recurrente debe tener una fecha inicial válida',
+      });
+    });
+
+    it('rechaza un día de cobro fuera del rango permitido', async () => {
+      await expect(
+        service.create(buildRecurrentEarning({ payday: 32 })),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'El día de cobro debe estar entre 1 y 31',
+      });
+    });
+
     it('lanza 404 si el cliente no existe', async () => {
       clientRepository.findById.mockResolvedValue(null);
 

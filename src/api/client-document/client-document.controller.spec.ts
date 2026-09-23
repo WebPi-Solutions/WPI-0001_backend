@@ -44,6 +44,11 @@ describe('ClientDocumentController', () => {
     );
   });
 
+  it('exige cliente y archivo al crear', async () => {
+    await expect(controller.create('enterprise-uuid', '', {} as MulterFile)).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+    await expect(controller.create('enterprise-uuid', 'client-uuid', undefined as unknown as MulterFile)).rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+  });
+
   it('fuerza clientId en el filtro del listado y valida el cliente', async () => {
     await controller.findAll(
       'enterprise-uuid',
@@ -75,6 +80,29 @@ describe('ClientDocumentController', () => {
     ).rejects.toMatchObject({
       status: HttpStatus.BAD_REQUEST,
     });
+  });
+
+  it('conserva el filtro de cliente cuando el filtro JSON es inválido', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    await controller.findAll('enterprise-uuid', 'client-uuid', 1, 10, 'createdAt', 'DESC', '{invalido');
+    expect(service.findAll).toHaveBeenCalledWith(1, 10, 'createdAt', 'DESC', { clientId: 'client-uuid' }, []);
+    errorSpy.mockRestore();
+  });
+
+  it('delega las solicitudes de búsqueda, actualización y borrado', async () => {
+    const document = { id: 'document-uuid', name: 'contrato.pdf' } as any;
+    await controller.findById(document.id, 'client,other');
+    await controller.updateById(document.id, document);
+    await controller.delete(document.id);
+    expect(service.findById).toHaveBeenCalledWith(document.id, ['client', 'other']);
+    expect(service.updateById).toHaveBeenCalledWith(document.id, document);
+    expect(service.deleteById).toHaveBeenCalledWith(document.id);
+  });
+
+  it('busca sin relaciones cuando no se solicitan', async () => {
+    await controller.findById('document-uuid');
+
+    expect(service.findById).toHaveBeenCalledWith('document-uuid', []);
   });
 
   it('delega la descarga del documento', async () => {
