@@ -317,7 +317,7 @@ describe('RecurrentEarningService', () => {
       await expect(
         service.findAll(1, 10, 'name', 'ASC', {
           enterpriseId,
-          dueDate_from: '2026-02-30',
+          dueDate_from: 'fecha-inválida',
           dueDate_to: '2026-03-01',
         }),
       ).rejects.toMatchObject({
