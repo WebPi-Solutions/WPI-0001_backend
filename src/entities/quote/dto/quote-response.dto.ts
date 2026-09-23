@@ -40,9 +40,9 @@ export class QuoteResponseDto {
   /**
    * Fecha de formalización
    */
-  @ApiProperty({ description: 'Fecha de formalización' })
+  @ApiProperty({ description: 'Fecha de formalización', required: false, nullable: true })
   @Expose()
-  formalizationDate: Date;
+  formalizationDate: Date | null;
 
   /**
    * Líneas de concepto persistidas en `quote_concepts`

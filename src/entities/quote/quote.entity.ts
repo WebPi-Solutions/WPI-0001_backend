@@ -38,8 +38,8 @@ export class Quote {
   /**
    * Fecha en que se convirtió en factura
    */
-  @Column({ name: 'formalization_date', type: 'date' })
-  formalizationDate: Date;
+  @Column({ name: 'formalization_date', type: 'date', nullable: true })
+  formalizationDate: Date | null;
 
   /**
    * Estado actual de la cotización (`draft`, `issued`, `ordered`, `converted`, `rejected`)
