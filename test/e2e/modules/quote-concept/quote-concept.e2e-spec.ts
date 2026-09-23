@@ -265,7 +265,7 @@ describe('Conceptos de presupuesto (e2e) — reglas de negocio', () => {
     expect(response.body.message).toBe('Ya existe un concepto en esa posición del presupuesto');
   });
 
-  it('no muta conceptos de un presupuesto emitido', async () => {
+  it('permite mutar conceptos de un presupuesto emitido', async () => {
     const seed = getE2eSeed();
     const quoteId = await createDraftQuote();
     const createdConcept = await http()
@@ -285,18 +285,17 @@ describe('Conceptos de presupuesto (e2e) — reglas de negocio', () => {
     const patched = await http()
       .patch(conceptPath)
       .set(authHeader(E2E_EMAIL.userA))
-      .send({ name: 'No debe cambiar' });
-    expect(patched.status).toBe(400);
-    expect(patched.body.message).toBe(
-      'No se pueden modificar los conceptos de un presupuesto ya emitido',
-    );
+      .send({ name: 'Línea modificada' });
+    expect(patched.status).toBe(200);
+    expect(patched.body.name).toBe('Línea modificada');
     const deleted = await http().delete(conceptPath).set(authHeader(E2E_EMAIL.userA));
-    expect(deleted.status).toBe(400);
+    expect(deleted.status).toBe(200);
     const extraConcept = await http()
       .post('/quote-concepts')
       .query({ enterpriseId: seed.enterpriseA.id })
       .set(authHeader(E2E_EMAIL.userA))
       .send({ quoteId, itemId: seed.itemA.id, name: 'Extra' });
-    expect(extraConcept.status).toBe(400);
+    expect(extraConcept.status).toBe(201);
+    expect(extraConcept.body.name).toBe('Extra');
   });
 });
