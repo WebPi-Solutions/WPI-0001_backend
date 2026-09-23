@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiOkResponse, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { RecurrentEarning } from 'src/entities/recurrent-earning/recurrent-earning.entity';
 import { RecurrentEarningResponseDto } from 'src/entities/recurrent-earning/dto/recurrent-earning-response.dto';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
@@ -63,6 +63,11 @@ export class RecurrentEarningController {
   @RequireEnterpriseId()
   @MapResponse(RecurrentEarningResponseDto)
   @ApiOperation({ summary: 'Obtener todos los ingresos recurrentes' })
+  @ApiQuery({
+    name: 'filter',
+    required: false,
+    description: 'Filtros en JSON. Use dueDate_from y dueDate_to (YYYY-MM-DD) juntos para obtener las recurrencias con una factura prevista en ese intervalo inclusivo.',
+  })
   @ApiOkResponse({ type: RecurrentEarningResponseDto, isArray: true, description: 'Ingresos recurrentes (vista pública).' })
   @ApiResponse({ status: 200, description: 'Los ingresos recurrentes han sido obtenidos correctamente.' })
   @ApiResponse({ status: 400, description: 'Petición inválida.' })

@@ -46,18 +46,52 @@ export class RecurrentEarningRepository {
     filter: Record<string, any> = {},
     relations?: string[],
   ): Promise<PaginatedResponse<RecurrentEarning>> {
+    const { dueDate_from: dueDateFrom, dueDate_to: dueDateTo, ...queryFilter } = filter;
     const options: QueryFilterOptions = {
       page,
       pageSize,
       sort,
       order,
-      filter,
+      filter: queryFilter,
       relations: (relations || []).map(relation => ({
         property: relation,
         alias: relation,
         isLeftJoinAndSelect: true,
       })),
     };
+
+    if (dueDateFrom && dueDateTo) {
+      options.extraAndWhere = {
+        sql: `
+          EXISTS (
+            SELECT 1
+            FROM generate_series(
+              date_trunc('month', "recurrentEarning"."initial_date"::timestamp),
+              date_trunc('month', CAST(:dueDateTo AS date)::timestamp),
+              interval '1 month'
+            ) AS occurrence(month)
+            WHERE MOD(
+              EXTRACT(YEAR FROM occurrence.month)::integer * 12
+                + EXTRACT(MONTH FROM occurrence.month)::integer
+                - EXTRACT(YEAR FROM "recurrentEarning"."initial_date")::integer * 12
+                - EXTRACT(MONTH FROM "recurrentEarning"."initial_date")::integer,
+              CASE "recurrentEarning"."type"
+                WHEN 'yearly' THEN 12
+                WHEN 'quarterly' THEN 3
+                ELSE 1
+              END
+            ) = 0
+            AND (
+              occurrence.month::date
+              + LEAST(
+                "recurrentEarning"."payday",
+                EXTRACT(DAY FROM occurrence.month + interval '1 month - 1 day')::integer
+              ) - 1
+            ) BETWEEN CAST(:dueDateFrom AS date) AND CAST(:dueDateTo AS date)
+          )`,
+        parameters: { dueDateFrom, dueDateTo },
+      };
+    }
 
     return QueryBuilderService.getPaginatedResults(
       this.recurrentEarningTypeOrmRepository,

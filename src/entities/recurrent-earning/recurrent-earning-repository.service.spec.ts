@@ -136,6 +136,33 @@ describe('RecurrentEarningRepository', () => {
         }),
       );
     });
+
+    it('aplica una condición de periodicidad para el intervalo de fechas de generación', async () => {
+      await recurrentEarningRepositoryService.findAll(
+        1,
+        10,
+        'createdAt',
+        'DESC',
+        {
+          enterpriseId: 'enterprise-uuid',
+          dueDate_from: '2026-02-01',
+          dueDate_to: '2026-02-28',
+        },
+      );
+
+      expect(QueryBuilderService.getPaginatedResults).toHaveBeenCalledWith(
+        typeOrmRepositoryMock,
+        'recurrentEarning',
+        expect.objectContaining({
+          filter: { enterpriseId: 'enterprise-uuid' },
+          extraAndWhere: expect.objectContaining({
+            parameters: { dueDateFrom: '2026-02-01', dueDateTo: '2026-02-28' },
+          }),
+        }),
+      );
+      expect((QueryBuilderService.getPaginatedResults as jest.Mock).mock.calls[0][2].extraAndWhere.sql)
+        .toContain('generate_series');
+    });
   });
 
   describe('findById', () => {

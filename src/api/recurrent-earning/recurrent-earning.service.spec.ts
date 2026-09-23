@@ -295,6 +295,48 @@ describe('RecurrentEarningService', () => {
       );
     });
 
+    it('acepta un intervalo de fechas de generación inclusivo y válido', async () => {
+      recurrentEarningRepository.findAll.mockResolvedValue(emptyPaginatedResponse);
+      const filter = {
+        enterpriseId,
+        dueDate_from: '2026-02-01',
+        dueDate_to: '2026-02-28',
+      };
+
+      await expect(service.findAll(1, 10, 'name', 'ASC', filter)).resolves.toEqual(emptyPaginatedResponse);
+      expect(recurrentEarningRepository.findAll).toHaveBeenCalledWith(1, 10, 'name', 'ASC', filter, undefined);
+    });
+
+    it('rechaza un intervalo de generación incompleto, inválido o invertido', async () => {
+      await expect(
+        service.findAll(1, 10, 'name', 'ASC', { enterpriseId, dueDate_from: '2026-02-01' }),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Para filtrar por fecha de generación se deben indicar la fecha inicial y la fecha final',
+      });
+      await expect(
+        service.findAll(1, 10, 'name', 'ASC', {
+          enterpriseId,
+          dueDate_from: '2026-02-30',
+          dueDate_to: '2026-03-01',
+        }),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Las fechas de generación deben tener el formato YYYY-MM-DD',
+      });
+      await expect(
+        service.findAll(1, 10, 'name', 'ASC', {
+          enterpriseId,
+          dueDate_from: '2026-03-01',
+          dueDate_to: '2026-02-01',
+        }),
+      ).rejects.toMatchObject({
+        status: HttpStatus.BAD_REQUEST,
+        message: 'La fecha inicial de generación no puede ser posterior a la fecha final',
+      });
+      expect(recurrentEarningRepository.findAll).not.toHaveBeenCalled();
+    });
+
     it('incluye relaciones cuando se informan', async () => {
       const paginatedWithItems = {
         items: [buildRecurrentEarning()],

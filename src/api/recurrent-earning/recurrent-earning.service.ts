@@ -78,9 +78,52 @@ export class RecurrentEarningService {
       this.logger.log(`Incluyendo relaciones: ${relations.join(', ')}`);
     }
 
+    this.validateDueDateRange(filter);
+
     const result = await this.recurrentEarningRepository.findAll(page, pageSize, sort, order, filter, relations);
     this.logger.log(`Ingresos recurrentes obtenidos: ${result.items.length} de ${result.total}`);
     return result;
+  }
+
+  /** Valida el intervalo inclusivo en el que debe generarse una factura. */
+  private validateDueDateRange(filter: Record<string, any>): void {
+    const dueDateFrom = filter.dueDate_from;
+    const dueDateTo = filter.dueDate_to;
+
+    if (!dueDateFrom && !dueDateTo) {
+      return;
+    }
+
+    if (!dueDateFrom || !dueDateTo) {
+      throw new HttpException(
+        'Para filtrar por fecha de generación se deben indicar la fecha inicial y la fecha final',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (!this.isValidIsoDate(dueDateFrom) || !this.isValidIsoDate(dueDateTo)) {
+      throw new HttpException(
+        'Las fechas de generación deben tener el formato YYYY-MM-DD',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (dueDateFrom > dueDateTo) {
+      throw new HttpException(
+        'La fecha inicial de generación no puede ser posterior a la fecha final',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  /** Comprueba que un valor sea una fecha ISO real, sin ajustes implícitos del calendario. */
+  private isValidIsoDate(value: unknown): value is string {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return false;
+    }
+
+    const parsedDate = new Date(`${value}T00:00:00.000Z`);
+    return !Number.isNaN(parsedDate.getTime()) && parsedDate.toISOString().slice(0, 10) === value;
   }
 
   /**
