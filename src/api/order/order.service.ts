@@ -10,6 +10,8 @@ import { OrderRepository } from 'src/entities/order/order-repository.service';
 import { Order } from 'src/entities/order/order.entity';
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
 import { Quote } from 'src/entities/quote/quote.entity';
+import { WordService } from 'src/services/word/word.service';
+import { Response } from 'express';
 
 /**
  * Reglas de negocio de pedidos: tenant vía cliente, presupuesto de la misma empresa y datos persistentes.
@@ -24,6 +26,7 @@ export class OrderService {
     private readonly quoteRepository: QuoteRepository,
     private readonly enterpriseRepository: EnterpriseRepository,
     private readonly enterpriseAccessService: EnterpriseAccessService,
+    private readonly wordService: WordService,
   ) {}
 
   /**
@@ -105,6 +108,39 @@ export class OrderService {
 
     this.assertOrderAccessible(order, 'read');
     return order;
+  }
+
+  /**
+   * Genera y devuelve el DOCX del pedido usando la plantilla de su empresa.
+   *
+   * @param id Identificador del pedido
+   * @param response Respuesta HTTP donde se adjunta el documento
+   * @returns Nada; el archivo se escribe directamente en la respuesta
+   */
+  async downloadDocumentById(id: string, response: Response): Promise<void> {
+    const order = await this.orderRepository.findById(id, ['client', 'orderConcepts']);
+    if (!order) {
+      throw new HttpException(`Pedido con ID: ${id} no encontrado`, HttpStatus.NOT_FOUND);
+    }
+    this.assertOrderAccessible(order, 'read');
+
+    const enterprise = await this.enterpriseRepository.findById(order.client.enterpriseId);
+    if (!enterprise) {
+      throw new HttpException('Pedido no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    const document = await this.wordService.generateOrderDocument(
+      this.orderRepository.getTemplateFilePath(enterprise.id),
+      order,
+      enterprise,
+    );
+    const fileName = this.sanitizeDocumentFileName(order.name);
+    response.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Disposition': `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      'Content-Length': document.length.toString(),
+    });
+    response.send(document);
   }
 
   /**
@@ -254,6 +290,18 @@ export class OrderService {
    */
   private stripOrderConceptRelation(order: Order): void {
     delete (order as { orderConcepts?: unknown }).orderConcepts;
+  }
+
+  /** Sanitiza el nombre del adjunto para los encabezados HTTP. */
+  private sanitizeDocumentFileName(orderName: string | null | undefined): string {
+    const baseName = (orderName ?? 'pedido')
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+      .replace(/[^\x20-\x7E]/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/_{2,}/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 100) || 'pedido';
+    return `${baseName}.docx`;
   }
 
   /**

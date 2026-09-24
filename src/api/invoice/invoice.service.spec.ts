@@ -10,6 +10,8 @@ import { RecurrentEarningRepository } from 'src/entities/recurrent-earning/recur
 import { InvoiceService } from './invoice.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-repository.service';
+import { WordService } from 'src/services/word/word.service';
 
 import { InvoiceStatus } from 'src/common/enums';
 
@@ -19,6 +21,7 @@ describe('InvoiceService', () => {
     create: jest.Mock;
     findAll: jest.Mock;
     findById: jest.Mock;
+    getTemplateFilePath: jest.Mock;
     updateById: jest.Mock;
     deleteById: jest.Mock;
   };
@@ -30,6 +33,8 @@ describe('InvoiceService', () => {
     confirmInvoiceIssue: jest.Mock;
     reverseInvoiceCancellation: jest.Mock;
   };
+  let enterpriseRepository: { findById: jest.Mock };
+  let wordService: { generateInvoiceDocument: jest.Mock };
 
   const invoiceId = 'invoice-uuid';
   const clientId = 'client-uuid';
@@ -117,6 +122,7 @@ describe('InvoiceService', () => {
       create: jest.fn(),
       findAll: jest.fn(),
       findById: jest.fn(),
+      getTemplateFilePath: jest.fn().mockReturnValue('/enterprises/enterprise-uuid/templates/word/invoice.docx'),
       updateById: jest.fn(),
       deleteById: jest.fn(),
     };
@@ -128,6 +134,8 @@ describe('InvoiceService', () => {
       confirmInvoiceIssue: jest.fn().mockResolvedValue(undefined),
       reverseInvoiceCancellation: jest.fn().mockResolvedValue(undefined),
     };
+    enterpriseRepository = { findById: jest.fn() };
+    wordService = { generateInvoiceDocument: jest.fn() };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -145,6 +153,8 @@ describe('InvoiceService', () => {
           },
         },
         { provide: InventoryLedgerService, useValue: inventoryLedgerService },
+        { provide: EnterpriseRepository, useValue: enterpriseRepository },
+        { provide: WordService, useValue: wordService },
       ],
     }).compile();
 
@@ -326,6 +336,76 @@ describe('InvoiceService', () => {
         status: HttpStatus.NOT_FOUND,
         message: `Factura con ID: ${invoiceId} no encontrada`,
       });
+    });
+  });
+
+  describe('downloadDocumentById', () => {
+    it('genera y adjunta la factura desde la plantilla de su empresa', async () => {
+      const invoice = buildInvoice({
+        client: buildClient(),
+        invoiceConcepts: [{ position: 0, name: 'Servicio', basePrice: 100, quantity: 1, vat: 21, irpf: 0 }] as Invoice['invoiceConcepts'],
+      });
+      const enterprise = { id: enterpriseId, name: 'Empresa Demo' };
+      const document = Buffer.from('docx');
+      const response = { set: jest.fn(), send: jest.fn() };
+      invoiceRepository.findById.mockResolvedValue(invoice);
+      enterpriseRepository.findById.mockResolvedValue(enterprise);
+      wordService.generateInvoiceDocument.mockResolvedValue(document);
+
+      await service.downloadDocumentById(invoiceId, response as never);
+
+        expect(invoiceRepository.findById).toHaveBeenCalledWith(invoiceId, ['client', 'series', 'invoiceConcepts']);
+      expect(wordService.generateInvoiceDocument).toHaveBeenCalledWith(
+        '/enterprises/enterprise-uuid/templates/word/invoice.docx', invoice, enterprise,
+      );
+      expect(response.set).toHaveBeenCalledWith(expect.objectContaining({
+        'Content-Disposition': expect.stringContaining('Factura_Demo.docx'),
+        'Content-Length': '4',
+      }));
+      expect(response.send).toHaveBeenCalledWith(document);
+    });
+
+    it('lanza 404 si la factura no existe', async () => {
+      invoiceRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.downloadDocumentById(invoiceId, { set: jest.fn(), send: jest.fn() } as never),
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
+    });
+
+    it('lanza 404 si no se encuentra la empresa emisora', async () => {
+      invoiceRepository.findById.mockResolvedValue(buildInvoice({ client: buildClient() }));
+      enterpriseRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.downloadDocumentById(invoiceId, { set: jest.fn(), send: jest.fn() } as never),
+      ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND, message: 'Factura no encontrada' });
+    });
+
+    it('propaga el error de plantilla y sanea nombres vacíos', async () => {
+      const invoice = buildInvoice({ client: buildClient(), name: '   ' });
+      const templateError = new Error('Plantilla no encontrada');
+      invoiceRepository.findById.mockResolvedValue(invoice);
+      enterpriseRepository.findById.mockResolvedValue({ id: enterpriseId });
+      wordService.generateInvoiceDocument.mockRejectedValueOnce(templateError);
+
+      await expect(
+        service.downloadDocumentById(invoiceId, { set: jest.fn(), send: jest.fn() } as never),
+      ).rejects.toBe(templateError);
+
+      wordService.generateInvoiceDocument.mockResolvedValue(Buffer.from('docx'));
+      const response = { set: jest.fn(), send: jest.fn() };
+      await service.downloadDocumentById(invoiceId, response as never);
+      expect(response.set).toHaveBeenCalledWith(expect.objectContaining({
+        'Content-Disposition': expect.stringContaining('factura.docx'),
+      }));
+
+      invoice.name = null;
+      const nullNameResponse = { set: jest.fn(), send: jest.fn() };
+      await service.downloadDocumentById(invoiceId, nullNameResponse as never);
+      expect(nullNameResponse.set).toHaveBeenCalledWith(expect.objectContaining({
+        'Content-Disposition': expect.stringContaining('factura.docx'),
+      }));
     });
   });
 

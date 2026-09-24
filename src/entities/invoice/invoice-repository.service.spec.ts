@@ -53,6 +53,7 @@ describe('InvoiceRepository', () => {
     createQueryBuilder: jest.Mock;
     manager: { query: jest.Mock };
   };
+  const originalTemplatePath = process.env.DROPBOX_TEMPLATE_FILE_PATH;
 
   /**
    * Crea el módulo de pruebas con un repositorio TypeORM simulado.
@@ -98,6 +99,14 @@ describe('InvoiceRepository', () => {
     invoiceRepositoryService = testingModule.get(InvoiceRepository);
   });
 
+  afterEach(() => {
+    if (originalTemplatePath === undefined) {
+      delete process.env.DROPBOX_TEMPLATE_FILE_PATH;
+      return;
+    }
+    process.env.DROPBOX_TEMPLATE_FILE_PATH = originalTemplatePath;
+  });
+
   it('should be defined', () => {
     expect(invoiceRepositoryService).toBeDefined();
   });
@@ -126,6 +135,24 @@ describe('InvoiceRepository', () => {
 
       expect(thrownError.getStatus()).toBe(HttpStatus.BAD_REQUEST);
       expect(typeOrmRepositoryMock.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getTemplateFilePath', () => {
+    it('sustituye la empresa y el tipo de entidad en la ruta de plantilla', () => {
+      process.env.DROPBOX_TEMPLATE_FILE_PATH = '/enterprises/:enterpriseId/templates//word/:entityType.docx';
+
+      expect(invoiceRepositoryService.getTemplateFilePath('enterprise-uuid')).toBe(
+        '/enterprises/enterprise-uuid/templates/word/invoice.docx',
+      );
+    });
+
+    it('lanza 500 si no está configurada la ruta de las plantillas', () => {
+      delete process.env.DROPBOX_TEMPLATE_FILE_PATH;
+
+      expect(() => invoiceRepositoryService.getTemplateFilePath('enterprise-uuid')).toThrow(
+        'No está configurada la ruta de las plantillas Word',
+      );
     });
   });
 

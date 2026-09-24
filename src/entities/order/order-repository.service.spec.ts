@@ -41,6 +41,15 @@ describe('OrderRepository', () => {
     findOne: jest.Mock;
     delete: jest.Mock;
   };
+  const originalTemplatePath = process.env.DROPBOX_TEMPLATE_FILE_PATH;
+
+  afterEach(() => {
+    if (originalTemplatePath === undefined) {
+      delete process.env.DROPBOX_TEMPLATE_FILE_PATH;
+      return;
+    }
+    process.env.DROPBOX_TEMPLATE_FILE_PATH = originalTemplatePath;
+  });
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -164,6 +173,24 @@ describe('OrderRepository', () => {
         where: { id: 'order-uuid' },
         relations: undefined,
       });
+    });
+  });
+
+  describe('getTemplateFilePath', () => {
+    it('resuelve la plantilla Word de pedidos de la empresa', () => {
+      process.env.DROPBOX_TEMPLATE_FILE_PATH = '//enterprises//:enterpriseId//templates//word//:entityType.docx';
+
+      expect(orderRepositoryService.getTemplateFilePath('enterprise-uuid')).toBe(
+        '/enterprises/enterprise-uuid/templates/word/order.docx',
+      );
+    });
+
+    it('lanza 500 si no está configurada la ruta de plantillas', () => {
+      delete process.env.DROPBOX_TEMPLATE_FILE_PATH;
+
+      expect(() => orderRepositoryService.getTemplateFilePath('enterprise-uuid')).toThrow(
+        'No está configurada la ruta de plantillas Word en el servidor',
+      );
     });
   });
 

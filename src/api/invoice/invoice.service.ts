@@ -8,6 +8,9 @@ import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { DeleteResult } from 'typeorm';
 import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
+import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-repository.service';
+import { WordService } from 'src/services/word/word.service';
+import { Response } from 'express';
 
 import { InvoiceStatus } from 'src/common/enums';
 
@@ -21,6 +24,8 @@ export class InvoiceService {
               private readonly recurrentEarningRepository: RecurrentEarningRepository,
               private readonly enterpriseAccessService: EnterpriseAccessService,
               private readonly inventoryLedgerService: InventoryLedgerService,
+              private readonly enterpriseRepository: EnterpriseRepository,
+              private readonly wordService: WordService,
   ){}
 
   /**
@@ -94,6 +99,38 @@ export class InvoiceService {
     }
     
     return invoice;
+  }
+
+  /**
+   * Genera y devuelve el DOCX de la factura usando la plantilla de su empresa.
+   * @param id Identificador de la factura
+   * @param response Respuesta HTTP donde se adjunta el documento
+   * @returns Nada; el archivo se escribe directamente en la respuesta
+   */
+  async downloadDocumentById(id: string, response: Response): Promise<void> {
+    const invoice = await this.invoiceRepository.findById(id, ['client', 'series', 'invoiceConcepts']);
+    if (!invoice) {
+      throw new HttpException(`Factura con ID: ${id} no encontrada`, HttpStatus.NOT_FOUND);
+    }
+    this.assertInvoiceAccessible(invoice, 'read');
+
+    const enterprise = await this.enterpriseRepository.findById(invoice.client.enterpriseId);
+    if (!enterprise) {
+      throw new HttpException('Factura no encontrada', HttpStatus.NOT_FOUND);
+    }
+
+    const document = await this.wordService.generateInvoiceDocument(
+      this.invoiceRepository.getTemplateFilePath(enterprise.id),
+      invoice,
+      enterprise,
+    );
+    const fileName = this.sanitizeDocumentFileName(invoice.name);
+    response.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Disposition': `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      'Content-Length': document.length.toString(),
+    });
+    response.send(document);
   }
 
   /**
@@ -351,6 +388,18 @@ export class InvoiceService {
    */
   private stripInvoiceConceptRelation(invoice: Invoice): void {
     delete (invoice as { invoiceConcepts?: unknown }).invoiceConcepts;
+  }
+
+  /** Sanitiza el nombre del adjunto para los encabezados HTTP. */
+  private sanitizeDocumentFileName(invoiceName: string | null | undefined): string {
+    const baseName = (invoiceName ?? 'factura')
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+      .replace(/[^\x20-\x7E]/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/_{2,}/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 100) || 'factura';
+    return `${baseName}.docx`;
   }
 
   /**

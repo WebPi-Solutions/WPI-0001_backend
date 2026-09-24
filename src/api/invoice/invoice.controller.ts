@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Invoice } from 'src/entities/invoice/invoice.entity';
 import { InvoiceResponseDto } from 'src/entities/invoice/dto/invoice-response.dto';
@@ -7,6 +7,7 @@ import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
+import { Response } from 'express';
 
 import { InvoiceStatus } from 'src/common/enums';
 
@@ -108,6 +109,17 @@ export class InvoiceController {
   async findById(@Param('id') id: string, @Query('relations') relations?: string) {
     const relationsArray = relations ? relations.split(',') : [];
     return this.invoiceService.findById(id, relationsArray);
+  }
+
+  /** Descarga la factura completando la plantilla DOCX de la empresa. */
+  @Get(':id/document')
+  @RequirePermission('invoices', 'read')
+  @ApiOperation({ summary: 'Descargar la factura en Word usando la plantilla de empresa' })
+  @ApiResponse({ status: 200, description: 'El documento Word se ha descargado correctamente.' })
+  @ApiResponse({ status: 404, description: 'Factura o plantilla Word no encontradas.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async downloadDocumentById(@Param('id') id: string, @Res() response: Response): Promise<void> {
+    await this.invoiceService.downloadDocumentById(id, response);
   }
 
   /**

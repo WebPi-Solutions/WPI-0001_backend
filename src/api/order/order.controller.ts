@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { OrderStatus } from 'src/common/enums';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
@@ -8,6 +8,7 @@ import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { Order } from 'src/entities/order/order.entity';
 import { OrderResponseDto } from 'src/entities/order/dto/order-response.dto';
 import { OrderService } from './order.service';
+import { Response } from 'express';
 
 /**
  * Endpoints HTTP de pedidos.
@@ -106,6 +107,17 @@ export class OrderController {
     );
     this.logger.log(`Pedidos obtenidos: ${result.items.length} de ${result.total}`);
     return result;
+  }
+
+  /** Descarga el pedido completando la plantilla DOCX de la empresa. */
+  @Get(':id/document')
+  @RequirePermission('orders', 'read')
+  @ApiOperation({ summary: 'Descargar el pedido en Word usando la plantilla de empresa' })
+  @ApiResponse({ status: 200, description: 'El documento Word se ha descargado correctamente.' })
+  @ApiResponse({ status: 404, description: 'Pedido o plantilla Word no encontrados.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async downloadDocumentById(@Param('id') id: string, @Res() response: Response): Promise<void> {
+    await this.orderService.downloadDocumentById(id, response);
   }
 
   /**

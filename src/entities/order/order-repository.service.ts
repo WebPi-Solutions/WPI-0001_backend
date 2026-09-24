@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DeleteResult, Repository } from 'typeorm';
 import { isValidOrderStatus } from 'src/common/enums';
@@ -75,6 +75,30 @@ export class OrderRepository {
    */
   findById(id: string, relations?: string[]): Promise<Order> {
     return this.orderTypeOrmRepository.findOne({ where: { id }, relations });
+  }
+
+  /**
+   * Obtiene la ruta de la plantilla DOCX de pedidos de una empresa.
+   *
+   * @param enterpriseId ID de la empresa propietaria de la plantilla
+   * @returns Ruta resuelta en Dropbox
+   */
+  getTemplateFilePath(enterpriseId: string): string {
+    const templatePath = process.env.DROPBOX_TEMPLATE_FILE_PATH;
+    if (!templatePath) {
+      throw new InternalServerErrorException(
+        'No está configurada la ruta de plantillas Word en el servidor',
+      );
+    }
+    const resolvedTemplatePath = templatePath
+      .replace(':enterpriseId', enterpriseId)
+      .replace(':entityType', 'order');
+    const normalizedTemplatePath = resolvedTemplatePath.replace(/\/{2,}/g, '/');
+
+    this.logger.debug(
+      `Ruta de plantilla Word resuelta para la empresa ${enterpriseId}: ${normalizedTemplatePath}`,
+    );
+    return normalizedTemplatePath;
   }
 
   /**

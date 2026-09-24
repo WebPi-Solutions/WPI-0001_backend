@@ -15,6 +15,7 @@ describe('OrderController', () => {
     updateById: jest.Mock;
     updateStatusById: jest.Mock;
     deleteById: jest.Mock;
+    downloadDocumentById: jest.Mock;
   };
 
   const enterpriseId = 'enterprise-uuid';
@@ -29,6 +30,7 @@ describe('OrderController', () => {
       updateById: jest.fn(),
       updateStatusById: jest.fn(),
       deleteById: jest.fn(),
+      downloadDocumentById: jest.fn(),
     };
 
     const testingModule: TestingModule = await Test.createTestingModule({
@@ -128,6 +130,16 @@ describe('OrderController', () => {
       await controller.findById(orderId);
 
       expect(orderService.findById).toHaveBeenCalledWith(orderId, []);
+    });
+  });
+
+  describe('downloadDocumentById', () => {
+    it('delega la descarga del documento Word en el servicio', async () => {
+      const response = {};
+
+      await controller.downloadDocumentById(orderId, response as never);
+
+      expect(orderService.downloadDocumentById).toHaveBeenCalledWith(orderId, response);
     });
   });
 

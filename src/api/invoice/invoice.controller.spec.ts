@@ -12,6 +12,7 @@ describe('InvoiceController', () => {
     create: jest.Mock;
     findAll: jest.Mock;
     findById: jest.Mock;
+    downloadDocumentById: jest.Mock;
     updateById: jest.Mock;
     updateStatusById: jest.Mock;
     deleteById: jest.Mock;
@@ -26,6 +27,7 @@ describe('InvoiceController', () => {
       create: jest.fn().mockResolvedValue({ id: invoiceId }),
       findAll: jest.fn().mockResolvedValue(emptyPaginatedResponse),
       findById: jest.fn(),
+      downloadDocumentById: jest.fn(),
       updateById: jest.fn(),
       updateStatusById: jest.fn(),
       deleteById: jest.fn(),
@@ -133,6 +135,16 @@ describe('InvoiceController', () => {
       await controller.findById(invoiceId);
 
       expect(invoiceService.findById).toHaveBeenCalledWith(invoiceId, []);
+    });
+  });
+
+  describe('downloadDocumentById', () => {
+    it('delega la descarga del documento en el servicio', async () => {
+      const response = { set: jest.fn(), send: jest.fn() };
+
+      await controller.downloadDocumentById(invoiceId, response as never);
+
+      expect(invoiceService.downloadDocumentById).toHaveBeenCalledWith(invoiceId, response);
     });
   });
 

@@ -10,6 +10,7 @@ import { OrderRepository } from 'src/entities/order/order-repository.service';
 import { Order } from 'src/entities/order/order.entity';
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
 import { Quote } from 'src/entities/quote/quote.entity';
+import { WordService } from 'src/services/word/word.service';
 import { OrderService } from './order.service';
 
 describe('OrderService', () => {
@@ -20,10 +21,12 @@ describe('OrderService', () => {
     findById: jest.Mock;
     updateById: jest.Mock;
     deleteById: jest.Mock;
+    getTemplateFilePath: jest.Mock;
   };
   let clientRepository: { findById: jest.Mock };
   let quoteRepository: { findById: jest.Mock };
   let enterpriseRepository: { findById: jest.Mock };
+  let wordService: { generateOrderDocument: jest.Mock };
 
   const orderId = 'order-uuid';
   const clientId = 'client-uuid';
@@ -109,10 +112,12 @@ describe('OrderService', () => {
       findById: jest.fn(),
       updateById: jest.fn(),
       deleteById: jest.fn(),
+      getTemplateFilePath: jest.fn().mockReturnValue('/plantillas/order.docx'),
     };
     clientRepository = { findById: jest.fn() };
     quoteRepository = { findById: jest.fn() };
     enterpriseRepository = { findById: jest.fn() };
+    wordService = { generateOrderDocument: jest.fn().mockResolvedValue(Buffer.from('documento')) };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -121,6 +126,7 @@ describe('OrderService', () => {
         { provide: ClientRepository, useValue: clientRepository },
         { provide: QuoteRepository, useValue: quoteRepository },
         { provide: EnterpriseRepository, useValue: enterpriseRepository },
+        { provide: WordService, useValue: wordService },
         {
           provide: EnterpriseAccessService,
           useValue: {
@@ -287,6 +293,91 @@ describe('OrderService', () => {
         status: HttpStatus.NOT_FOUND,
         message: `Pedido con ID: ${orderId} no encontrado`,
       });
+    });
+  });
+
+  describe('downloadDocumentById', () => {
+    it('genera y adjunta el Word del pedido con la plantilla de su empresa', async () => {
+      const order = buildOrder({ client: buildClient(), orderConcepts: [] });
+      const enterprise = buildEnterprise();
+      const response = { set: jest.fn(), send: jest.fn() };
+      orderRepository.findById.mockResolvedValue(order);
+      enterpriseRepository.findById.mockResolvedValue(enterprise);
+
+      await service.downloadDocumentById(orderId, response as never);
+
+      expect(orderRepository.findById).toHaveBeenCalledWith(orderId, ['client', 'orderConcepts']);
+      expect(orderRepository.getTemplateFilePath).toHaveBeenCalledWith(enterpriseId);
+      expect(wordService.generateOrderDocument).toHaveBeenCalledWith(
+        '/plantillas/order.docx',
+        order,
+        enterprise,
+      );
+      expect(response.set).toHaveBeenCalledWith(expect.objectContaining({
+        'Content-Disposition': expect.stringContaining('Pedido_Demo.docx'),
+        'Content-Length': '9',
+      }));
+      expect(response.send).toHaveBeenCalledWith(Buffer.from('documento'));
+    });
+
+    it('lanza 404 si el pedido no existe', async () => {
+      orderRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.downloadDocumentById(orderId, { set: jest.fn(), send: jest.fn() } as never),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: `Pedido con ID: ${orderId} no encontrado`,
+      });
+      expect(wordService.generateOrderDocument).not.toHaveBeenCalled();
+    });
+
+    it('lanza 404 si no se encuentra la empresa del pedido', async () => {
+      orderRepository.findById.mockResolvedValue(buildOrder({ client: buildClient() }));
+      enterpriseRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.downloadDocumentById(orderId, { set: jest.fn(), send: jest.fn() } as never),
+      ).rejects.toMatchObject({
+        status: HttpStatus.NOT_FOUND,
+        message: 'Pedido no encontrado',
+      });
+      expect(wordService.generateOrderDocument).not.toHaveBeenCalled();
+    });
+
+    it('propaga el error al completar la plantilla', async () => {
+      const templateError = new Error('plantilla no disponible');
+      orderRepository.findById.mockResolvedValue(buildOrder({ client: buildClient() }));
+      enterpriseRepository.findById.mockResolvedValue(buildEnterprise());
+      wordService.generateOrderDocument.mockRejectedValue(templateError);
+
+      await expect(
+        service.downloadDocumentById(orderId, { set: jest.fn(), send: jest.fn() } as never),
+      ).rejects.toBe(templateError);
+    });
+
+    it('usa el nombre de archivo por defecto si el pedido no tiene nombre', async () => {
+      const response = { set: jest.fn(), send: jest.fn() };
+      orderRepository.findById.mockResolvedValue(buildOrder({ client: buildClient(), name: null }));
+      enterpriseRepository.findById.mockResolvedValue(buildEnterprise());
+
+      await service.downloadDocumentById(orderId, response as never);
+
+      expect(response.set).toHaveBeenCalledWith(expect.objectContaining({
+        'Content-Disposition': expect.stringContaining('pedido.docx'),
+      }));
+    });
+
+    it('usa el nombre de archivo por defecto si el nombre se vacía al sanearlo', async () => {
+      const response = { set: jest.fn(), send: jest.fn() };
+      orderRepository.findById.mockResolvedValue(buildOrder({ client: buildClient(), name: '' }));
+      enterpriseRepository.findById.mockResolvedValue(buildEnterprise());
+
+      await service.downloadDocumentById(orderId, response as never);
+
+      expect(response.set).toHaveBeenCalledWith(expect.objectContaining({
+        'Content-Disposition': expect.stringContaining('pedido.docx'),
+      }));
     });
   });
 

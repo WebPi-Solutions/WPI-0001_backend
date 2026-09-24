@@ -2,6 +2,8 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
+import { Invoice } from 'src/entities/invoice/invoice.entity';
+import { Order } from 'src/entities/order/order.entity';
 import { Quote } from 'src/entities/quote/quote.entity';
 import { PaymentMethod } from 'src/common/enums';
 import { DropboxFileNotFoundError } from '../dropbox/dropbox-file-not-found.error';
@@ -22,6 +24,21 @@ export class WordTemplateNotFoundException extends HttpException {
 }
 
 export type WordTemplateData = Record<string, unknown>;
+
+type CommercialConcept = Pick<Quote['quoteConcepts'][number],
+  'basePrice' | 'irpf' | 'name' | 'position' | 'quantity' | 'vat'>;
+
+interface CommercialDocumentInput {
+  date: Date | string | null | undefined;
+  clientName: string | null | undefined;
+  clientNif: string | null | undefined;
+  clientAddress: string | null | undefined;
+  issuerName: string | null | undefined;
+  issuerNif: string | null | undefined;
+  issuerAddress: string | null | undefined;
+  client: Quote['client'] | undefined;
+  concepts: CommercialConcept[] | undefined;
+}
 
 /** Genera documentos DOCX completando plantillas almacenadas en Dropbox. */
 @Injectable()
@@ -44,6 +61,38 @@ export class WordService {
     enterprise: Enterprise,
   ): Promise<Buffer> {
     return this.generateDocument(templatePath, this.buildQuoteTemplateData(quote, enterprise));
+  }
+
+  /**
+   * Descarga una plantilla DOCX y la completa con la información del pedido.
+   *
+   * @param templatePath Ruta de la plantilla de la empresa en Dropbox
+   * @param order Pedido con cliente y conceptos cargados
+   * @param enterprise Empresa emisora del pedido
+   * @returns Documento DOCX ya cumplimentado
+   */
+  async generateOrderDocument(
+    templatePath: string,
+    order: Order,
+    enterprise: Enterprise,
+  ): Promise<Buffer> {
+    return this.generateDocument(templatePath, this.buildOrderTemplateData(order, enterprise));
+  }
+
+  /**
+   * Descarga una plantilla DOCX y la completa con la información de la factura.
+   *
+   * @param templatePath Ruta de la plantilla de la empresa en Dropbox
+   * @param invoice Factura con cliente y conceptos cargados
+   * @param enterprise Empresa emisora de la factura
+   * @returns Documento DOCX ya cumplimentado
+   */
+  async generateInvoiceDocument(
+    templatePath: string,
+    invoice: Invoice,
+    enterprise: Enterprise,
+  ): Promise<Buffer> {
+    return this.generateDocument(templatePath, this.buildInvoiceTemplateData(invoice, enterprise));
   }
 
   /**
@@ -116,7 +165,65 @@ export class WordService {
 
   /** Construye los datos expuestos a la plantilla de presupuesto. */
   private buildQuoteTemplateData(quote: Quote, enterprise: Enterprise): WordTemplateData {
-    const concepts = [...(quote.quoteConcepts ?? [])].sort(
+    return this.buildCommercialTemplateData({
+      date: quote.issuedDate,
+      clientName: quote.clientName,
+      clientNif: quote.clientNif,
+      clientAddress: quote.clientAddress,
+      issuerName: quote.issuerName,
+      issuerNif: quote.issuerNif,
+      issuerAddress: quote.issuerAddress,
+      client: quote.client,
+      concepts: quote.quoteConcepts,
+    }, enterprise);
+  }
+
+  /** Construye los datos expuestos a la plantilla de pedido. */
+  private buildOrderTemplateData(order: Order, enterprise: Enterprise): WordTemplateData {
+    return {
+      ...this.buildCommercialTemplateData({
+        date: order.date,
+        clientName: order.clientName,
+        clientNif: order.clientNif,
+        clientAddress: order.clientAddress,
+        issuerName: order.issuerName,
+        issuerNif: order.issuerNif,
+        issuerAddress: order.issuerAddress,
+        client: order.client,
+        concepts: order.orderConcepts,
+      }, enterprise),
+      order: {
+        status: order.status ?? '',
+      },
+    };
+  }
+
+  /** Construye los datos expuestos a la plantilla de factura. */
+  private buildInvoiceTemplateData(invoice: Invoice, enterprise: Enterprise): WordTemplateData {
+    return this.buildCommercialTemplateData({
+      date: invoice.issuedDate,
+      clientName: invoice.clientName,
+      clientNif: invoice.clientNif,
+      clientAddress: invoice.clientAddress,
+      issuerName: invoice.issuerName,
+      issuerNif: invoice.issuerNif,
+      issuerAddress: invoice.issuerAddress,
+      client: invoice.client,
+      concepts: invoice.invoiceConcepts,
+    }, enterprise, {
+      invoice: {
+        code: this.formatInvoiceCode(invoice),
+      },
+    });
+  }
+
+  /** Construye los campos comerciales compartidos por presupuestos y pedidos. */
+  private buildCommercialTemplateData(
+    commercialDocument: CommercialDocumentInput,
+    enterprise: Enterprise,
+    additionalData: WordTemplateData = {},
+  ): WordTemplateData {
+    const concepts = [...(commercialDocument.concepts ?? [])].sort(
       (left, right) => left.position - right.position,
     );
     const vatBreakdownByRate = new Map<number, {
@@ -157,19 +264,19 @@ export class WordService {
     }
 
     return {
-      issued_date: this.formatDate(quote.issuedDate),
+      issued_date: this.formatDate(commercialDocument.date),
       client: {
-        name: quote.clientName ?? quote.client?.name ?? '',
-        nif: quote.clientNif ?? quote.client?.nif ?? '',
-        address: quote.clientAddress ?? quote.client?.address ?? '',
-        phone: quote.client?.phone ?? '',
-        email: quote.client?.email ?? '',
-        payment_method: this.formatPaymentMethod(quote.client?.paymentMethod),
+        name: commercialDocument.clientName ?? commercialDocument.client?.name ?? '',
+        nif: commercialDocument.clientNif ?? commercialDocument.client?.nif ?? '',
+        address: commercialDocument.clientAddress ?? commercialDocument.client?.address ?? '',
+        phone: commercialDocument.client?.phone ?? '',
+        email: commercialDocument.client?.email ?? '',
+        payment_method: this.formatPaymentMethod(commercialDocument.client?.paymentMethod),
       },
       enterprise: {
-        name: quote.issuerName ?? enterprise.name ?? '',
-        nif: quote.issuerNif ?? enterprise.nif ?? '',
-        address: quote.issuerAddress ?? enterprise.address ?? '',
+        name: commercialDocument.issuerName ?? enterprise.name ?? '',
+        nif: commercialDocument.issuerNif ?? enterprise.nif ?? '',
+        address: commercialDocument.issuerAddress ?? enterprise.address ?? '',
         phone: enterprise.phone ?? '',
         email: enterprise.email ?? '',
         iban: enterprise.bankAccount ?? '',
@@ -192,11 +299,22 @@ export class WordService {
         irpf_amount: this.formatCurrency(irpfAmount),
         total: this.formatCurrency(total),
       },
+      ...additionalData,
     };
   }
 
+  /** Formatea el código visible de factura como serie y número con cuatro dígitos. */
+  private formatInvoiceCode(invoice: Invoice): string {
+    const series = invoice.series?.series ?? '';
+    const number = invoice.seriesNumber;
+    const formattedNumber = number === null || number === undefined
+      ? '0000'
+      : String(number).padStart(4, '0');
+    return `${series}-${formattedNumber}`;
+  }
+
   /** Da formato a una línea para su uso en plantillas con `concept.*`. */
-  private formatConcept(concept: Quote['quoteConcepts'][number] | undefined): WordTemplateData {
+  private formatConcept(concept: CommercialConcept | undefined): WordTemplateData {
     if (!concept) {
       return {
         name: '',

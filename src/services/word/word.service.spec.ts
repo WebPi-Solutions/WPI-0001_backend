@@ -1,7 +1,9 @@
 import PizZip from 'pizzip';
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
+import { Invoice } from 'src/entities/invoice/invoice.entity';
+import { Order } from 'src/entities/order/order.entity';
 import { Quote } from 'src/entities/quote/quote.entity';
-import { PaymentMethod } from 'src/common/enums';
+import { OrderStatus, PaymentMethod } from 'src/common/enums';
 import { DropboxFileNotFoundError } from '../dropbox/dropbox-file-not-found.error';
 import { DropboxService } from '../dropbox/dropbox.service';
 import { WordService } from './word.service';
@@ -19,7 +21,7 @@ function buildTemplate(): Buffer {
   );
   zip.file(
     'word/document.xml',
-    '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>{{ client.name }}</w:t></w:r></w:p><w:p><w:r><w:t>{{concept.total}}</w:t></w:r></w:p><w:p><w:r><w:t>{{ totals.total }}</w:t></w:r></w:p><w:sectPr/></w:body></w:document>',
+    '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>{{ client.name }}</w:t></w:r></w:p><w:p><w:r><w:t>{{order.status}}</w:t></w:r></w:p><w:p><w:r><w:t>{{invoice.code}}</w:t></w:r></w:p><w:p><w:r><w:t>{{concept.total}}</w:t></w:r></w:p><w:p><w:r><w:t>{{ totals.total }}</w:t></w:r></w:p><w:sectPr/></w:body></w:document>',
   );
   return zip.generate({ type: 'nodebuffer' });
 }
@@ -65,6 +67,51 @@ describe('WordService', () => {
     expect(dropboxService.downloadFile).toHaveBeenCalledWith('/plantillas/quote.docx');
     expect(documentXml).toContain('Cliente Demo');
     expect(documentXml).toContain('242,00 €');
+  });
+
+  it('completa el estado y los campos comerciales de una plantilla DOCX de pedido', async () => {
+    const order = {
+      date: new Date('2026-03-01T00:00:00.000Z'),
+      status: OrderStatus.RECEIVED,
+      clientName: 'Cliente Pedido',
+      orderConcepts: [{ position: 0, name: 'Producto', basePrice: 50, quantity: 2, vat: 21, irpf: 0 }],
+    } as Order;
+
+    const document = await service.generateOrderDocument('/plantillas/order.docx', order, enterprise);
+    const documentXml = new PizZip(document).file('word/document.xml')?.asText() ?? '';
+
+    expect(dropboxService.downloadFile).toHaveBeenCalledWith('/plantillas/order.docx');
+    expect(documentXml).toContain('Cliente Pedido');
+    expect(documentXml).toContain(OrderStatus.RECEIVED);
+    expect(documentXml).toContain('121,00 €');
+  });
+
+  it('completa los mismos campos comerciales para una factura', async () => {
+    const invoice = {
+      issuedDate: new Date('2026-03-01T00:00:00.000Z'),
+      seriesNumber: 7,
+      series: { series: 'F' },
+      clientName: 'Cliente Factura',
+      invoiceConcepts: [{ position: 0, name: 'Servicio', basePrice: 50, quantity: 2, vat: 21, irpf: 0 }],
+    } as Invoice;
+
+    const document = await service.generateInvoiceDocument('/plantillas/invoice.docx', invoice, enterprise);
+    const documentXml = new PizZip(document).file('word/document.xml')?.asText() ?? '';
+
+    expect(dropboxService.downloadFile).toHaveBeenCalledWith('/plantillas/invoice.docx');
+    expect(documentXml).toContain('Cliente Factura');
+    expect(documentXml).toContain('F-0007');
+    expect(documentXml).toContain('121,00 €');
+  });
+
+  it('usa un número neutro cuando la factura no tiene serie ni número', () => {
+    const data = (service as unknown as {
+      buildInvoiceTemplateData: (invoice: Invoice, enterprise: Enterprise) => Record<string, unknown>;
+    }).buildInvoiceTemplateData({ seriesNumber: null } as unknown as Invoice, enterprise) as {
+      invoice: { code: string };
+    };
+
+    expect(data.invoice.code).toBe('-0000');
   });
 
   it('genera documentos genéricos con un bloque por cada elemento de una colección', async () => {
@@ -128,6 +175,16 @@ describe('WordService', () => {
     });
     expect(data.vat_breakdown).toEqual([]);
     expect(data.totals.total).toBe('0,00 €');
+  });
+
+  it('deja vacío el estado del pedido si no está informado', () => {
+    const data = (service as unknown as {
+      buildOrderTemplateData: (order: Order, enterprise: Enterprise) => Record<string, unknown>;
+    }).buildOrderTemplateData({ date: null } as unknown as Order, enterprise) as {
+      order: { status: string };
+    };
+
+    expect(data.order).toEqual({ status: '' });
   });
 
   it('agrupa el desglose de IVA por porcentaje y conserva el orden de los conceptos', () => {

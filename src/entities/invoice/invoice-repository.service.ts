@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Invoice } from './invoice.entity';
 import { DeleteResult, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -76,6 +76,27 @@ export class InvoiceRepository {
    */
   findById(id: string, relations?: string[]): Promise<Invoice> {
     return this.invoiceRepository.findOne({ where: { id }, relations });
+  }
+
+  /**
+   * Resuelve la ruta de Dropbox de la plantilla Word de una factura.
+   *
+   * @param enterpriseId Identificador de la empresa propietaria de la plantilla
+   * @returns Ruta absoluta de Dropbox con el tipo de entidad sustituido
+   */
+  getTemplateFilePath(enterpriseId: string): string {
+    const configuredPath = process.env.DROPBOX_TEMPLATE_FILE_PATH;
+    if (!configuredPath) {
+      this.logger.error('No se ha definido DROPBOX_TEMPLATE_FILE_PATH para las plantillas Word');
+      throw new InternalServerErrorException('No está configurada la ruta de las plantillas Word');
+    }
+
+    const templatePath = configuredPath
+      .replace(':enterpriseId', enterpriseId)
+      .replace(':entityType', 'invoice')
+      .replace(/\/{2,}/g, '/');
+    this.logger.debug(`Ruta de plantilla Word resuelta para factura: ${templatePath}`);
+    return templatePath;
   }
 
   /**
