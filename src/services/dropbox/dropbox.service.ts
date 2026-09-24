@@ -4,6 +4,7 @@ import { Dropbox, DropboxResponse, files } from 'dropbox';
 import * as fetch from 'isomorphic-fetch';
 import { File as MulterFile } from 'multer';
 import axios from 'axios';
+import { DropboxFileNotFoundError } from './dropbox-file-not-found.error';
 
 import * as dotenv from 'dotenv';
 if (process.env.E2E_TEST !== 'true') {
@@ -145,6 +146,9 @@ export class DropboxService {
       const response = await this.dbx.filesDownload({ path }); //Obtenemos el archivo en cuestión
       return response.result; //Retornamos el archivo
     } catch (error) {
+      if (this.isNotFoundError(error)) {
+        throw new DropboxFileNotFoundError(path);
+      }
       this.logger.error("Error descargando archivo de Dropbox: ", error)
       throw new Error(`Error downloading file: ${error.message}`); //Manejamos el error
     }
@@ -157,7 +161,8 @@ export class DropboxService {
    */
   async downloadFile(path: string): Promise<Buffer> {
     await this.ensureAccessToken(); //Nos aseguramos de que el token de acceso sea válido
-   
+
+    this.logger.debug(`Solicitando archivo en Dropbox: ${path}`);
     try {
       const response = await this.dbx.filesDownload({ path }); //Descargamos el archivo
       // El contenido del archivo está en response.result.fileBinary
@@ -168,8 +173,14 @@ export class DropboxService {
       }
       
       // Convertir a Buffer si no lo es ya
-      return Buffer.isBuffer(fileContent) ? fileContent : Buffer.from(fileContent);
+      const fileBuffer = Buffer.isBuffer(fileContent) ? fileContent : Buffer.from(fileContent);
+      this.logger.debug(`Archivo encontrado en Dropbox: ${path} (${fileBuffer.length} bytes)`);
+      return fileBuffer;
     } catch (error) {
+      if (this.isNotFoundError(error)) {
+        this.logger.warn(`No se ha encontrado el archivo en Dropbox: ${path}`);
+        throw new DropboxFileNotFoundError(path);
+      }
       this.logger.error("Error descargando archivo de Dropbox: ", error)
       throw new Error(`Error downloading file: ${error.message}`); //Manejamos el error
     }
@@ -247,5 +258,13 @@ export class DropboxService {
       .replace(/^_+|_+$/g, '') // Quitar underscores al inicio y final
       .substring(0, 100) // Limitar longitud
       .trim() || 'documento'; // Fallback si queda vacío
+  }
+
+  /** Indica si Dropbox ha comunicado que el recurso solicitado no existe. */
+  private isNotFoundError(error: unknown): boolean {
+    return typeof error === 'object'
+      && error !== null
+      && 'status' in error
+      && (error as { status?: unknown }).status === 409;
   }
 }

@@ -210,6 +210,30 @@ describe('QuoteRepository', () => {
     });
   });
 
+  describe('getTemplateFilePath', () => {
+    it('sustituye empresa y tipo de entidad en la ruta de plantilla', () => {
+      const previousTemplatePath = process.env.DROPBOX_TEMPLATE_FILE_PATH;
+      process.env.DROPBOX_TEMPLATE_FILE_PATH = '/enterprises/:enterpriseId/templates//:entityType.docx';
+
+      expect(quoteRepositoryService.getTemplateFilePath('enterprise-uuid')).toBe(
+        '/enterprises/enterprise-uuid/templates/quote.docx',
+      );
+
+      process.env.DROPBOX_TEMPLATE_FILE_PATH = previousTemplatePath;
+    });
+
+    it('falla con configuración explícita si no existe la ruta de plantillas', () => {
+      const previousTemplatePath = process.env.DROPBOX_TEMPLATE_FILE_PATH;
+      delete process.env.DROPBOX_TEMPLATE_FILE_PATH;
+
+      expect(() => quoteRepositoryService.getTemplateFilePath('enterprise-uuid')).toThrow(
+        'No está configurada la ruta de plantillas Word en el servidor',
+      );
+
+      process.env.DROPBOX_TEMPLATE_FILE_PATH = previousTemplatePath;
+    });
+  });
+
   describe('updateById', () => {
     it('lanza 404 si la cotización no existe', async () => {
       typeOrmRepositoryMock.findOne.mockResolvedValue(null);

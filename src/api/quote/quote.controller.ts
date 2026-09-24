@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpException, HttpStatus, Logger, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { QuoteService } from './quote.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
@@ -7,6 +7,7 @@ import { QuoteResponseDto } from 'src/entities/quote/dto/quote-response.dto';
 import { MapResponse } from 'src/common/decorators/map-response.decorator';
 import { RequireEnterpriseId } from 'src/common/decorators/enterprise-access.decorator';
 import { RequirePermission } from 'src/common/decorators/enterprise-permission.decorator';
+import { Response } from 'express';
 
 import { QuoteStatus } from 'src/common/enums';
 
@@ -108,6 +109,17 @@ export class QuoteController {
   async findById(@Param('id') id: string, @Query('relations') relations?: string) {
     const relationsArray = relations ? relations.split(',') : [];
     return this.quoteService.findById(id, relationsArray);
+  }
+
+  /** Descarga el presupuesto completando la plantilla DOCX de la empresa. */
+  @Get(':id/document')
+  @RequirePermission('quotes', 'read')
+  @ApiOperation({ summary: 'Descargar el presupuesto en Word usando la plantilla de empresa' })
+  @ApiResponse({ status: 200, description: 'El documento Word se ha descargado correctamente.' })
+  @ApiResponse({ status: 404, description: 'Presupuesto o plantilla Word no encontrados.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async downloadDocumentById(@Param('id') id: string, @Res() response: Response): Promise<void> {
+    await this.quoteService.downloadDocumentById(id, response);
   }
 
   /**

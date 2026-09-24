@@ -28,6 +28,7 @@ import axios from 'axios';
 import { Dropbox } from 'dropbox';
 import { File as MulterFile } from 'multer';
 import { DropboxService } from './dropbox.service';
+import { DropboxFileNotFoundError } from './dropbox-file-not-found.error';
 
 describe('DropboxService', () => {
   let dropboxService: DropboxService;
@@ -130,6 +131,24 @@ describe('DropboxService', () => {
 
       await expect(dropboxService.downloadFile('/empresa/gasto.pdf')).rejects.toThrow(
         'Error downloading file: No se pudo obtener el contenido del archivo',
+      );
+    });
+
+    it('distingue una plantilla inexistente de otros errores de Dropbox', async () => {
+      filesDownloadMock.mockRejectedValue({ status: 409 });
+
+      await expect(dropboxService.downloadFile('/empresa/plantilla.docx')).rejects.toBeInstanceOf(
+        DropboxFileNotFoundError,
+      );
+    });
+  });
+
+  describe('getFile', () => {
+    it('identifica un archivo inexistente', async () => {
+      filesDownloadMock.mockRejectedValue({ status: 409 });
+
+      await expect(dropboxService.getFile('/empresa/plantilla.docx')).rejects.toBeInstanceOf(
+        DropboxFileNotFoundError,
       );
     });
   });

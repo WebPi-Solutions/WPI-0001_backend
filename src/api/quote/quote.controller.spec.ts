@@ -15,6 +15,7 @@ describe('QuoteController', () => {
     updateById: jest.Mock;
     updateStatusById: jest.Mock;
     deleteById: jest.Mock;
+    downloadDocumentById: jest.Mock;
   };
 
   const enterpriseId = 'enterprise-uuid';
@@ -29,6 +30,7 @@ describe('QuoteController', () => {
       updateById: jest.fn(),
       updateStatusById: jest.fn(),
       deleteById: jest.fn(),
+      downloadDocumentById: jest.fn(),
     };
 
     const testingModule: TestingModule = await Test.createTestingModule({
@@ -133,6 +135,16 @@ describe('QuoteController', () => {
       await controller.findById(quoteId);
 
       expect(quoteService.findById).toHaveBeenCalledWith(quoteId, []);
+    });
+  });
+
+  describe('downloadDocumentById', () => {
+    it('delega la descarga del documento Word en el servicio', async () => {
+      const response = {};
+
+      await controller.downloadDocumentById(quoteId, response as never);
+
+      expect(quoteService.downloadDocumentById).toHaveBeenCalledWith(quoteId, response);
     });
   });
 

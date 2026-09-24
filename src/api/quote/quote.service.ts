@@ -7,7 +7,9 @@ import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.servi
 import { OrderRepository } from 'src/entities/order/order-repository.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
+import { WordService } from 'src/services/word/word.service';
 import { DeleteResult } from 'typeorm';
+import { Response } from 'express';
 
 import { QuoteStatus } from 'src/common/enums';
 
@@ -21,6 +23,7 @@ export class QuoteService {
               private readonly enterpriseAccessService: EnterpriseAccessService,
               private readonly invoiceRepository: InvoiceRepository,
               private readonly orderRepository: OrderRepository,
+              private readonly wordService: WordService,
   ){}
 
   /**
@@ -93,6 +96,38 @@ export class QuoteService {
     }
     
     return quote;
+  }
+
+  /**
+   * Genera y devuelve el DOCX del presupuesto usando la plantilla de su empresa.
+   * @param id Identificador del presupuesto
+   * @param response Respuesta HTTP donde se adjunta el documento
+   * @returns Nada; el archivo se escribe directamente en la respuesta
+   */
+  async downloadDocumentById(id: string, response: Response): Promise<void> {
+    const quote = await this.quoteRepository.findById(id, ['client', 'quoteConcepts']);
+    if (!quote) {
+      throw new HttpException(`Cotización con ID: ${id} no encontrada`, HttpStatus.NOT_FOUND);
+    }
+    this.assertQuoteAccessible(quote, 'read');
+
+    const enterprise = await this.enterpriseRepository.findById(quote.client.enterpriseId);
+    if (!enterprise) {
+      throw new HttpException('Cotización no encontrada', HttpStatus.NOT_FOUND);
+    }
+
+    const document = await this.wordService.generateQuoteDocument(
+      this.quoteRepository.getTemplateFilePath(enterprise.id),
+      quote,
+      enterprise,
+    );
+    const fileName = this.sanitizeDocumentFileName(quote.name);
+    response.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Disposition': `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      'Content-Length': document.length.toString(),
+    });
+    response.send(document);
   }
 
   /**
@@ -263,6 +298,18 @@ export class QuoteService {
    */
   private stripQuoteConceptRelation(quote: Quote): void {
     delete (quote as { quoteConcepts?: unknown }).quoteConcepts;
+  }
+
+  /** Sanitiza el nombre del adjunto para los encabezados HTTP. */
+  private sanitizeDocumentFileName(quoteName: string | null | undefined): string {
+    const baseName = (quoteName ?? 'presupuesto')
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+      .replace(/[^\x20-\x7E]/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/_{2,}/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 100) || 'presupuesto';
+    return `${baseName}.docx`;
   }
 
   /**
