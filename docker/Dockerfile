@@ -12,10 +12,14 @@ RUN apk update && apk add --no-cache \
     graphicsmagick \
     imagemagick \
     ghostscript \
+    chromium \
     tesseract-ocr \
     tesseract-ocr-data-eng \
     tesseract-ocr-data-spa \
     && npm install --legacy-peer-deps
+
+# Chromium se usa con puppeteer-core para generar PDFs estáticos desde HTML.
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Copia el resto del código
 COPY . .

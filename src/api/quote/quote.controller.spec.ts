@@ -139,7 +139,7 @@ describe('QuoteController', () => {
   });
 
   describe('downloadDocumentById', () => {
-    it('delega la descarga del documento Word en el servicio', async () => {
+    it('delega la descarga del documento PDF en el servicio', async () => {
       const response = {};
 
       await controller.downloadDocumentById(quoteId, response as never);

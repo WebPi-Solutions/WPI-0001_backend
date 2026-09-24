@@ -9,7 +9,7 @@ import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/en
 import { DeleteResult } from 'typeorm';
 import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
 import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-repository.service';
-import { WordService } from 'src/services/word/word.service';
+import { HtmlPdfService } from 'src/services/html-pdf/html-pdf.service';
 import { Response } from 'express';
 
 import { InvoiceStatus } from 'src/common/enums';
@@ -25,7 +25,7 @@ export class InvoiceService {
               private readonly enterpriseAccessService: EnterpriseAccessService,
               private readonly inventoryLedgerService: InventoryLedgerService,
               private readonly enterpriseRepository: EnterpriseRepository,
-              private readonly wordService: WordService,
+              private readonly htmlPdfService: HtmlPdfService,
   ){}
 
   /**
@@ -102,7 +102,7 @@ export class InvoiceService {
   }
 
   /**
-   * Genera y devuelve el DOCX de la factura usando la plantilla de su empresa.
+   * Genera y devuelve el PDF de la factura usando la plantilla HTML de su empresa.
    * @param id Identificador de la factura
    * @param response Respuesta HTTP donde se adjunta el documento
    * @returns Nada; el archivo se escribe directamente en la respuesta
@@ -119,14 +119,14 @@ export class InvoiceService {
       throw new HttpException('Factura no encontrada', HttpStatus.NOT_FOUND);
     }
 
-    const document = await this.wordService.generateInvoiceDocument(
-      this.invoiceRepository.getTemplateFilePath(enterprise.id),
+    const document = await this.htmlPdfService.generateInvoicePdf(
+      this.invoiceRepository.getHtmlTemplateFilePath(enterprise.id),
       invoice,
       enterprise,
     );
     const fileName = this.sanitizeDocumentFileName(invoice.name);
     response.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
       'Content-Length': document.length.toString(),
     });
@@ -399,7 +399,7 @@ export class InvoiceService {
       .replace(/_{2,}/g, '_')
       .replace(/^_+|_+$/g, '')
       .slice(0, 100) || 'factura';
-    return `${baseName}.docx`;
+    return `${baseName}.pdf`;
   }
 
   /**

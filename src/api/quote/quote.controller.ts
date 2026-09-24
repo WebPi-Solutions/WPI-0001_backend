@@ -111,12 +111,12 @@ export class QuoteController {
     return this.quoteService.findById(id, relationsArray);
   }
 
-  /** Descarga el presupuesto completando la plantilla DOCX de la empresa. */
+  /** Descarga el presupuesto como PDF estático desde la plantilla HTML de la empresa. */
   @Get(':id/document')
   @RequirePermission('quotes', 'read')
-  @ApiOperation({ summary: 'Descargar el presupuesto en Word usando la plantilla de empresa' })
-  @ApiResponse({ status: 200, description: 'El documento Word se ha descargado correctamente.' })
-  @ApiResponse({ status: 404, description: 'Presupuesto o plantilla Word no encontrados.' })
+  @ApiOperation({ summary: 'Descargar el presupuesto en PDF usando la plantilla de empresa' })
+  @ApiResponse({ status: 200, description: 'El PDF se ha descargado correctamente.' })
+  @ApiResponse({ status: 404, description: 'Presupuesto o plantilla HTML no encontrados.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   async downloadDocumentById(@Param('id') id: string, @Res() response: Response): Promise<void> {
     await this.quoteService.downloadDocumentById(id, response);

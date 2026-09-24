@@ -7,7 +7,7 @@ import { InvoiceRepository } from 'src/entities/invoice/invoice-repository.servi
 import { OrderRepository } from 'src/entities/order/order-repository.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
-import { WordService } from 'src/services/word/word.service';
+import { HtmlPdfService } from 'src/services/html-pdf/html-pdf.service';
 import { DeleteResult } from 'typeorm';
 import { Response } from 'express';
 
@@ -23,7 +23,7 @@ export class QuoteService {
               private readonly enterpriseAccessService: EnterpriseAccessService,
               private readonly invoiceRepository: InvoiceRepository,
               private readonly orderRepository: OrderRepository,
-              private readonly wordService: WordService,
+              private readonly htmlPdfService: HtmlPdfService,
   ){}
 
   /**
@@ -99,7 +99,7 @@ export class QuoteService {
   }
 
   /**
-   * Genera y devuelve el DOCX del presupuesto usando la plantilla de su empresa.
+   * Genera y devuelve el PDF estático del presupuesto usando la plantilla HTML de su empresa.
    * @param id Identificador del presupuesto
    * @param response Respuesta HTTP donde se adjunta el documento
    * @returns Nada; el archivo se escribe directamente en la respuesta
@@ -116,14 +116,14 @@ export class QuoteService {
       throw new HttpException('Cotización no encontrada', HttpStatus.NOT_FOUND);
     }
 
-    const document = await this.wordService.generateQuoteDocument(
-      this.quoteRepository.getTemplateFilePath(enterprise.id),
+    const document = await this.htmlPdfService.generateQuotePdf(
+      this.quoteRepository.getHtmlTemplateFilePath(enterprise.id),
       quote,
       enterprise,
     );
     const fileName = this.sanitizeDocumentFileName(quote.name);
     response.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
       'Content-Length': document.length.toString(),
     });
@@ -309,7 +309,7 @@ export class QuoteService {
       .replace(/_{2,}/g, '_')
       .replace(/^_+|_+$/g, '')
       .slice(0, 100) || 'presupuesto';
-    return `${baseName}.docx`;
+    return `${baseName}.pdf`;
   }
 
   /**

@@ -10,7 +10,7 @@ import { OrderRepository } from 'src/entities/order/order-repository.service';
 import { Order } from 'src/entities/order/order.entity';
 import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
 import { Quote } from 'src/entities/quote/quote.entity';
-import { WordService } from 'src/services/word/word.service';
+import { HtmlPdfService } from 'src/services/html-pdf/html-pdf.service';
 import { Response } from 'express';
 
 /**
@@ -26,7 +26,7 @@ export class OrderService {
     private readonly quoteRepository: QuoteRepository,
     private readonly enterpriseRepository: EnterpriseRepository,
     private readonly enterpriseAccessService: EnterpriseAccessService,
-    private readonly wordService: WordService,
+    private readonly htmlPdfService: HtmlPdfService,
   ) {}
 
   /**
@@ -111,7 +111,7 @@ export class OrderService {
   }
 
   /**
-   * Genera y devuelve el DOCX del pedido usando la plantilla de su empresa.
+   * Genera y devuelve el PDF del pedido usando la plantilla HTML de su empresa.
    *
    * @param id Identificador del pedido
    * @param response Respuesta HTTP donde se adjunta el documento
@@ -129,14 +129,14 @@ export class OrderService {
       throw new HttpException('Pedido no encontrado', HttpStatus.NOT_FOUND);
     }
 
-    const document = await this.wordService.generateOrderDocument(
-      this.orderRepository.getTemplateFilePath(enterprise.id),
+    const document = await this.htmlPdfService.generateOrderPdf(
+      this.orderRepository.getHtmlTemplateFilePath(enterprise.id),
       order,
       enterprise,
     );
     const fileName = this.sanitizeDocumentFileName(order.name);
     response.set({
-      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
       'Content-Length': document.length.toString(),
     });
@@ -301,7 +301,7 @@ export class OrderService {
       .replace(/_{2,}/g, '_')
       .replace(/^_+|_+$/g, '')
       .slice(0, 100) || 'pedido';
-    return `${baseName}.docx`;
+    return `${baseName}.pdf`;
   }
 
   /**

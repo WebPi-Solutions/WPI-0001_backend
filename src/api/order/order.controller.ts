@@ -109,12 +109,12 @@ export class OrderController {
     return result;
   }
 
-  /** Descarga el pedido completando la plantilla DOCX de la empresa. */
+  /** Descarga el pedido como PDF usando la plantilla HTML de la empresa. */
   @Get(':id/document')
   @RequirePermission('orders', 'read')
-  @ApiOperation({ summary: 'Descargar el pedido en Word usando la plantilla de empresa' })
-  @ApiResponse({ status: 200, description: 'El documento Word se ha descargado correctamente.' })
-  @ApiResponse({ status: 404, description: 'Pedido o plantilla Word no encontrados.' })
+  @ApiOperation({ summary: 'Descargar el pedido en PDF usando la plantilla HTML de empresa' })
+  @ApiResponse({ status: 200, description: 'El PDF se ha descargado correctamente.' })
+  @ApiResponse({ status: 404, description: 'Pedido o plantilla HTML no encontrados.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   async downloadDocumentById(@Param('id') id: string, @Res() response: Response): Promise<void> {
     await this.orderService.downloadDocumentById(id, response);

@@ -137,7 +137,7 @@ describe('DropboxService', () => {
     it('distingue una plantilla inexistente de otros errores de Dropbox', async () => {
       filesDownloadMock.mockRejectedValue({ status: 409 });
 
-      await expect(dropboxService.downloadFile('/empresa/plantilla.docx')).rejects.toBeInstanceOf(
+      await expect(dropboxService.downloadFile('/empresa/plantilla.html')).rejects.toBeInstanceOf(
         DropboxFileNotFoundError,
       );
     });
@@ -147,7 +147,7 @@ describe('DropboxService', () => {
     it('identifica un archivo inexistente', async () => {
       filesDownloadMock.mockRejectedValue({ status: 409 });
 
-      await expect(dropboxService.getFile('/empresa/plantilla.docx')).rejects.toBeInstanceOf(
+      await expect(dropboxService.getFile('/empresa/plantilla.html')).rejects.toBeInstanceOf(
         DropboxFileNotFoundError,
       );
     });

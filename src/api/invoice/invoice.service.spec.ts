@@ -11,7 +11,7 @@ import { InvoiceService } from './invoice.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { InventoryLedgerService } from 'src/common/helpers/inventory/inventory-ledger.service';
 import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-repository.service';
-import { WordService } from 'src/services/word/word.service';
+import { HtmlPdfService } from 'src/services/html-pdf/html-pdf.service';
 
 import { InvoiceStatus } from 'src/common/enums';
 
@@ -21,7 +21,7 @@ describe('InvoiceService', () => {
     create: jest.Mock;
     findAll: jest.Mock;
     findById: jest.Mock;
-    getTemplateFilePath: jest.Mock;
+    getHtmlTemplateFilePath: jest.Mock;
     updateById: jest.Mock;
     deleteById: jest.Mock;
   };
@@ -34,7 +34,7 @@ describe('InvoiceService', () => {
     reverseInvoiceCancellation: jest.Mock;
   };
   let enterpriseRepository: { findById: jest.Mock };
-  let wordService: { generateInvoiceDocument: jest.Mock };
+  let htmlPdfService: { generateInvoicePdf: jest.Mock };
 
   const invoiceId = 'invoice-uuid';
   const clientId = 'client-uuid';
@@ -122,7 +122,7 @@ describe('InvoiceService', () => {
       create: jest.fn(),
       findAll: jest.fn(),
       findById: jest.fn(),
-      getTemplateFilePath: jest.fn().mockReturnValue('/enterprises/enterprise-uuid/templates/word/invoice.docx'),
+      getHtmlTemplateFilePath: jest.fn().mockReturnValue('/enterprises/enterprise-uuid/templates/html/invoice.html'),
       updateById: jest.fn(),
       deleteById: jest.fn(),
     };
@@ -135,7 +135,7 @@ describe('InvoiceService', () => {
       reverseInvoiceCancellation: jest.fn().mockResolvedValue(undefined),
     };
     enterpriseRepository = { findById: jest.fn() };
-    wordService = { generateInvoiceDocument: jest.fn() };
+    htmlPdfService = { generateInvoicePdf: jest.fn() };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -154,7 +154,7 @@ describe('InvoiceService', () => {
         },
         { provide: InventoryLedgerService, useValue: inventoryLedgerService },
         { provide: EnterpriseRepository, useValue: enterpriseRepository },
-        { provide: WordService, useValue: wordService },
+        { provide: HtmlPdfService, useValue: htmlPdfService },
       ],
     }).compile();
 
@@ -346,21 +346,21 @@ describe('InvoiceService', () => {
         invoiceConcepts: [{ position: 0, name: 'Servicio', basePrice: 100, quantity: 1, vat: 21, irpf: 0 }] as Invoice['invoiceConcepts'],
       });
       const enterprise = { id: enterpriseId, name: 'Empresa Demo' };
-      const document = Buffer.from('docx');
+      const document = Buffer.from('pdf');
       const response = { set: jest.fn(), send: jest.fn() };
       invoiceRepository.findById.mockResolvedValue(invoice);
       enterpriseRepository.findById.mockResolvedValue(enterprise);
-      wordService.generateInvoiceDocument.mockResolvedValue(document);
+      htmlPdfService.generateInvoicePdf.mockResolvedValue(document);
 
       await service.downloadDocumentById(invoiceId, response as never);
 
         expect(invoiceRepository.findById).toHaveBeenCalledWith(invoiceId, ['client', 'series', 'invoiceConcepts']);
-      expect(wordService.generateInvoiceDocument).toHaveBeenCalledWith(
-        '/enterprises/enterprise-uuid/templates/word/invoice.docx', invoice, enterprise,
+      expect(htmlPdfService.generateInvoicePdf).toHaveBeenCalledWith(
+        '/enterprises/enterprise-uuid/templates/html/invoice.html', invoice, enterprise,
       );
       expect(response.set).toHaveBeenCalledWith(expect.objectContaining({
-        'Content-Disposition': expect.stringContaining('Factura_Demo.docx'),
-        'Content-Length': '4',
+        'Content-Disposition': expect.stringContaining('Factura_Demo.pdf'),
+        'Content-Length': '3',
       }));
       expect(response.send).toHaveBeenCalledWith(document);
     });
@@ -387,24 +387,24 @@ describe('InvoiceService', () => {
       const templateError = new Error('Plantilla no encontrada');
       invoiceRepository.findById.mockResolvedValue(invoice);
       enterpriseRepository.findById.mockResolvedValue({ id: enterpriseId });
-      wordService.generateInvoiceDocument.mockRejectedValueOnce(templateError);
+      htmlPdfService.generateInvoicePdf.mockRejectedValueOnce(templateError);
 
       await expect(
         service.downloadDocumentById(invoiceId, { set: jest.fn(), send: jest.fn() } as never),
       ).rejects.toBe(templateError);
 
-      wordService.generateInvoiceDocument.mockResolvedValue(Buffer.from('docx'));
+      htmlPdfService.generateInvoicePdf.mockResolvedValue(Buffer.from('pdf'));
       const response = { set: jest.fn(), send: jest.fn() };
       await service.downloadDocumentById(invoiceId, response as never);
       expect(response.set).toHaveBeenCalledWith(expect.objectContaining({
-        'Content-Disposition': expect.stringContaining('factura.docx'),
+        'Content-Disposition': expect.stringContaining('factura.pdf'),
       }));
 
       invoice.name = null;
       const nullNameResponse = { set: jest.fn(), send: jest.fn() };
       await service.downloadDocumentById(invoiceId, nullNameResponse as never);
       expect(nullNameResponse.set).toHaveBeenCalledWith(expect.objectContaining({
-        'Content-Disposition': expect.stringContaining('factura.docx'),
+        'Content-Disposition': expect.stringContaining('factura.pdf'),
       }));
     });
   });

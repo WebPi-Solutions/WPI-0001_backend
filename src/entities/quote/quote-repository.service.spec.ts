@@ -210,27 +210,27 @@ describe('QuoteRepository', () => {
     });
   });
 
-  describe('getTemplateFilePath', () => {
+  describe('getHtmlTemplateFilePath', () => {
     it('sustituye empresa y tipo de entidad en la ruta de plantilla', () => {
-      const previousTemplatePath = process.env.DROPBOX_TEMPLATE_FILE_PATH;
-      process.env.DROPBOX_TEMPLATE_FILE_PATH = '/enterprises/:enterpriseId/templates//:entityType.docx';
+      const previousTemplatePath = process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH;
+      process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH = '/enterprises/:enterpriseId/templates/html//:entityType.html';
 
-      expect(quoteRepositoryService.getTemplateFilePath('enterprise-uuid')).toBe(
-        '/enterprises/enterprise-uuid/templates/quote.docx',
+      expect(quoteRepositoryService.getHtmlTemplateFilePath('enterprise-uuid')).toBe(
+        '/enterprises/enterprise-uuid/templates/html/quote.html',
       );
 
-      process.env.DROPBOX_TEMPLATE_FILE_PATH = previousTemplatePath;
+      process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH = previousTemplatePath;
     });
 
     it('falla con configuración explícita si no existe la ruta de plantillas', () => {
-      const previousTemplatePath = process.env.DROPBOX_TEMPLATE_FILE_PATH;
-      delete process.env.DROPBOX_TEMPLATE_FILE_PATH;
+      const previousTemplatePath = process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH;
+      delete process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH;
 
-      expect(() => quoteRepositoryService.getTemplateFilePath('enterprise-uuid')).toThrow(
-        'No está configurada la ruta de plantillas Word en el servidor',
+      expect(() => quoteRepositoryService.getHtmlTemplateFilePath('enterprise-uuid')).toThrow(
+        'No está configurada la ruta de plantillas HTML en el servidor',
       );
 
-      process.env.DROPBOX_TEMPLATE_FILE_PATH = previousTemplatePath;
+      process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH = previousTemplatePath;
     });
   });
 

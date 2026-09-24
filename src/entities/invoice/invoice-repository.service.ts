@@ -79,23 +79,23 @@ export class InvoiceRepository {
   }
 
   /**
-   * Resuelve la ruta de Dropbox de la plantilla Word de una factura.
+   * Resuelve la ruta de Dropbox de la plantilla HTML de una factura.
    *
    * @param enterpriseId Identificador de la empresa propietaria de la plantilla
    * @returns Ruta absoluta de Dropbox con el tipo de entidad sustituido
    */
-  getTemplateFilePath(enterpriseId: string): string {
-    const configuredPath = process.env.DROPBOX_TEMPLATE_FILE_PATH;
+  getHtmlTemplateFilePath(enterpriseId: string): string {
+    const configuredPath = process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH;
     if (!configuredPath) {
-      this.logger.error('No se ha definido DROPBOX_TEMPLATE_FILE_PATH para las plantillas Word');
-      throw new InternalServerErrorException('No está configurada la ruta de las plantillas Word');
+      this.logger.error('No se ha definido DROPBOX_TEMPLATE_HTML_FILE_PATH para las plantillas HTML');
+      throw new InternalServerErrorException('No está configurada la ruta de las plantillas HTML');
     }
 
     const templatePath = configuredPath
       .replace(':enterpriseId', enterpriseId)
       .replace(':entityType', 'invoice')
       .replace(/\/{2,}/g, '/');
-    this.logger.debug(`Ruta de plantilla Word resuelta para factura: ${templatePath}`);
+    this.logger.debug(`Ruta de plantilla HTML resuelta para factura: ${templatePath}`);
     return templatePath;
   }
 

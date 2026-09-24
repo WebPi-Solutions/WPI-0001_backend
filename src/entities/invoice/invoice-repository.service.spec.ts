@@ -53,7 +53,7 @@ describe('InvoiceRepository', () => {
     createQueryBuilder: jest.Mock;
     manager: { query: jest.Mock };
   };
-  const originalTemplatePath = process.env.DROPBOX_TEMPLATE_FILE_PATH;
+  const originalTemplatePath = process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH;
 
   /**
    * Crea el módulo de pruebas con un repositorio TypeORM simulado.
@@ -101,10 +101,10 @@ describe('InvoiceRepository', () => {
 
   afterEach(() => {
     if (originalTemplatePath === undefined) {
-      delete process.env.DROPBOX_TEMPLATE_FILE_PATH;
+      delete process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH;
       return;
     }
-    process.env.DROPBOX_TEMPLATE_FILE_PATH = originalTemplatePath;
+    process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH = originalTemplatePath;
   });
 
   it('should be defined', () => {
@@ -138,20 +138,20 @@ describe('InvoiceRepository', () => {
     });
   });
 
-  describe('getTemplateFilePath', () => {
+  describe('getHtmlTemplateFilePath', () => {
     it('sustituye la empresa y el tipo de entidad en la ruta de plantilla', () => {
-      process.env.DROPBOX_TEMPLATE_FILE_PATH = '/enterprises/:enterpriseId/templates//word/:entityType.docx';
+      process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH = '/enterprises/:enterpriseId/templates//html/:entityType.html';
 
-      expect(invoiceRepositoryService.getTemplateFilePath('enterprise-uuid')).toBe(
-        '/enterprises/enterprise-uuid/templates/word/invoice.docx',
+      expect(invoiceRepositoryService.getHtmlTemplateFilePath('enterprise-uuid')).toBe(
+        '/enterprises/enterprise-uuid/templates/html/invoice.html',
       );
     });
 
     it('lanza 500 si no está configurada la ruta de las plantillas', () => {
-      delete process.env.DROPBOX_TEMPLATE_FILE_PATH;
+      delete process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH;
 
-      expect(() => invoiceRepositoryService.getTemplateFilePath('enterprise-uuid')).toThrow(
-        'No está configurada la ruta de las plantillas Word',
+      expect(() => invoiceRepositoryService.getHtmlTemplateFilePath('enterprise-uuid')).toThrow(
+        'No está configurada la ruta de las plantillas HTML',
       );
     });
   });

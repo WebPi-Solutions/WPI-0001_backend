@@ -111,12 +111,12 @@ export class InvoiceController {
     return this.invoiceService.findById(id, relationsArray);
   }
 
-  /** Descarga la factura completando la plantilla DOCX de la empresa. */
+  /** Descarga la factura como PDF usando la plantilla HTML de la empresa. */
   @Get(':id/document')
   @RequirePermission('invoices', 'read')
-  @ApiOperation({ summary: 'Descargar la factura en Word usando la plantilla de empresa' })
-  @ApiResponse({ status: 200, description: 'El documento Word se ha descargado correctamente.' })
-  @ApiResponse({ status: 404, description: 'Factura o plantilla Word no encontradas.' })
+  @ApiOperation({ summary: 'Descargar la factura en PDF usando la plantilla HTML de empresa' })
+  @ApiResponse({ status: 200, description: 'El PDF se ha descargado correctamente.' })
+  @ApiResponse({ status: 404, description: 'Factura o plantilla HTML no encontradas.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   async downloadDocumentById(@Param('id') id: string, @Res() response: Response): Promise<void> {
     await this.invoiceService.downloadDocumentById(id, response);

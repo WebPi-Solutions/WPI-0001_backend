@@ -110,15 +110,15 @@ export class QuoteRepository {
   }
 
   /**
-   * Obtiene la ruta de la plantilla DOCX de presupuestos de una empresa.
+   * Obtiene la ruta de la plantilla HTML de presupuestos de una empresa.
    * @param enterpriseId ID de la empresa propietaria de la plantilla
    * @returns Ruta resuelta en Dropbox
    */
-  getTemplateFilePath(enterpriseId: string): string {
-    const templatePath = process.env.DROPBOX_TEMPLATE_FILE_PATH;
+  getHtmlTemplateFilePath(enterpriseId: string): string {
+    const templatePath = process.env.DROPBOX_TEMPLATE_HTML_FILE_PATH;
     if (!templatePath) {
       throw new InternalServerErrorException(
-        'No está configurada la ruta de plantillas Word en el servidor',
+        'No está configurada la ruta de plantillas HTML en el servidor',
       );
     }
     const resolvedTemplatePath = templatePath
@@ -127,7 +127,7 @@ export class QuoteRepository {
     const normalizedTemplatePath = resolvedTemplatePath.replace(/\/{2,}/g, '/');
 
     this.logger.debug(
-      `Ruta de plantilla Word resuelta para la empresa ${enterpriseId}: ${normalizedTemplatePath}`,
+      `Ruta de plantilla HTML resuelta para la empresa ${enterpriseId}: ${normalizedTemplatePath}`,
     );
     return normalizedTemplatePath;
   }

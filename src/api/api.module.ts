@@ -12,7 +12,7 @@ import { DropboxModule } from 'src/services/dropbox/dropbox.module';
 import { FirebaseModule } from 'src/services/firebase/firebase.module';
 import { FileModule } from 'src/services/file/file.module';
 import { OpenaiModule } from 'src/services/openai/openai.module';
-import { WordModule } from 'src/services/word/word.module';
+import { HtmlPdfModule } from 'src/services/html-pdf/html-pdf.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { EnterpriseAccessGuard } from 'src/common/guards/enterprise-access.guard';
 import { EnterprisePermissionGuard } from 'src/common/guards/enterprise-permission.guard';
@@ -125,7 +125,7 @@ export class ApiModule {
         FirebaseModule,
         FileModule,
         OpenaiModule,
-        WordModule,
+        HtmlPdfModule,
         MulterModule.register({
           limits: {
             fileSize: parseInt(process.env.MAX_FILE_SIZE, 10) * 1024 * 1024, // 10MB max file size

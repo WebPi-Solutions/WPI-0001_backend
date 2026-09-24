@@ -10,7 +10,7 @@ import { QuoteRepository } from 'src/entities/quote/quote-repository.service';
 import { Quote } from 'src/entities/quote/quote.entity';
 import { QuoteService } from './quote.service';
 import { EnterpriseAccessService } from 'src/common/helpers/enterprise-access/enterprise-access.service';
-import { WordService } from 'src/services/word/word.service';
+import { HtmlPdfService } from 'src/services/html-pdf/html-pdf.service';
 
 import { QuoteStatus } from 'src/common/enums';
 
@@ -22,13 +22,13 @@ describe('QuoteService', () => {
     findById: jest.Mock;
     updateById: jest.Mock;
     deleteById: jest.Mock;
-    getTemplateFilePath: jest.Mock;
+    getHtmlTemplateFilePath: jest.Mock;
   };
   let clientRepository: { findById: jest.Mock };
   let enterpriseRepository: { findById: jest.Mock };
   let invoiceRepository: { findOneByQuoteId: jest.Mock };
   let orderRepository: { findOneByQuoteId: jest.Mock };
-  let wordService: { generateQuoteDocument: jest.Mock };
+  let htmlPdfService: { generateQuotePdf: jest.Mock };
 
   const quoteId = 'quote-uuid';
   const clientId = 'client-uuid';
@@ -94,13 +94,13 @@ describe('QuoteService', () => {
       findById: jest.fn(),
       updateById: jest.fn(),
       deleteById: jest.fn(),
-      getTemplateFilePath: jest.fn().mockReturnValue('/enterprises/enterprise-uuid/templates/quote.docx'),
+      getHtmlTemplateFilePath: jest.fn().mockReturnValue('/enterprises/enterprise-uuid/templates/html/quote.html'),
     };
     clientRepository = { findById: jest.fn() };
     enterpriseRepository = { findById: jest.fn() };
     invoiceRepository = { findOneByQuoteId: jest.fn().mockResolvedValue(null) };
     orderRepository = { findOneByQuoteId: jest.fn().mockResolvedValue(null) };
-    wordService = { generateQuoteDocument: jest.fn().mockResolvedValue(Buffer.from('docx')) };
+    htmlPdfService = { generateQuotePdf: jest.fn().mockResolvedValue(Buffer.from('pdf')) };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -110,7 +110,7 @@ describe('QuoteService', () => {
         { provide: EnterpriseRepository, useValue: enterpriseRepository },
         { provide: InvoiceRepository, useValue: invoiceRepository },
         { provide: OrderRepository, useValue: orderRepository },
-        { provide: WordService, useValue: wordService },
+        { provide: HtmlPdfService, useValue: htmlPdfService },
         {
           provide: EnterpriseAccessService,
           useValue: {
@@ -263,7 +263,7 @@ describe('QuoteService', () => {
   });
 
   describe('downloadDocumentById', () => {
-    it('carga el presupuesto autorizado y adjunta el DOCX generado', async () => {
+    it('carga el presupuesto autorizado y adjunta el PDF generado', async () => {
       const quote = buildQuote({
         name: 'PRES 001',
         client: buildClient(),
@@ -276,16 +276,16 @@ describe('QuoteService', () => {
       await service.downloadDocumentById(quoteId, response as never);
 
       expect(quoteRepository.findById).toHaveBeenCalledWith(quoteId, ['client', 'quoteConcepts']);
-      expect(wordService.generateQuoteDocument).toHaveBeenCalledWith(
-        '/enterprises/enterprise-uuid/templates/quote.docx',
+      expect(htmlPdfService.generateQuotePdf).toHaveBeenCalledWith(
+        '/enterprises/enterprise-uuid/templates/html/quote.html',
         quote,
         expect.objectContaining({ id: enterpriseId }),
       );
       expect(response.set).toHaveBeenCalledWith(expect.objectContaining({
-        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'Content-Disposition': expect.stringContaining('PRES_001.docx'),
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': expect.stringContaining('PRES_001.pdf'),
       }));
-      expect(response.send).toHaveBeenCalledWith(Buffer.from('docx'));
+      expect(response.send).toHaveBeenCalledWith(Buffer.from('pdf'));
     });
 
     it('devuelve 404 si el presupuesto no existe', async () => {
@@ -294,7 +294,7 @@ describe('QuoteService', () => {
       await expect(
         service.downloadDocumentById(quoteId, { set: jest.fn(), send: jest.fn() } as never),
       ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
-      expect(wordService.generateQuoteDocument).not.toHaveBeenCalled();
+      expect(htmlPdfService.generateQuotePdf).not.toHaveBeenCalled();
     });
 
     it('devuelve 404 si ya no existe la empresa del presupuesto', async () => {
@@ -304,7 +304,7 @@ describe('QuoteService', () => {
       await expect(
         service.downloadDocumentById(quoteId, { set: jest.fn(), send: jest.fn() } as never),
       ).rejects.toMatchObject({ status: HttpStatus.NOT_FOUND });
-      expect(wordService.generateQuoteDocument).not.toHaveBeenCalled();
+      expect(htmlPdfService.generateQuotePdf).not.toHaveBeenCalled();
     });
 
     it('usa un nombre de archivo seguro si el presupuesto no tiene referencia útil', async () => {
@@ -319,7 +319,7 @@ describe('QuoteService', () => {
       await service.downloadDocumentById(quoteId, response as never);
 
       expect(response.set).toHaveBeenCalledWith(expect.objectContaining({
-        'Content-Disposition': expect.stringContaining('presupuesto.docx'),
+        'Content-Disposition': expect.stringContaining('presupuesto.pdf'),
       }));
     });
 
@@ -335,7 +335,7 @@ describe('QuoteService', () => {
       await service.downloadDocumentById(quoteId, response as never);
 
       expect(response.set).toHaveBeenCalledWith(expect.objectContaining({
-        'Content-Disposition': expect.stringContaining('presupuesto.docx'),
+        'Content-Disposition': expect.stringContaining('presupuesto.pdf'),
       }));
     });
   });
