@@ -147,6 +147,28 @@ describe('HtmlPdfService', () => {
     expect(page.setContent).toHaveBeenCalledWith(expect.stringContaining('Texto de factura'), { waitUntil: 'load' });
   });
 
+  it('resuelve valores persistidos y valores vacíos en la configuración documental', async () => {
+    enterpriseSettingsRepository.findByKey
+      .mockResolvedValueOnce({ id: 'footer', value: 'Footer' })
+      .mockResolvedValueOnce({ id: 'left', value: 'Left' })
+      .mockResolvedValueOnce({ id: 'right', value: 'Right' });
+
+    await expect((service as any).getDocumentSettings('enterprise-uuid')).resolves.toEqual({
+      footer: 'Footer', left: 'Left', right: 'Right',
+    });
+  });
+
+  it('usa texto vacío cuando una configuración documental no tiene valor', async () => {
+    enterpriseSettingsRepository.findByKey
+      .mockResolvedValueOnce({ id: 'footer' })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'right' });
+
+    await expect((service as any).getDocumentSettings('enterprise-uuid')).resolves.toEqual({
+      footer: '', left: '', right: '',
+    });
+  });
+
   it('incorpora el logo de Dropbox solo cuando la empresa lo tiene configurado', async () => {
     const enterpriseWithLogo = { id: 'enterprise-uuid', logo: 'logo.png' } as Enterprise;
     dropboxService.downloadFile
@@ -180,6 +202,31 @@ describe('HtmlPdfService', () => {
     expect(page.setContent).toHaveBeenCalledWith('', { waitUntil: 'load' });
   });
 
+  it('omite el logo cuando la extensión no es compatible', async () => {
+    const enterpriseWithLogo = { id: 'enterprise-uuid', logo: 'logo.svg' } as Enterprise;
+    dropboxService.downloadFile.mockResolvedValueOnce(Buffer.from('{{#logo}}<img src="{{{logo}}}">{{/logo}}'));
+
+    await expect(service.generateQuotePdf(templatePath, quote, enterpriseWithLogo))
+      .resolves.toEqual(Buffer.from('%PDF-1.7'));
+
+    expect(dropboxService.downloadFile).toHaveBeenCalledTimes(1);
+    expect(page.setContent).toHaveBeenCalledWith('', { waitUntil: 'load' });
+  });
+
+  it('propaga un error inesperado al descargar el logo', async () => {
+    const enterpriseWithLogo = { id: 'enterprise-uuid', logo: 'logo.png' } as Enterprise;
+    const downloadError = new Error('Dropbox no disponible');
+    dropboxService.downloadFile
+      .mockResolvedValueOnce(Buffer.from('{{#logo}}<img src="{{{logo}}}">{{/logo}}'))
+      .mockRejectedValueOnce(downloadError);
+
+    await expect(service.generateQuotePdf(templatePath, quote, enterpriseWithLogo))
+      .rejects.toMatchObject({
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+        message: 'No se ha podido generar el PDF del documento desde su plantilla HTML',
+      });
+  });
+
   it('sustituye el logo fijo de una plantilla existente sin buscarlo en su carpeta', async () => {
     const enterpriseWithLogo = { id: 'enterprise-uuid', logo: 'logo.png' } as Enterprise;
     dropboxService.downloadFile
@@ -211,6 +258,20 @@ describe('HtmlPdfService', () => {
     const html = (service as any).ensureRegistrationNotice('<style>.registration-notice { position: absolute; }</style><main class="document"></main>');
 
     expect(html.match(/\{\{document\.(left|right)\}\}/g)).toHaveLength(2);
+  });
+
+  it('completa únicamente el aviso lateral que falta', () => {
+    expect((service as any).ensureRegistrationNotice(
+      '<main><aside class="registration-notice">L</aside></main>',
+    )).toContain('registration-notice-right');
+    expect((service as any).ensureRegistrationNotice(
+      '<main><aside class="registration-notice-right">R</aside></main>',
+    )).toContain('class="registration-notice"');
+  });
+
+  it('no modifica una plantilla que ya contiene ambos avisos', () => {
+    const html = '<main><aside class="registration-notice">L</aside><aside class="registration-notice-right">R</aside></main>';
+    expect((service as any).ensureRegistrationNotice(html)).toBe(html);
   });
 
   it('fuerza una posición imprimible para el aviso registral', () => {

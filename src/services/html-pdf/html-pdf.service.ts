@@ -330,12 +330,8 @@ export class HtmlPdfService implements OnModuleDestroy {
         : '',
     ].join('');
 
-    return notices
-      ? (() => {
-        this.logger.debug(`Añadiendo marcadores laterales ausentes para documento ${documentType}`);
-        return templateHtml.replace(/(<main\b[^>]*>)/i, `$1${notices}`);
-      })()
-      : templateHtml;
+    this.logger.debug(`Añadiendo marcadores laterales ausentes para documento ${documentType}`);
+    return templateHtml.replace(/(<main\b[^>]*>)/i, `$1${notices}`);
   }
 
   /** Sustituye el contenido estático de los avisos laterales por sus marcadores de plantilla. */

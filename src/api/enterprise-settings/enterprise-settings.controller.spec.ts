@@ -123,4 +123,11 @@ describe('EnterpriseSettingsController', () => {
       value: 'light',
     });
   });
+
+  it('usa valores opcionales vacíos y rechaza un body ausente', async () => {
+    await controller.findByKey('theme', enterpriseId);
+    expect(service.findByKey).toHaveBeenLastCalledWith('theme', enterpriseId, []);
+    await expect(controller.updateByKey('theme', enterpriseId, undefined as never))
+      .rejects.toMatchObject({ status: HttpStatus.BAD_REQUEST });
+  });
 });

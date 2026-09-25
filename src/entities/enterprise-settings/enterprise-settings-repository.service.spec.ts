@@ -103,7 +103,7 @@ describe('EnterpriseSettingsRepository', () => {
     ).resolves.toMatchObject({
       enterpriseId: 'ent-1',
       key: 'document.footer',
-      value: 'Footer por defecto',
+      value: '',
       editable: true,
     });
     await expect(service.findByKey('unknown.key', 'ent-1')).resolves.toBeNull();
@@ -168,5 +168,16 @@ describe('EnterpriseSettingsRepository', () => {
         value: 'Nuevo footer',
       }),
     );
+  });
+
+  it('usa el valor por defecto y devuelve la entidad creada si no puede recargarla', async () => {
+    repository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    repository.save.mockResolvedValue({
+      enterpriseId: 'ent-1', key: 'document.footer', value: '', editable: true,
+    });
+
+    await expect(service.updateByKey('document.footer', {}, 'ent-1')).resolves.toMatchObject({
+      key: 'document.footer', value: '', editable: true,
+    });
   });
 });

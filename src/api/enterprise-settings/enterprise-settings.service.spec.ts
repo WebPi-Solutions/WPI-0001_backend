@@ -76,6 +76,13 @@ describe('EnterpriseSettingsService', () => {
     );
   });
 
+  it('rechaza una configuración por key que pertenece a otra empresa', async () => {
+    repository.findByKey.mockResolvedValue(build({ enterpriseId: 'ent-2' }));
+    await expect(service.findByKey('theme', enterpriseId)).rejects.toMatchObject({
+      status: HttpStatus.NOT_FOUND,
+    });
+  });
+
   it('devuelve 404 si la key no existe', async () => {
     repository.findByKey = jest.fn().mockResolvedValue(null);
     await expect(
