@@ -201,7 +201,7 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
     expect(own.status).toBe(200);
 
     const byKey = await http()
-      .get('/enterprise-settings/key/invoice.footer')
+      .get('/enterprise-settings/key/document.footer')
       .query({ enterpriseId: seed.enterpriseA.id })
       .set(authHeader(E2E_EMAIL.userA));
     expect(byKey.status).toBe(200);
@@ -217,11 +217,11 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
       .getRepository(EnterpriseSettings)
       .delete(seed.settingB.id);
     const defaultByKey = await http()
-      .get('/enterprise-settings/key/invoice.footer')
+      .get('/enterprise-settings/key/document.footer')
       .query({ enterpriseId: seed.enterpriseB.id })
       .set(authHeader(E2E_EMAIL.admin));
     expect(defaultByKey.status).toBe(200);
-    expect(defaultByKey.body.key).toBe('invoice.footer');
+    expect(defaultByKey.body.key).toBe('document.footer');
     expect(defaultByKey.body.value).toBe('');
     expect(defaultByKey.body.editable).toBe(true);
 
@@ -251,7 +251,7 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
       .query({
         enterpriseId: seed.enterpriseA.id,
         relations: 'enterprise',
-        filter: JSON.stringify({ key: 'invoice.footer' }),
+        filter: JSON.stringify({ key: 'document.footer' }),
       })
       .set(authHeader(E2E_EMAIL.userA));
     expect(listed.status).toBe(200);
@@ -268,13 +268,13 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
     expect(own.status).toBe(200);
 
     const updated = await http()
-      .patch('/enterprise-settings/key/invoice.footer')
+      .patch('/enterprise-settings/key/document.footer')
       .query({ enterpriseId: seed.enterpriseA.id })
       .set(authHeader(E2E_EMAIL.userA))
       .send({ value: 'Pie de factura actualizado' });
     expect(updated.status).toBe(200);
     expect(updated.body.value).toBe('Pie de factura actualizado');
-    expect(updated.body.key).toBe('invoice.footer');
+    expect(updated.body.key).toBe('document.footer');
     expect(updated.body.editable).toBe(true);
 
     const lockedUpdate = await http()
@@ -1001,11 +1001,11 @@ describe('Ciclo de vida HTTP (e2e) — CRUD propio, filtros y reglas de negocio'
     expect(created.status).toBe(201);
     expect(created.body.id).toBeDefined();
     const defaultSetting = await http()
-      .get('/enterprise-settings/key/invoice.footer')
+      .get('/enterprise-settings/key/document.footer')
       .query({ enterpriseId: created.body.id })
       .set(authHeader(E2E_EMAIL.admin));
     expect(defaultSetting.status).toBe(200);
-    expect(defaultSetting.body.key).toBe('invoice.footer');
+    expect(defaultSetting.body.key).toBe('document.footer');
     expect(defaultSetting.body.editable).toBe(true);
   });
 

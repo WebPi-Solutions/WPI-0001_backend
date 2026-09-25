@@ -568,7 +568,7 @@ export async function seedE2eDatabase(
     .save({
       enterpriseId: enterpriseA.id,
       editable: true,
-      key: 'invoice.footer',
+      key: 'document.footer',
       value: 'Pie de factura A',
     });
   const settingLockedA = await dataSource
@@ -582,7 +582,7 @@ export async function seedE2eDatabase(
   const settingB = await dataSource.getRepository(EnterpriseSettings).save({
     enterpriseId: enterpriseB.id,
     editable: true,
-    key: 'invoice.footer',
+    key: 'document.footer',
     value: 'Pie de factura B',
   });
 
