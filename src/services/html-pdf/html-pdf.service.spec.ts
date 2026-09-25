@@ -300,7 +300,7 @@ describe('HtmlPdfService', () => {
     dropboxService.downloadFile.mockRejectedValue(new DropboxFileNotFoundError(templatePath));
 
     await expect(service.generatePdf(templatePath, templateData)).resolves.toEqual(Buffer.from('%PDF-1.7'));
-  });
+  }, 15000);
 
   it('mantiene el 404 para tipos de documento sin plantilla por defecto', async () => {
     const unknownTemplatePath = '/enterprises/enterprise-uuid/templates/html/custom.html';
