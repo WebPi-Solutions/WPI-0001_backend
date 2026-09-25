@@ -16,6 +16,7 @@ import { Holiday } from '../holiday/holiday.entity';
 import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 import { AiRequest } from '../ai-request/ai-request.entity';
 import { ItemCategory } from '../item-category/item-category.entity';
+import { SpentCategory } from '../spent-category/spent-category.entity';
 import { EnterpriseSettings } from '../enterprise-settings/enterprise-settings.entity';
 import { AiMode } from 'src/common/enums';
 
@@ -172,6 +173,10 @@ export class Enterprise {
    */
   @OneToMany(() => ItemCategory, (itemCategory) => itemCategory.enterprise)
   itemCategories: ItemCategory[];
+
+  /** Categorías de gastos asociadas a esta empresa (`spent_categories`). */
+  @OneToMany(() => SpentCategory, (spentCategory) => spentCategory.enterprise)
+  spentCategories: SpentCategory[];
 
   /** Configuraciones de la empresa. */
   @OneToMany(() => EnterpriseSettings, (settings) => settings.enterprise)

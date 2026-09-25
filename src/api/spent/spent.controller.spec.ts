@@ -185,7 +185,7 @@ describe('SpentController', () => {
         'issuedDate',
         'DESC',
         { 'supplier.enterpriseId': enterpriseId },
-        ['supplier'],
+        ['supplier', 'spentCategory'],
       );
     });
 
@@ -206,7 +206,7 @@ describe('SpentController', () => {
         'issuedDate',
         'ASC',
         { status: 'paid', 'supplier.enterpriseId': enterpriseId },
-        ['supplier'],
+        ['supplier', 'spentCategory'],
       );
     });
 
@@ -222,7 +222,7 @@ describe('SpentController', () => {
         'issuedDate',
         'DESC',
         { 'supplier.enterpriseId': enterpriseId },
-        ['supplier'],
+        ['supplier', 'spentCategory'],
       );
     });
   });

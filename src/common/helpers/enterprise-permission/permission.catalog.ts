@@ -23,6 +23,7 @@ export type PermissionResource =
   | 'recurrentEarnings'
   | 'spents'
   | 'itemCategories'
+  | 'spentCategories'
   | 'items'
   | 'users'
   | 'enterpriseRoles'
@@ -64,6 +65,7 @@ export const PERMISSION_RESOURCES: readonly PermissionResource[] = [
   'recurrentEarnings',
   'spents',
   'itemCategories',
+  'spentCategories',
   'items',
   'users',
   'enterpriseRoles',

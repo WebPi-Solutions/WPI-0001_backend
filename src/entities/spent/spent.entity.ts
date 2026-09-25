@@ -2,6 +2,7 @@ import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, Pri
 import { SpentStatus } from 'src/common/enums';
 import { Supplier } from '../supplier/supplier.entity';
 import { SpentConcept } from '../spent-concept/spent-concept.entity';
+import { SpentCategory } from '../spent-category/spent-category.entity';
 
 /**
  * Entidad Gasto que representa la tabla spents en la base de datos
@@ -14,6 +15,10 @@ export class Spent {
    */
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  /** Categoría del gasto. */
+  @Column({ name: 'spent_category_id', type: 'uuid', nullable: true })
+  spentCategoryId: string | null;
 
   /**
    * ID del proveedor asociado con este gasto
@@ -87,4 +92,9 @@ export class Spent {
    */
   @OneToMany(() => SpentConcept, (spentConcept) => spentConcept.spent)
   spentConcepts: SpentConcept[];
+
+  /** Categoría que agrupa este gasto. */
+  @ManyToOne(() => SpentCategory, (spentCategory) => spentCategory.spents, { nullable: true })
+  @JoinColumn({ name: 'spent_category_id' })
+  spentCategory: SpentCategory | null;
 }

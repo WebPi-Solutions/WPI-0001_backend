@@ -3,6 +3,7 @@ import { Expose, Type } from 'class-transformer';
 import { SpentConceptResponseDto } from 'src/entities/spent-concept/dto/spent-concept-response.dto';
 import { SupplierResponseDto } from 'src/entities/supplier/dto/supplier-response.dto';
 import { SpentStatus } from 'src/common/enums';
+import { SpentCategoryResponseDto } from 'src/entities/spent-category/dto/spent-category-response.dto';
 
 /**
  * Vista pública de gasto para respuestas HTTP.
@@ -22,6 +23,11 @@ export class SpentResponseDto {
   @ApiProperty({ description: 'UUID del proveedor' })
   @Expose()
   supplierId: string;
+
+  /** UUID de la categoría de gastos asociada. */
+  @ApiProperty({ description: 'UUID de la categoría de gastos', required: false, nullable: true })
+  @Expose()
+  spentCategoryId: string | null;
 
   /**
    * Código opcional del gasto
@@ -114,4 +120,15 @@ export class SpentResponseDto {
   @Expose()
   @Type(() => SupplierResponseDto)
   supplier?: SupplierResponseDto;
+
+  /** Categoría de gastos cargada cuando se solicita `relations=spentCategory`. */
+  @ApiProperty({
+    description: 'Categoría de gastos asociada',
+    type: () => SpentCategoryResponseDto,
+    required: false,
+    nullable: true,
+  })
+  @Expose()
+  @Type(() => SpentCategoryResponseDto)
+  spentCategory?: SpentCategoryResponseDto | null;
 }

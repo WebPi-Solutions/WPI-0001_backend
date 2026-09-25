@@ -783,6 +783,7 @@ export class SpentGraphPersistenceService {
   private async reloadSpentGraph(spentId: string): Promise<Spent> {
     const spent = await this.spentRepository.findById(spentId, [
       'supplier',
+      'spentCategory',
       'spentConcepts',
       'spentConcepts.serials',
     ]);
@@ -805,6 +806,7 @@ export class SpentGraphPersistenceService {
       throw new HttpException('El gasto debe tener un proveedor', HttpStatus.BAD_REQUEST);
     }
     const payload: Partial<Spent> = {
+      spentCategoryId: spent.spentCategoryId?.trim() || spent.spentCategory?.id?.trim() || null,
       supplierId,
       code: spent.code ?? null,
       name: spent.name,

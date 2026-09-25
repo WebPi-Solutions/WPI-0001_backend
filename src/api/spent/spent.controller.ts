@@ -182,6 +182,9 @@ export class SpentController {
     if (!relationsArray.includes('supplier')) {
       relationsArray.push('supplier');
     }
+    if (!relationsArray.includes('spentCategory')) {
+      relationsArray.push('spentCategory');
+    }
 
     
     // Parsear el filtro si existe

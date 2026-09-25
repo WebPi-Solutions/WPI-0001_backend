@@ -243,6 +243,20 @@ describe('Declaración de permisos en rutas HTTP de src/api', () => {
     ]);
   });
 
+  it('SpentCategoryController exige spentCategories en todas las rutas y enterpriseId en listado/alta', () => {
+    const { SpentCategoryController } = require('./spent-category/spent-category.controller') as {
+      SpentCategoryController: new (...arguments_: never[]) => unknown;
+    };
+
+    assertControllerRoutePermissions(SpentCategoryController, [
+      { handlerName: 'create', resource: 'spentCategories', action: 'write', requiresEnterpriseId: true },
+      { handlerName: 'findAll', resource: 'spentCategories', action: 'read', requiresEnterpriseId: true },
+      { handlerName: 'findById', resource: 'spentCategories', action: 'read', requiresEnterpriseId: false },
+      { handlerName: 'updateById', resource: 'spentCategories', action: 'write', requiresEnterpriseId: false },
+      { handlerName: 'delete', resource: 'spentCategories', action: 'delete', requiresEnterpriseId: false },
+    ]);
+  });
+
   it('ItemController exige items en todas las rutas y enterpriseId en listado/alta', () => {
     const { ItemController } = require('./item/item.controller') as {
       ItemController: new (...arguments_: never[]) => unknown;
