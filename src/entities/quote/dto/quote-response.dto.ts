@@ -64,6 +64,13 @@ export class QuoteResponseDto {
   status: QuoteStatus;
 
   /**
+   * Observaciones de la cotización
+   */
+  @ApiProperty({ description: 'Observaciones de la cotización', required: false, nullable: true })
+  @Expose()
+  observations: string | null;
+
+  /**
    * Instantánea del nombre del cliente
    */
   @ApiProperty({

@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Factura {{invoice.code}}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 5mm 5mm 9mm;
+      }
+
+      :root {
+        --border: #666;
+        --header-background: #e7e7e7;
+        --text: #111;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        color: var(--text);
+        background: #fff;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 9.5pt;
+        line-height: 1.25;
+      }
+
+      .document {
+        width: 100%;
+        position: relative;
+        min-height: 276mm;
+      }
+
+      .document-header {
+        display: flex;
+        min-height: 24.5mm;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12mm;
+        padding: 0 0 3mm 2.5mm;
+      }
+
+      .brand-logo {
+        display: block;
+        width: auto;
+        height: auto;
+        max-width: 72mm;
+        max-height: 15mm;
+        object-fit: contain;
+      }
+
+      .enterprise-details {
+        max-width: 72mm;
+        text-align: right;
+        font-size: 7.5pt;
+        font-weight: 700;
+        line-height: 1.32;
+        overflow-wrap: anywhere;
+      }
+
+      .document-summary {
+        display: grid;
+        grid-template-columns: 1fr;
+        /* El divisor de .party-grid es el borde izquierdo de la segunda
+           columna. Al estar dentro de un contenedor con borde, queda 1px a
+           la derecha del punto medio: reproducimos ese mismo borde aquí. */
+        width: calc(50% + 1px);
+        min-height: 0;
+        border: 1px solid var(--border);
+        border-bottom: 0;
+      }
+
+      .summary-date,
+      .summary-title {
+        display: flex;
+        align-items: flex-start;
+        padding: 1.3mm 2mm;
+        font-size: 8.5pt;
+        font-weight: 700;
+      }
+
+      .summary-date {
+        flex-direction: column;
+        justify-content: flex-start;
+        padding: 2mm;
+        gap: 0.5mm;
+        line-height: 1.05;
+      }
+
+      .summary-date-row {
+        display: flex;
+        width: 100%;
+        justify-content: space-between;
+        gap: 3mm;
+      }
+
+      .summary-title {
+        justify-content: center;
+      }
+
+      .summary-date .summary-title {
+        justify-content: flex-start;
+        padding: 0;
+        text-align: left;
+      }
+
+      .party-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        border: 1px solid var(--border);
+        border-right-width: 1.25px;
+        break-inside: avoid;
+      }
+
+      .party {
+        min-height: 23.5mm;
+        padding: 2mm;
+        font-size: 8.5pt;
+        line-height: 1.05;
+      }
+
+      .party + .party {
+        border-left: 1px solid var(--border);
+      }
+
+      .section-title,
+      .label {
+        font-weight: 700;
+      }
+
+      .party p,
+      .payment-details p,
+      .legal-notice p {
+        margin: 0;
+      }
+
+      .party p + p {
+        margin-top: 0.25mm;
+      }
+
+      .concept-table,
+      .totals-table,
+      .closing-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .concept-table {
+        margin-top: 8mm;
+        table-layout: fixed;
+      }
+
+      .concept-table thead {
+        display: table-header-group;
+      }
+
+      .concept-table th,
+      .concept-table td {
+        padding: 1.8mm 1.5mm;
+        vertical-align: top;
+      }
+
+      .concept-table th {
+        border: 1px solid #888;
+        background: var(--header-background);
+        text-align: center;
+        font-weight: 700;
+      }
+
+      .concept-table td {
+        border-right: 1px solid #777;
+      }
+
+      .concept-table td:first-child {
+        border-left: 1px solid #777;
+      }
+
+      .concept-table th:last-child,
+      .concept-table td:last-child {
+        border-right-width: 1.25px;
+      }
+
+      .concept-table tbody tr:last-child td {
+        border-bottom: 1px solid #777;
+      }
+
+      .concept-table tr {
+        break-inside: avoid;
+      }
+
+      .concept-name {
+        overflow-wrap: anywhere;
+      }
+
+      .number,
+      .currency {
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .unit,
+      .tax {
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      .financial-summary {
+        display: grid;
+        grid-template-columns: 53% 8.5% 13.5% 11.5% 13.5%;
+        gap: 0;
+        margin: 0;
+        padding-top: 0;
+        break-inside: avoid;
+      }
+
+      .payment-details {
+        grid-column: 1 / span 1;
+        align-self: center;
+        position: relative;
+        top: 1mm;
+        padding: 1mm 1.5mm;
+      }
+
+      .payment-details p + p {
+        margin-top: 1.5mm;
+      }
+
+      .totals-table {
+        grid-column: 2 / span 4;
+        grid-row: 1;
+        table-layout: fixed;
+        /* Alinea el borde exterior con la tabla de conceptos. */
+        margin-left: -1px;
+        width: calc(100% + 1px);
+      }
+
+      .totals-table th,
+      .totals-table td {
+        border: 1px solid var(--border);
+        padding: 1mm 1.5mm;
+        text-align: center;
+      }
+
+      /* El borde inferior del último concepto ya funciona como borde
+         superior del bloque de totales; evitamos dibujarlo dos veces. */
+      .totals-table thead tr:first-child th {
+        border-top: 0;
+      }
+
+      .totals-table th {
+        background: var(--header-background);
+        font-weight: 700;
+      }
+
+      .totals-table td {
+        text-align: right;
+      }
+
+      .totals-table td:last-child {
+        font-weight: 700;
+      }
+
+      .totals-table th:last-child,
+      .totals-table td:last-child {
+        border-right-width: 1.25px;
+      }
+
+      .closing-table {
+        table-layout: fixed;
+        break-inside: avoid;
+        margin-top: 8mm;
+      }
+
+      .closing-table th,
+      .closing-table td {
+        border: 1px solid var(--border);
+      }
+
+      .closing-table th {
+        padding: 1mm 2mm;
+        background: #fff;
+        text-align: center;
+        font-weight: 700;
+      }
+
+      .closing-table td {
+        height: 18mm;
+        padding: 3mm;
+        vertical-align: top;
+      }
+
+      .closing-table th:last-child,
+      .closing-table td:last-child {
+        border-right-width: 1.25px;
+      }
+
+      .vat-breakdown {
+        text-align: center;
+        font-size: 8pt;
+      }
+
+      .vat-breakdown-line + .vat-breakdown-line {
+        margin-top: 1.2mm;
+      }
+
+      .legal-notice {
+        position: fixed;
+        right: 5mm;
+        bottom: 12mm;
+        left: 5mm;
+        margin: 0;
+        font-size: 6.3pt;
+        line-height: 1.23;
+        text-align: center;
+      }
+
+      .page-number {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        font-size: 9.5pt;
+      }
+
+      .registration-notice,
+      .registration-notice-right {
+        position: fixed;
+        top: 50%;
+        margin: 0;
+        white-space: nowrap;
+        font-size: 4.8pt;
+        line-height: 1;
+        transform-origin: center;
+      }
+
+      .registration-notice {
+        left: 1mm;
+        transform: translate(-50%, -50%) rotate(-90deg);
+      }
+
+      .registration-notice-right {
+        right: 1mm;
+        transform: translate(50%, -50%) rotate(90deg);
+      }
+
+      @media screen and (max-width: 700px) {
+        .document-header,
+        .financial-summary {
+          gap: 4mm;
+        }
+
+        .document-summary {
+          width: 100%;
+        }
+
+        .brand-logo {
+          max-width: 45mm;
+          max-height: 13.5mm;
+        }
+      }
+
+      @media print {
+        .document {
+          width: calc(100% - 10mm);
+          margin-left: 5mm;
+        }
+
+        .document-header {
+          min-height: 30.5mm;
+        }
+
+        .concept-table th,
+        .concept-table td {
+          padding: 1.45mm 1.2mm;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="document">
+      <aside class="registration-notice" aria-label="Información registral">{{document.left}}</aside>
+      <aside class="registration-notice-right" aria-label="Información registral">{{document.right}}</aside>
+      <header class="document-header">
+        {{#logo}}
+        <img class="brand-logo" src="{{{logo}}}" alt="Logo de la empresa" />
+        {{/logo}}
+        <div class="enterprise-details">
+          <div>{{enterprise.name}}</div>
+          <div>{{enterprise.address}}</div>
+          <div>{{enterprise.phone}}</div>
+          <div>{{enterprise.email}}</div>
+        </div>
+      </header>
+
+      <section class="document-summary" aria-label="Datos del presupuesto">
+        <div class="summary-date">
+          <div class="summary-date-row">
+            <span class="summary-title">FACTURA {{invoice.code}}</span>
+            <span>Fecha {{issued_date}}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="party-grid" aria-label="Datos fiscales del cliente">
+        <div class="party">
+          <p class="section-title">Datos fiscales</p>
+          <p>NIF / CIF {{client.nif}}</p>
+          <p>{{client.name}}</p>
+          <p>{{client.address}}</p>
+          <p>{{client.phone}}</p>
+          <p>{{client.email}}</p>
+        </div>
+      </section>
+
+      <table class="concept-table" aria-label="Conceptos del presupuesto">
+        <colgroup>
+          <col style="width: 53%" />
+          <col style="width: 8.5%" />
+          <col style="width: 13.5%" />
+          <col style="width: 11.5%" />
+          <col style="width: 13.5%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col">Concepto / Descripción</th>
+            <th scope="col">Uds</th>
+            <th scope="col">Precio</th>
+            <th scope="col">IVA</th>
+            <th scope="col">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#concepts}}
+          <tr>
+            <td class="concept-name">{{name}}</td>
+            <td class="unit">{{quantity}}</td>
+            <td class="currency">{{subtotal}}</td>
+            <td class="tax">{{iva}}</td>
+            <td class="currency">{{total}}</td>
+          </tr>
+          {{/concepts}}
+        </tbody>
+      </table>
+
+      <section class="financial-summary" aria-label="Información de pago y totales">
+        <div class="payment-details">
+          <p><span class="label">Forma de pago:</span> {{client.payment_method}}</p>
+          <p><span class="label">Cuenta de ingreso:</span> {{enterprise.iban}}</p>
+        </div>
+        <table class="totals-table" aria-label="Totales del presupuesto">
+          <colgroup>
+            <!-- Mismas proporciones que Precio (13,5%), IVA (11,5%) y
+                 Total (13,5%) de la tabla de conceptos. -->
+            <col style="width: 46.81%" />
+            <col style="width: 24.47%" />
+            <col style="width: 28.72%" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col">Base Imponible</th>
+              <th scope="col">IVA</th>
+              <th scope="col">TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{{totals.subtotal}}</td>
+              <td>{{totals.iva}}</td>
+              <td>{{totals.total}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <table class="closing-table" aria-label="Observaciones y desglose de IVA">
+        <colgroup>
+          <col style="width: 50%" />
+          <col style="width: 50%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col">Observaciones</th>
+            <th scope="col">Desglose de IVA</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td></td>
+            <td class="vat-breakdown">
+              {{#vat_breakdown}}
+              <div class="vat-breakdown-line">{{base}} (IVA {{percentage}}%) = {{amount}}</div>
+              {{/vat_breakdown}}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <footer class="legal-notice">
+        <p>
+          {{document.footer}}
+        </p>
+      </footer>
+      <div class="page-number">Página 1 de 1</div>
+    </main>
+  </body>
+</html>

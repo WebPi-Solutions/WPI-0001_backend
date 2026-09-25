@@ -56,7 +56,7 @@ También se expone en `GET /enterprise-roles/catalog`.
 
 **Recursos:**
 
-`clients`, `suppliers`, `invoices`, `quotes`, `orders`, `invoiceSeries`, `recurrentEarnings`, `spents`, `itemCategories`, `items`, `users`, `enterpriseRoles`, `enterprises`, `signings`, `vacations`, `holidays`, `workSchedules`, `defaultSchedules`, `billing`, `aiRequests`.
+`clients`, `suppliers`, `invoices`, `quotes`, `orders`, `invoiceSeries`, `recurrentEarnings`, `spents`, `itemCategories`, `items`, `users`, `enterpriseRoles`, `enterprises`, `signings`, `vacations`, `holidays`, `workSchedules`, `defaultSchedules`, `enterpriseSettings`, `billing`, `aiRequests`.
 
 No hay recurso `userEnterprises`: el vínculo se crea o edita en el alta/edición de usuario (`users.write`). El kiosco NFC (`GET /user-enterprises/card/:cardId`) exige `signings.read`.
 
@@ -66,6 +66,7 @@ No hay recurso `userEnterprises`: el vínculo se crea o edita en el alta/edició
 |---|---|
 | `aiRequests` | solo `read` |
 | `enterprises` | `read` y `write` (borrar empresa es solo admin global) |
+| `enterpriseSettings` | `read` y `write` (las claves existentes no se crean ni se eliminan) |
 
 El comodín `*` no es un recurso de negocio: concede la acción a **todos** los recursos del catálogo **si esa acción existe** para el recurso.
 

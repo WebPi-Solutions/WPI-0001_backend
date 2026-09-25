@@ -44,7 +44,9 @@ describe('EnterpriseLogoUploadDto', () => {
       jest.doMock('multer', () => ({
         MulterFile: class MulterFile {},
       }));
-      const { EnterpriseLogoUploadDto: ReloadedDto } = require('./enterprise-logo-upload.dto');
+      const {
+        EnterpriseLogoUploadDto: ReloadedDto,
+      } = require('./enterprise-logo-upload.dto');
       const dto = new ReloadedDto();
       dto.file = buildLogoFile();
       expect(dto.file.originalname).toBe('logo.png');

@@ -52,6 +52,12 @@ export class Order {
   status: OrderStatus;
 
   /**
+   * Observaciones del pedido
+   */
+  @Column({ nullable: true })
+  observations: string | null;
+
+  /**
    * Nombre del cliente congelado en el pedido
    */
   @Column({ name: 'client_name', nullable: true })

@@ -11,6 +11,7 @@ import {
   EnterpriseAccessService,
 } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { EnterpriseRoleService } from 'src/api/enterprise-role/enterprise-role.service';
+import { EnterpriseSettingsRepository } from 'src/entities/enterprise-settings/enterprise-settings-repository.service';
 
 describe('EnterpriseService', () => {
   let service: EnterpriseService;
@@ -40,9 +41,17 @@ describe('EnterpriseService', () => {
   let enterpriseRoleService: {
     seedDefaultRolesForEnterprise: jest.Mock;
   };
+  let enterpriseSettingsRepository: {
+    seedDefaultsForEnterprise: jest.Mock;
+  };
 
   const enterpriseId = 'enterprise-uuid';
-  const emptyPaginatedResponse = { items: [], total: 0, currentPage: 1, totalPages: 0 };
+  const emptyPaginatedResponse = {
+    items: [],
+    total: 0,
+    currentPage: 1,
+    totalPages: 0,
+  };
 
   /**
    * Construye una empresa de prueba.
@@ -96,17 +105,24 @@ describe('EnterpriseService', () => {
       updateById: jest.fn(),
       deleteById: jest.fn(),
       findByNif: jest.fn(),
-      getEnterpriseFolderPath: jest.fn().mockReturnValue('/empresas/enterprise-uuid'),
-      getLogoFilePath: jest.fn().mockImplementation(
-        (id: string, extension: string) => `/empresas/${id}/logo.${extension}`,
-      ),
+      getEnterpriseFolderPath: jest
+        .fn()
+        .mockReturnValue('/empresas/enterprise-uuid'),
+      getLogoFilePath: jest
+        .fn()
+        .mockImplementation(
+          (id: string, extension: string) =>
+            `/empresas/${id}/logo.${extension}`,
+        ),
     };
     dropboxService = {
       checkFolderExists: jest.fn().mockResolvedValue(false),
       deleteFile: jest.fn(),
       uploadFile: jest.fn(),
       downloadFile: jest.fn().mockResolvedValue(Buffer.from('logo-binario')),
-      sanitizeFileName: jest.fn().mockImplementation((fileName: string) => fileName),
+      sanitizeFileName: jest
+        .fn()
+        .mockImplementation((fileName: string) => fileName),
     };
 
     enterpriseAccessService = {
@@ -122,6 +138,9 @@ describe('EnterpriseService', () => {
     enterpriseRoleService = {
       seedDefaultRolesForEnterprise: jest.fn().mockResolvedValue(undefined),
     };
+    enterpriseSettingsRepository = {
+      seedDefaultsForEnterprise: jest.fn().mockResolvedValue([]),
+    };
 
     const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
@@ -130,6 +149,10 @@ describe('EnterpriseService', () => {
         { provide: DropboxService, useValue: dropboxService },
         { provide: EnterpriseAccessService, useValue: enterpriseAccessService },
         { provide: EnterpriseRoleService, useValue: enterpriseRoleService },
+        {
+          provide: EnterpriseSettingsRepository,
+          useValue: enterpriseSettingsRepository,
+        },
       ],
     }).compile();
 
@@ -169,11 +192,11 @@ describe('EnterpriseService', () => {
         holidays: [{ id: 'holiday-uuid' }],
       } as unknown as Enterprise);
 
-      const persistedPayload = enterpriseRepository.create.mock.calls[0][0] as Record<
-        string,
-        unknown
-      >;
-      expect(persistedPayload.stripeId).toEqual(expect.stringMatching(/^cus_pending_/));
+      const persistedPayload = enterpriseRepository.create.mock
+        .calls[0][0] as Record<string, unknown>;
+      expect(persistedPayload.stripeId).toEqual(
+        expect.stringMatching(/^cus_pending_/),
+      );
       expect(persistedPayload.stripeId).not.toBe('cus_forzado');
       expect(persistedPayload.clients).toBeUndefined();
       expect(persistedPayload.suppliers).toBeUndefined();
@@ -181,9 +204,12 @@ describe('EnterpriseService', () => {
       expect(persistedPayload.invoiceSeries).toBeUndefined();
       expect(persistedPayload.defaultSchedules).toBeUndefined();
       expect(persistedPayload.holidays).toBeUndefined();
-      expect(enterpriseRoleService.seedDefaultRolesForEnterprise).toHaveBeenCalledWith(
-        enterpriseId,
-      );
+      expect(
+        enterpriseRoleService.seedDefaultRolesForEnterprise,
+      ).toHaveBeenCalledWith(enterpriseId);
+      expect(
+        enterpriseSettingsRepository.seedDefaultsForEnterprise,
+      ).toHaveBeenCalledWith(enterpriseId);
       expect(persistedPayload.name).toBe('Empresa Demo');
     });
 
@@ -192,7 +218,9 @@ describe('EnterpriseService', () => {
       enterpriseRepository.findByNif.mockResolvedValue(null);
       enterpriseRepository.create.mockResolvedValue(createdEnterprise);
 
-      await expect(service.create(buildEnterprise())).resolves.toEqual(createdEnterprise);
+      await expect(service.create(buildEnterprise())).resolves.toEqual(
+        createdEnterprise,
+      );
     });
 
     it('relanza el error del repositorio', async () => {
@@ -200,7 +228,9 @@ describe('EnterpriseService', () => {
       enterpriseRepository.findByNif.mockResolvedValue(null);
       enterpriseRepository.create.mockRejectedValue(repositoryError);
 
-      await expect(service.create(buildEnterprise())).rejects.toBe(repositoryError);
+      await expect(service.create(buildEnterprise())).rejects.toBe(
+        repositoryError,
+      );
     });
   });
 
@@ -240,15 +270,19 @@ describe('EnterpriseService', () => {
       mimeType: string,
       expectedExtension: string,
     ): Promise<void> => {
-      const updatedEnterprise = buildEnterprise({ logo: `logo.${expectedExtension}` });
+      const updatedEnterprise = buildEnterprise({
+        logo: `logo.${expectedExtension}`,
+      });
       enterpriseRepository.findById.mockResolvedValue(buildEnterprise());
-      dropboxService.uploadFile.mockResolvedValue({ path: `/empresas/${enterpriseId}/logo.${expectedExtension}` });
+      dropboxService.uploadFile.mockResolvedValue({
+        path: `/empresas/${enterpriseId}/logo.${expectedExtension}`,
+      });
       enterpriseRepository.updateById.mockResolvedValue(updatedEnterprise);
 
       const file = buildMulterFile({ mimetype: mimeType });
-      await expect(service.createLogoInDropbox(enterpriseId, file)).resolves.toEqual(
-        updatedEnterprise,
-      );
+      await expect(
+        service.createLogoInDropbox(enterpriseId, file),
+      ).resolves.toEqual(updatedEnterprise);
       expect(enterpriseRepository.getLogoFilePath).toHaveBeenCalledWith(
         enterpriseId,
         expectedExtension,
@@ -291,17 +325,23 @@ describe('EnterpriseService', () => {
       enterpriseRepository.findById.mockResolvedValue(null);
       const response = buildExpressResponse();
 
-      await expect(service.downloadLogoFile(enterpriseId, response)).rejects.toMatchObject({
+      await expect(
+        service.downloadLogoFile(enterpriseId, response),
+      ).rejects.toMatchObject({
         status: HttpStatus.NOT_FOUND,
         message: 'Empresa no encontrada',
       });
     });
 
     it('lanza 404 si la empresa no tiene logo', async () => {
-      enterpriseRepository.findById.mockResolvedValue(buildEnterprise({ logo: undefined }));
+      enterpriseRepository.findById.mockResolvedValue(
+        buildEnterprise({ logo: undefined }),
+      );
       const response = buildExpressResponse();
 
-      await expect(service.downloadLogoFile(enterpriseId, response)).rejects.toMatchObject({
+      await expect(
+        service.downloadLogoFile(enterpriseId, response),
+      ).rejects.toMatchObject({
         status: HttpStatus.NOT_FOUND,
         message: 'La empresa no tiene ningún archivo del logo',
       });
@@ -317,7 +357,9 @@ describe('EnterpriseService', () => {
       expectedContentType: string,
     ): Promise<void> => {
       const fileBuffer = Buffer.from('logo-binario');
-      enterpriseRepository.findById.mockResolvedValue(buildEnterprise({ logo: logoFileName }));
+      enterpriseRepository.findById.mockResolvedValue(
+        buildEnterprise({ logo: logoFileName }),
+      );
       dropboxService.downloadFile.mockResolvedValue(fileBuffer);
       const response = buildExpressResponse();
 
@@ -345,12 +387,17 @@ describe('EnterpriseService', () => {
     });
 
     it('usa application/octet-stream cuando la extensión no es imagen conocida', async () => {
-      await expectLogoDownloadWithContentType('logo.webp', 'application/octet-stream');
+      await expectLogoDownloadWithContentType(
+        'logo.webp',
+        'application/octet-stream',
+      );
     });
 
     it('relanza el error si los headers aún no se enviaron', async () => {
       const downloadError = new Error('fallo de descarga');
-      enterpriseRepository.findById.mockResolvedValue(buildEnterprise({ logo: 'logo.png' }));
+      enterpriseRepository.findById.mockResolvedValue(
+        buildEnterprise({ logo: 'logo.png' }),
+      );
       dropboxService.downloadFile.mockRejectedValue(downloadError);
 
       await expect(
@@ -360,7 +407,9 @@ describe('EnterpriseService', () => {
 
     it('no relanza el error si los headers ya se enviaron', async () => {
       const downloadError = new Error('fallo a mitad de envío');
-      enterpriseRepository.findById.mockResolvedValue(buildEnterprise({ logo: 'logo.png' }));
+      enterpriseRepository.findById.mockResolvedValue(
+        buildEnterprise({ logo: 'logo.png' }),
+      );
       dropboxService.downloadFile.mockRejectedValue(downloadError);
 
       await expect(
@@ -465,9 +514,9 @@ describe('EnterpriseService', () => {
         permissionsByEnterpriseId: { [enterpriseId]: {} },
       });
 
-      await expect(service.findAll(1, 10, 'name', 'ASC', {})).rejects.toBeInstanceOf(
-        ForbiddenException,
-      );
+      await expect(
+        service.findAll(1, 10, 'name', 'ASC', {}),
+      ).rejects.toBeInstanceOf(ForbiddenException);
       await expect(service.findAll(1, 10, 'name', 'ASC', {})).rejects.toThrow(
         buildMissingEnterprisePermissionMessage('enterprises', 'read'),
       );
@@ -494,7 +543,9 @@ describe('EnterpriseService', () => {
         permissionsByEnterpriseId: {},
       });
 
-      await expect(service.findAll(1, 10, 'name', 'ASC', { id: enterpriseId })).rejects.toThrow(
+      await expect(
+        service.findAll(1, 10, 'name', 'ASC', { id: enterpriseId }),
+      ).rejects.toThrow(
         buildMissingEnterprisePermissionMessage('enterprises', 'read'),
       );
     });
@@ -589,18 +640,25 @@ describe('EnterpriseService', () => {
       const existingEnterprise = buildEnterprise();
       enterpriseRepository.findById.mockResolvedValue(existingEnterprise);
 
-      await expect(service.findById(enterpriseId, ['clients'])).resolves.toEqual(
-        existingEnterprise,
-      );
-      expect(enterpriseRepository.findById).toHaveBeenCalledWith(enterpriseId, ['clients']);
+      await expect(
+        service.findById(enterpriseId, ['clients']),
+      ).resolves.toEqual(existingEnterprise);
+      expect(enterpriseRepository.findById).toHaveBeenCalledWith(enterpriseId, [
+        'clients',
+      ]);
     });
 
     it('consulta sin relaciones cuando no se informan', async () => {
       const existingEnterprise = buildEnterprise();
       enterpriseRepository.findById.mockResolvedValue(existingEnterprise);
 
-      await expect(service.findById(enterpriseId)).resolves.toEqual(existingEnterprise);
-      expect(enterpriseRepository.findById).toHaveBeenCalledWith(enterpriseId, undefined);
+      await expect(service.findById(enterpriseId)).resolves.toEqual(
+        existingEnterprise,
+      );
+      expect(enterpriseRepository.findById).toHaveBeenCalledWith(
+        enterpriseId,
+        undefined,
+      );
     });
 
     it('lanza 404 si la empresa no existe', async () => {
@@ -635,10 +693,8 @@ describe('EnterpriseService', () => {
         stripeId: 'cus_inyectado',
       } as Enterprise);
 
-      const persistedPayload = enterpriseRepository.updateById.mock.calls[0][1] as Record<
-        string,
-        unknown
-      >;
+      const persistedPayload = enterpriseRepository.updateById.mock
+        .calls[0][1] as Record<string, unknown>;
       expect(persistedPayload.stripeId).toBeUndefined();
       expect(persistedPayload.name).toBe('Nuevo nombre');
     });
@@ -657,15 +713,19 @@ describe('EnterpriseService', () => {
   describe('deleteById', () => {
     it('exige administrador global antes de borrar', async () => {
       enterpriseRepository.findById.mockResolvedValue(buildEnterprise());
-      enterpriseRepository.deleteById.mockResolvedValue({ affected: 0, raw: [] });
+      enterpriseRepository.deleteById.mockResolvedValue({
+        affected: 0,
+        raw: [],
+      });
 
       await service.deleteById(enterpriseId);
 
-      expect(enterpriseAccessService.assertCurrentEntityAccessible).toHaveBeenCalledWith(
-        enterpriseId,
-        'Empresa no encontrada',
-      );
-      expect(enterpriseAccessService.assertCanDeleteEnterprise).toHaveBeenCalled();
+      expect(
+        enterpriseAccessService.assertCurrentEntityAccessible,
+      ).toHaveBeenCalledWith(enterpriseId, 'Empresa no encontrada');
+      expect(
+        enterpriseAccessService.assertCanDeleteEnterprise,
+      ).toHaveBeenCalled();
     });
 
     it('lanza 404 si la empresa no existe', async () => {
@@ -681,13 +741,16 @@ describe('EnterpriseService', () => {
     it('bloquea el borrado cuando hay ingresos recurrentes asociados', async () => {
       enterpriseRepository.findById.mockResolvedValue(
         buildEnterprise({
-          recurrentEarnings: [{ id: 'recurrent-uuid' }] as Enterprise['recurrentEarnings'],
+          recurrentEarnings: [
+            { id: 'recurrent-uuid' },
+          ] as Enterprise['recurrentEarnings'],
         }),
       );
 
       await expect(service.deleteById(enterpriseId)).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
-        message: 'No se puede eliminar la empresa porque tiene ingresos recurrentes asociados',
+        message:
+          'No se puede eliminar la empresa porque tiene ingresos recurrentes asociados',
       });
       expect(enterpriseRepository.deleteById).not.toHaveBeenCalled();
     });
@@ -696,24 +759,41 @@ describe('EnterpriseService', () => {
       enterpriseRepository.findById.mockResolvedValue(
         buildEnterprise({ recurrentEarnings: undefined }),
       );
-      enterpriseRepository.deleteById.mockResolvedValue({ affected: 0, raw: [] });
+      enterpriseRepository.deleteById.mockResolvedValue({
+        affected: 0,
+        raw: [],
+      });
 
-      await expect(service.deleteById(enterpriseId)).resolves.toEqual({ affected: 0, raw: [] });
+      await expect(service.deleteById(enterpriseId)).resolves.toEqual({
+        affected: 0,
+        raw: [],
+      });
       expect(dropboxService.checkFolderExists).not.toHaveBeenCalled();
     });
 
     it('elimina la carpeta de Dropbox si la empresa se borra y la carpeta existe', async () => {
       enterpriseRepository.findById.mockResolvedValue(buildEnterprise());
-      enterpriseRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });
+      enterpriseRepository.deleteById.mockResolvedValue({
+        affected: 1,
+        raw: [],
+      });
       dropboxService.checkFolderExists.mockResolvedValue(true);
 
-      await expect(service.deleteById(enterpriseId)).resolves.toEqual({ affected: 1, raw: [] });
-      expect(dropboxService.deleteFile).toHaveBeenCalledWith('/empresas/enterprise-uuid');
+      await expect(service.deleteById(enterpriseId)).resolves.toEqual({
+        affected: 1,
+        raw: [],
+      });
+      expect(dropboxService.deleteFile).toHaveBeenCalledWith(
+        '/empresas/enterprise-uuid',
+      );
     });
 
     it('no intenta borrar Dropbox si la carpeta no existe', async () => {
       enterpriseRepository.findById.mockResolvedValue(buildEnterprise());
-      enterpriseRepository.deleteById.mockResolvedValue({ affected: 1, raw: [] });
+      enterpriseRepository.deleteById.mockResolvedValue({
+        affected: 1,
+        raw: [],
+      });
       dropboxService.checkFolderExists.mockResolvedValue(false);
 
       await service.deleteById(enterpriseId);
@@ -726,7 +806,9 @@ describe('EnterpriseService', () => {
       enterpriseRepository.findById.mockResolvedValue(buildEnterprise());
       enterpriseRepository.deleteById.mockRejectedValue(repositoryError);
 
-      await expect(service.deleteById(enterpriseId)).rejects.toBe(repositoryError);
+      await expect(service.deleteById(enterpriseId)).rejects.toBe(
+        repositoryError,
+      );
     });
   });
 });

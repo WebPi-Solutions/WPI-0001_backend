@@ -1,5 +1,26 @@
-import { Body, Controller, Delete, Get, HttpException, HttpStatus, Param, Patch, Post, Query, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
-import { ApiConsumes, ApiBody, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpException,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import {
+  ApiConsumes,
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
@@ -16,8 +37,7 @@ import { SkipEnterprisePermission } from 'src/common/decorators/enterprise-permi
 @ApiTags('Empresas')
 @Controller('enterprises')
 export class EnterpriseController {
-
-  constructor(private readonly enterpriseService: EnterpriseService){}
+  constructor(private readonly enterpriseService: EnterpriseService) {}
 
   /**
    * Crea una nueva empresa y siembra los roles por defecto Administrador y Empleado.
@@ -32,8 +52,14 @@ export class EnterpriseController {
     description:
       'Tras el alta se crean los roles por defecto Administrador (permisos `*`) y Empleado (sin concesiones).',
   })
-  @ApiOkResponse({ type: EnterpriseResponseDto, description: 'Empresa creada (vista pública).' })
-  @ApiResponse({ status: 201, description: 'La empresa ha sido creada correctamente.' })
+  @ApiOkResponse({
+    type: EnterpriseResponseDto,
+    description: 'Empresa creada (vista pública).',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'La empresa ha sido creada correctamente.',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async create(@Body() enterprise: Enterprise): Promise<Enterprise> {
@@ -50,15 +76,24 @@ export class EnterpriseController {
   @RequirePermission('enterprises', 'write')
   @RequireEnterpriseId()
   @MapResponse(EnterpriseResponseDto)
-  @UseInterceptors(FileInterceptor('file', {
-    limits: {
-      fileSize: 5 * 1024 * 1024, // 5MB max file size for logo files
-    }
-  }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB max file size for logo files
+      },
+    }),
+  )
   @ApiConsumes('multipart/form-data')
   @ApiBody({ type: EnterpriseLogoUploadDto })
-  @ApiOperation({ summary: 'Crear/reemplazar el archivo del logo de la empresa en Dropbox por su ID' })
-  @ApiResponse({ status: 200, description: 'El archivo del logo de la empresa ha sido creado/reemplazado en Dropbox correctamente.' })
+  @ApiOperation({
+    summary:
+      'Crear/reemplazar el archivo del logo de la empresa en Dropbox por su ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'El archivo del logo de la empresa ha sido creado/reemplazado en Dropbox correctamente.',
+  })
   @ApiResponse({ status: 400, description: 'Solicitud incorrecta.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
@@ -67,17 +102,26 @@ export class EnterpriseController {
     @Query('enterpriseId') enterpriseId: string,
   ): Promise<Enterprise> {
     if (!file) {
-      throw new HttpException('No se ha proporcionado ningún archivo', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'No se ha proporcionado ningún archivo',
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    
+
     if (!enterpriseId) {
-      throw new HttpException('No se ha proporcionado el ID de la empresa', HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        'No se ha proporcionado el ID de la empresa',
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    
+
     try {
       return this.enterpriseService.createLogoInDropbox(enterpriseId, file);
     } catch (error) {
-      throw new HttpException(`Error al procesar los datos: ${error.message}`, HttpStatus.BAD_REQUEST);
+      throw new HttpException(
+        `Error al procesar los datos: ${error.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
 
@@ -89,8 +133,13 @@ export class EnterpriseController {
   @RequirePermission('enterprises', 'read')
   @MapResponse(EnterpriseResponseDto)
   @ApiOperation({ summary: 'Obtener todas las empresas' })
-  @ApiOkResponse({ description: 'Listado paginado de empresas (vista pública por ítem).' })
-  @ApiResponse({ status: 200, description: 'Las empresas han sido obtenidas correctamente.' })
+  @ApiOkResponse({
+    description: 'Listado paginado de empresas (vista pública por ítem).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Las empresas han sido obtenidas correctamente.',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async findAll(
@@ -99,7 +148,7 @@ export class EnterpriseController {
     @Query('sort') sort: string = 'name',
     @Query('order') order: 'ASC' | 'DESC' = 'ASC',
     @Query('filter') filter?: string,
-    @Query('relations') relations?: string
+    @Query('relations') relations?: string,
   ): Promise<PaginatedResponse<Enterprise>> {
     const pageNumber = Number(page);
     const pageSizeNumber = Number(pageSize);
@@ -107,7 +156,6 @@ export class EnterpriseController {
     // Parsear las relaciones si existen
     const relationsArray = relations ? relations.split(',') : [];
 
-    
     // Parsear el filtro si existe
     let filterObj = {};
     if (filter) {
@@ -118,7 +166,14 @@ export class EnterpriseController {
       }
     }
 
-    return this.enterpriseService.findAll(pageNumber, pageSizeNumber, sort, order, filterObj, relationsArray);
+    return this.enterpriseService.findAll(
+      pageNumber,
+      pageSizeNumber,
+      sort,
+      order,
+      filterObj,
+      relationsArray,
+    );
   }
 
   /**
@@ -130,8 +185,14 @@ export class EnterpriseController {
   @RequirePermission('enterprises', 'read')
   @MapResponse(EnterpriseResponseDto)
   @ApiOperation({ summary: 'Obtener una empresa por su id' })
-  @ApiOkResponse({ type: EnterpriseResponseDto, description: 'Empresa encontrada (vista pública).' })
-  @ApiResponse({ status: 200, description: 'La empresa ha sido obtenida correctamente.' })
+  @ApiOkResponse({
+    type: EnterpriseResponseDto,
+    description: 'Empresa encontrada (vista pública).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'La empresa ha sido obtenida correctamente.',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async findById(
@@ -143,19 +204,27 @@ export class EnterpriseController {
   }
 
   /**
- * Descarga el archivo del logo de la empresa por su id
- * @param enterpriseId - El id de la empresa
- * @param res - Response object
- * @returns El archivo del logo de la empresa
- */
+   * Descarga el archivo del logo de la empresa por su id
+   * @param enterpriseId - El id de la empresa
+   * @param res - Response object
+   * @returns El archivo del logo de la empresa
+   */
   @Get('logo/:enterpriseId')
   @RequirePermission('enterprises', 'read')
-  @ApiOperation({ summary: 'Descargar el archivo del logo de la empresa por su id' })
-  @ApiResponse({ status: 200, description: 'El archivo ha sido descargado correctamente.' })
+  @ApiOperation({
+    summary: 'Descargar el archivo del logo de la empresa por su id',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'El archivo ha sido descargado correctamente.',
+  })
   @ApiResponse({ status: 404, description: 'Empresa o archivo no encontrado.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
-  async downloadLogoFile(@Param('enterpriseId') enterpriseId: string, @Res() res: Response) {
+  async downloadLogoFile(
+    @Param('enterpriseId') enterpriseId: string,
+    @Res() res: Response,
+  ) {
     return this.enterpriseService.downloadLogoFile(enterpriseId, res);
   }
 
@@ -169,8 +238,14 @@ export class EnterpriseController {
   @RequirePermission('enterprises', 'write')
   @MapResponse(EnterpriseResponseDto)
   @ApiOperation({ summary: 'Actualizar una empresa por su id' })
-  @ApiOkResponse({ type: EnterpriseResponseDto, description: 'Empresa actualizada (vista pública).' })
-  @ApiResponse({ status: 200, description: 'La empresa ha sido actualizada correctamente.' })
+  @ApiOkResponse({
+    type: EnterpriseResponseDto,
+    description: 'Empresa actualizada (vista pública).',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'La empresa ha sido actualizada correctamente.',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async updateById(
@@ -189,9 +264,13 @@ export class EnterpriseController {
   @SkipEnterprisePermission()
   @ApiOperation({
     summary: 'Eliminar una empresa por su id',
-    description: 'Solo un administrador global puede eliminar empresas. No forma parte del RBAC de rol.',
+    description:
+      'Solo un administrador global puede eliminar empresas. No forma parte del RBAC de rol.',
   })
-  @ApiResponse({ status: 200, description: 'La empresa ha sido eliminada correctamente.' })
+  @ApiResponse({
+    status: 200,
+    description: 'La empresa ha sido eliminada correctamente.',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 500, description: 'Error interno del servidor.' })
   async delete(@Param('id') id: string) {

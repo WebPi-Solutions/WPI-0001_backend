@@ -43,10 +43,14 @@ import { SigningResponseDto } from './signing/dto/signing-response.dto';
 import { SigningUpdateResponseDto } from './signing/dto/signing-update-response.dto';
 import { AiRequestResponseDto } from './ai-request/dto/ai-request-response.dto';
 import { RecurrentEarningResponseDto } from './recurrent-earning/dto/recurrent-earning-response.dto';
-import { UserEnterpriseResponseDto, UserResponseDto } from './user/dto/user-response.dto';
+import {
+  UserEnterpriseResponseDto,
+  UserResponseDto,
+} from './user/dto/user-response.dto';
 import { UserEnterpriseResponseDto as ReexportedUserEnterpriseResponseDto } from './user/dto/user-enterprise-response.dto';
 import { EnterpriseResponseDto } from './enterprise/dto/enterprise-response.dto';
 import { EnterpriseRoleResponseDto } from './enterprise-role/dto/enterprise-role-response.dto';
+import { EnterpriseSettingsResponseDto } from './enterprise-settings/dto/enterprise-settings-response.dto';
 
 const now = new Date('2026-04-13T08:00:00.000Z');
 
@@ -352,7 +356,14 @@ describe('DTO de respuesta de entidades', () => {
       type: RecurrentEarningType.MONTHLY,
       name: 'Cuota',
       concepts: [
-        { name: 'Cuota', base_price: 100, vat: 21, irpf: 0, quantity: 1, supplied: false },
+        {
+          name: 'Cuota',
+          base_price: 100,
+          vat: 21,
+          irpf: 0,
+          quantity: 1,
+          supplied: false,
+        },
       ],
       createdAt: now,
       updatedAt: now,
@@ -368,20 +379,32 @@ describe('DTO de respuesta de entidades', () => {
     expect(order.orderConcepts?.[0].basePrice).toBe(50);
     expect(invoice.seriesNumber).toBe(12);
     expect(invoice.invoiceConcepts[0].basePrice).toBe(50);
-    const invoiceConcept = coverDtoClass(InvoiceConceptResponseDto, invoice.invoiceConcepts[0]);
+    const invoiceConcept = coverDtoClass(
+      InvoiceConceptResponseDto,
+      invoice.invoiceConcepts[0],
+    );
     expect(invoiceConcept.name).toBe('Horas');
-    const quoteConcept = coverDtoClass(QuoteConceptResponseDto, quote.quoteConcepts[0]);
+    const quoteConcept = coverDtoClass(
+      QuoteConceptResponseDto,
+      quote.quoteConcepts[0],
+    );
     expect(quoteConcept.name).toBe('Horas');
-    const orderConcept = coverDtoClass(OrderConceptResponseDto, order.orderConcepts[0]);
+    const orderConcept = coverDtoClass(
+      OrderConceptResponseDto,
+      order.orderConcepts[0],
+    );
     expect(orderConcept.name).toBe('Horas');
-    const invoiceConceptSerial = coverDtoClass(InvoiceConceptSerialResponseDto, {
-      id: 'ics-1',
-      invoiceConceptId: 'ic-1',
-      itemSerialId: 'is-1',
-      serialNumber: 'SN-1',
-      createdAt: now,
-      updatedAt: now,
-    });
+    const invoiceConceptSerial = coverDtoClass(
+      InvoiceConceptSerialResponseDto,
+      {
+        id: 'ics-1',
+        invoiceConceptId: 'ic-1',
+        itemSerialId: 'is-1',
+        serialNumber: 'SN-1',
+        createdAt: now,
+        updatedAt: now,
+      },
+    );
     expect(invoiceConceptSerial.serialNumber).toBe('SN-1');
     const spentConcept = coverDtoClass(SpentConceptResponseDto, {
       id: 'sc-1',
@@ -459,6 +482,17 @@ describe('DTO de respuesta de entidades', () => {
       updatedAt: now,
       enterprise: buildEnterprise(),
     });
+    const enterpriseSettings = coverDtoClass(EnterpriseSettingsResponseDto, {
+      id: 'setting-1',
+      enterpriseId: 'ent-1',
+      editable: true,
+      key: 'company.name',
+      value: 'Webpi',
+      createdAt: now,
+      updatedAt: now,
+      enterprise: buildEnterprise(),
+    });
+    expect(enterpriseSettings.key).toBe('company.name');
     const holiday = coverDtoClass(HolidayResponseDto, {
       id: 'hol-1',
       enterpriseId: 'ent-1',

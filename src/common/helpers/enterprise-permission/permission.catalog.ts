@@ -32,6 +32,7 @@ export type PermissionResource =
   | 'holidays'
   | 'workSchedules'
   | 'defaultSchedules'
+  | 'enterpriseSettings'
   | 'billing'
   | 'aiRequests';
 
@@ -72,6 +73,7 @@ export const PERMISSION_RESOURCES: readonly PermissionResource[] = [
   'holidays',
   'workSchedules',
   'defaultSchedules',
+  'enterpriseSettings',
   'billing',
   'aiRequests',
 ] as const;
@@ -113,6 +115,7 @@ function buildAllowedActionsByResource(): Record<
     allowedActions[resource] = PERMISSION_ACTIONS;
   }
   allowedActions.enterprises = ['read', 'write'];
+  allowedActions.enterpriseSettings = ['read', 'write'];
   allowedActions.aiRequests = ['read'];
   allowedActions.dashboard = ['read'];
   return allowedActions;

@@ -95,6 +95,13 @@ export class InvoiceResponseDto {
   status: InvoiceStatus;
 
   /**
+   * Observaciones de la factura
+   */
+  @ApiProperty({ description: 'Observaciones de la factura', required: false, nullable: true })
+  @Expose()
+  observations: string | null;
+
+  /**
    * Instantánea del nombre del cliente en el momento de emisión
    */
   @ApiProperty({

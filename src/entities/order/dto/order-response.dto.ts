@@ -64,6 +64,13 @@ export class OrderResponseDto {
   status: OrderStatus;
 
   /**
+   * Observaciones del pedido
+   */
+  @ApiProperty({ description: 'Observaciones del pedido', required: false, nullable: true })
+  @Expose()
+  observations: string | null;
+
+  /**
    * Instantánea del nombre del cliente
    */
   @ApiProperty({

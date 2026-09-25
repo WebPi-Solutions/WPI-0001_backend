@@ -1,5 +1,12 @@
 import { ApiHideProperty } from '@nestjs/swagger';
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Client } from '../client/client.entity';
 import { UserEnterprise } from '../user/user-enterprise.entity';
 import { Supplier } from '../supplier/supplier.entity';
@@ -9,6 +16,7 @@ import { Holiday } from '../holiday/holiday.entity';
 import { RecurrentEarning } from '../recurrent-earning/recurrent-earning.entity';
 import { AiRequest } from '../ai-request/ai-request.entity';
 import { ItemCategory } from '../item-category/item-category.entity';
+import { EnterpriseSettings } from '../enterprise-settings/enterprise-settings.entity';
 import { AiMode } from 'src/common/enums';
 
 /**
@@ -105,54 +113,67 @@ export class Enterprise {
   /**
    * Relación con Clientes - Todos los clientes asociados a esta empresa
    */
-  @OneToMany(() => Client, client => client.enterprise)
+  @OneToMany(() => Client, (client) => client.enterprise)
   clients: Client[];
 
   /**
    * Relación con Proveedores - Todos los proveedores asociados a esta empresa
    */
-  @OneToMany(() => Supplier, supplier => supplier.enterprise)
+  @OneToMany(() => Supplier, (supplier) => supplier.enterprise)
   suppliers: Supplier[];
 
   /**
    * Relación con UsuarioEmpresa - Todas las asociaciones de usuarios con esta empresa
    */
-  @OneToMany(() => UserEnterprise, userEnterprise => userEnterprise.enterprise)
+  @OneToMany(
+    () => UserEnterprise,
+    (userEnterprise) => userEnterprise.enterprise,
+  )
   userEnterprises: UserEnterprise[];
 
   /**
    * Relación con Series de Factura - Todas las series de factura asociadas a esta empresa
    */
-  @OneToMany(() => InvoiceSeries, invoiceSeries => invoiceSeries.enterprise)
+  @OneToMany(() => InvoiceSeries, (invoiceSeries) => invoiceSeries.enterprise)
   invoiceSeries: InvoiceSeries[];
 
   /**
    * Plantillas de horario por defecto definidas para la empresa (fichajes)
    */
-  @OneToMany(() => DefaultSchedule, defaultSchedule => defaultSchedule.enterprise)
+  @OneToMany(
+    () => DefaultSchedule,
+    (defaultSchedule) => defaultSchedule.enterprise,
+  )
   defaultSchedules: DefaultSchedule[];
 
   /**
    * Festivos y días no laborables de la empresa (fichajes)
    */
-  @OneToMany(() => Holiday, holiday => holiday.enterprise)
+  @OneToMany(() => Holiday, (holiday) => holiday.enterprise)
   holidays: Holiday[];
 
   /**
    * Relación con Ingresos recurrentes - Plantillas de facturación periódica de la empresa
    */
-  @OneToMany(() => RecurrentEarning, recurrentEarning => recurrentEarning.enterprise)
+  @OneToMany(
+    () => RecurrentEarning,
+    (recurrentEarning) => recurrentEarning.enterprise,
+  )
   recurrentEarnings: RecurrentEarning[];
 
   /**
    * Peticiones a la API de IA asociadas a esta empresa
    */
-  @OneToMany(() => AiRequest, aiRequest => aiRequest.enterprise)
+  @OneToMany(() => AiRequest, (aiRequest) => aiRequest.enterprise)
   aiRequests: AiRequest[];
 
   /**
    * Categorías de artículos asociadas a esta empresa (`item_categories`)
    */
-  @OneToMany(() => ItemCategory, itemCategory => itemCategory.enterprise)
+  @OneToMany(() => ItemCategory, (itemCategory) => itemCategory.enterprise)
   itemCategories: ItemCategory[];
-} 
+
+  /** Configuraciones de la empresa. */
+  @OneToMany(() => EnterpriseSettings, (settings) => settings.enterprise)
+  settings: EnterpriseSettings[];
+}

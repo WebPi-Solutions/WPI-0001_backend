@@ -126,6 +126,8 @@ export class QuoteService {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
       'Content-Length': document.length.toString(),
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      Pragma: 'no-cache',
     });
     response.send(document);
   }

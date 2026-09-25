@@ -1,5 +1,11 @@
 import { randomUUID } from 'crypto';
-import { ForbiddenException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import {
+  ForbiddenException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { EnterpriseRepository } from 'src/entities/enterprise/enterprise-repository.service';
 import { Enterprise } from 'src/entities/enterprise/enterprise.entity';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
@@ -13,6 +19,7 @@ import {
 } from 'src/common/helpers/enterprise-access/enterprise-access.service';
 import { hasEnterprisePermission } from 'src/common/helpers/enterprise-permission/permission.evaluator';
 import { EnterpriseRoleService } from 'src/api/enterprise-role/enterprise-role.service';
+import { EnterpriseSettingsRepository } from 'src/entities/enterprise-settings/enterprise-settings-repository.service';
 
 @Injectable()
 export class EnterpriseService {
@@ -23,17 +30,21 @@ export class EnterpriseService {
     private readonly dropboxService: DropboxService,
     private readonly enterpriseAccessService: EnterpriseAccessService,
     private readonly enterpriseRoleService: EnterpriseRoleService,
+    private readonly enterpriseSettingsRepository: EnterpriseSettingsRepository,
   ) {}
 
   /**
    * Relaciones de `Enterprise` que no deben persistirse desde el cuerpo HTTP.
    */
-  private static readonly enterpriseRelationKeysExcludedFromWrite: ReadonlyArray<keyof Enterprise> = [
+  private static readonly enterpriseRelationKeysExcludedFromWrite: ReadonlyArray<
+    keyof Enterprise
+  > = [
     'clients',
     'suppliers',
     'userEnterprises',
     'invoiceSeries',
     'defaultSchedules',
+    'settings',
     'holidays',
   ];
 
@@ -46,7 +57,9 @@ export class EnterpriseService {
   private buildSanitizedEnterpriseWritePayload(
     enterprise: Partial<Enterprise>,
   ): Partial<Enterprise> {
-    const sanitized: Record<string, unknown> = { ...(enterprise as Record<string, unknown>) };
+    const sanitized: Record<string, unknown> = {
+      ...(enterprise as Record<string, unknown>),
+    };
     delete sanitized.stripeId;
     for (const relationKey of EnterpriseService.enterpriseRelationKeysExcludedFromWrite) {
       delete sanitized[relationKey as string];
@@ -60,25 +73,46 @@ export class EnterpriseService {
    * @returns La empresa creada
    */
   async create(enterprise: Enterprise): Promise<Enterprise> {
-    this.logger.log(`Iniciando proceso de creación de empresa: ${enterprise.name}`);
-    this.logger.log(`Datos de la empresa a crear:`, JSON.stringify(enterprise, null, 2));
+    this.logger.log(
+      `Iniciando proceso de creación de empresa: ${enterprise.name}`,
+    );
+    this.logger.log(
+      `Datos de la empresa a crear:`,
+      JSON.stringify(enterprise, null, 2),
+    );
 
-    const accessContext = this.enterpriseAccessService.getCurrentAccessContextOrThrow();
+    const accessContext =
+      this.enterpriseAccessService.getCurrentAccessContextOrThrow();
     this.enterpriseAccessService.assertCanCreateEnterprise(accessContext);
 
-    const enterpriseExists = await this.enterpriseRepository.findByNif(enterprise.nif);
+    const enterpriseExists = await this.enterpriseRepository.findByNif(
+      enterprise.nif,
+    );
     if (enterpriseExists) {
       this.logger.log(`Ya existe una empresa con el NIF: ${enterprise.nif}`);
-      throw new HttpException('Ya existe una empresa con el NIF', HttpStatus.CONFLICT);
+      throw new HttpException(
+        'Ya existe una empresa con el NIF',
+        HttpStatus.CONFLICT,
+      );
     }
-    
+
     try {
-      const payloadForPersistence = this.buildSanitizedEnterpriseWritePayload(enterprise);
+      const payloadForPersistence =
+        this.buildSanitizedEnterpriseWritePayload(enterprise);
       // `stripe_id` es NOT NULL: se ignora el valor del cliente y se genera un placeholder hasta el alta Stripe.
       payloadForPersistence.stripeId = `cus_pending_${randomUUID()}`;
-      const newEnterprise = await this.enterpriseRepository.create(payloadForPersistence as Enterprise);
-      this.logger.log(`Empresa creada exitosamente con ID: ${newEnterprise.id}`);
-      await this.enterpriseRoleService.seedDefaultRolesForEnterprise(newEnterprise.id);
+      const newEnterprise = await this.enterpriseRepository.create(
+        payloadForPersistence as Enterprise,
+      );
+      this.logger.log(
+        `Empresa creada exitosamente con ID: ${newEnterprise.id}`,
+      );
+      await this.enterpriseSettingsRepository.seedDefaultsForEnterprise(
+        newEnterprise.id,
+      );
+      await this.enterpriseRoleService.seedDefaultRolesForEnterprise(
+        newEnterprise.id,
+      );
       return newEnterprise;
     } catch (error) {
       this.logger.error(`Error al crear empresa ${enterprise.name}:`, error);
@@ -92,115 +126,156 @@ export class EnterpriseService {
    * @param file - Archivo del logo de la empresa
    * @returns La empresa actualizada con la ruta del archivo del logo en Dropbox
    */
-  async createLogoInDropbox(enterpriseId: string, file: MulterFile): Promise<Enterprise> {
-    this.logger.log(`Iniciando adjuntar logo para la empresa con ID: ${enterpriseId}`);
-    this.logger.log(`Tipo de archivo: ${file.mimetype}, Tamaño: ${file.size} bytes`);
-      
+  async createLogoInDropbox(
+    enterpriseId: string,
+    file: MulterFile,
+  ): Promise<Enterprise> {
+    this.logger.log(
+      `Iniciando adjuntar logo para la empresa con ID: ${enterpriseId}`,
+    );
+    this.logger.log(
+      `Tipo de archivo: ${file.mimetype}, Tamaño: ${file.size} bytes`,
+    );
+
     const enterprise = await this.enterpriseRepository.findById(enterpriseId);
-    if (!enterprise) throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
+    if (!enterprise)
+      throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       enterprise.id,
       'Empresa no encontrada',
       { resource: 'enterprises', action: 'write' },
-      );
-    
+    );
 
     try {
       // Validar el tipo de archivo - solo se permiten imágenes JPEG, JPG y PNG
-      if (file.mimetype !== 'image/png' && file.mimetype !== 'image/jpeg' && file.mimetype !== 'image/jpg') {
-        throw new HttpException('Solo se permiten archivos de imagen (JPEG, JPG, PNG)', HttpStatus.BAD_REQUEST);
+      if (
+        file.mimetype !== 'image/png' &&
+        file.mimetype !== 'image/jpeg' &&
+        file.mimetype !== 'image/jpg'
+      ) {
+        throw new HttpException(
+          'Solo se permiten archivos de imagen (JPEG, JPG, PNG)',
+          HttpStatus.BAD_REQUEST,
+        );
       }
       // Construir la ruta de Dropbox para el archivo
-      const dropboxPath = this.enterpriseRepository.getLogoFilePath(enterprise.id, file.mimetype.split('/')[1]);
+      const dropboxPath = this.enterpriseRepository.getLogoFilePath(
+        enterprise.id,
+        file.mimetype.split('/')[1],
+      );
       this.logger.log(`Subiendo archivo a Dropbox en la ruta: ${dropboxPath}`);
-      
+
       // Subir el archivo a Dropbox
-      const uploadResult = await this.dropboxService.uploadFile(dropboxPath, file);
+      const uploadResult = await this.dropboxService.uploadFile(
+        dropboxPath,
+        file,
+      );
       this.logger.log('Archivo subido correctamente a Dropbox');
-      
+
       // Actualizar la empresa con la ruta del archivo del logo en Dropbox
-      const updatedEnterprise = await this.enterpriseRepository.updateById(enterpriseId, {
-        ...enterprise,
-        logo: dropboxPath.split('/').pop()
-      });
-      
+      const updatedEnterprise = await this.enterpriseRepository.updateById(
+        enterpriseId,
+        {
+          ...enterprise,
+          logo: dropboxPath.split('/').pop(),
+        },
+      );
+
       this.logger.log(`Se ha adjuntado el archivo al empresa ${enterpriseId}`);
       return updatedEnterprise;
     } catch (error) {
-      this.logger.error(`Error al adjuntar archivo al empresa ${enterpriseId}: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error al adjuntar archivo al empresa ${enterpriseId}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 
-     /**
-    * Descarga el archivo del logo de la empresa por su ID
-    * @param enterpriseId - El ID de la empresa
-    * @param res - Response object de Express
-    * @returns Stream del archivo
-    */
-     async downloadLogoFile(enterpriseId: string, res: Response): Promise<void> {
-      this.logger.log(`Iniciando descarga de archivo del logo de la empresa con ID: ${enterpriseId}`);
-      
-      try {
-        // Verificar si la empresa existe y tiene un archivo del logo
-        const enterprise = await this.enterpriseRepository.findById(enterpriseId);
-        if (!enterprise) throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
-        this.enterpriseAccessService.assertCurrentEntityAccessible(
-          enterprise.id,
-          'Empresa no encontrada',
-          { resource: 'enterprises', action: 'read' },
-          );
-        
-        if (!enterprise.logo) {
-          throw new HttpException('La empresa no tiene ningún archivo del logo', HttpStatus.NOT_FOUND);
-        }
-        
-        // Obtener la ruta del archivo en Dropbox
-        const fileExtension = enterprise.logo.split('.').pop()?.toLowerCase();
-        const filePath = this.enterpriseRepository.getLogoFilePath(enterprise.id, fileExtension);
-        this.logger.log(`Descargando archivo desde Dropbox: ${filePath}`);
-        
-        // Descargar el archivo de Dropbox
-        const fileBuffer = await this.dropboxService.downloadFile(filePath);
-        
-        // Determinar el Content-Type basado en la extensión del archivo
-        let contentType = 'application/octet-stream'; // Default
-        if (fileExtension === 'png') {
-          contentType = 'image/png';
-        } else if (fileExtension === 'jpg' || fileExtension === 'jpeg') {
-          contentType = 'image/jpeg';
-        }
-        
-        // Configurar headers para la descarga
-        // Sanitizar el nombre del archivo para evitar caracteres inválidos en headers
-        // Obtener todas las partes del nombre excepto la última (que es la extensión)
-        // Esto maneja correctamente archivos con múltiples puntos, ej: "archivo.ejemplo.txt"
-        const fileNameParts = enterprise.logo.split('.');
-        const fileNameWithoutExtension = fileNameParts.slice(0, -1).join('.');
-        const sanitizedFileName = this.dropboxService.sanitizeFileName(fileNameWithoutExtension);
-        const fileName = `${sanitizedFileName}.${fileExtension}`;
-        
-        // Usar encoding UTF-8 para nombres de archivo con caracteres especiales
-        const encodedFileName = encodeURIComponent(fileName);
-        
-        res.set({
-          'Content-Type': contentType,
-          'Content-Disposition': `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`,
-          'Content-Length': fileBuffer.length.toString(),
-        });
-        
-        // Enviar el archivo
-        res.send(fileBuffer);
-        
-        this.logger.log(`Archivo descargado exitosamente para la empresa ${enterpriseId}`);
-      } catch (error) {
-        this.logger.error(`Error al descargar archivo de la empresa ${enterpriseId}: ${error.message}`, error.stack);
-        if (!res.headersSent) {
-          throw error;
-        }
+  /**
+   * Descarga el archivo del logo de la empresa por su ID
+   * @param enterpriseId - El ID de la empresa
+   * @param res - Response object de Express
+   * @returns Stream del archivo
+   */
+  async downloadLogoFile(enterpriseId: string, res: Response): Promise<void> {
+    this.logger.log(
+      `Iniciando descarga de archivo del logo de la empresa con ID: ${enterpriseId}`,
+    );
+
+    try {
+      // Verificar si la empresa existe y tiene un archivo del logo
+      const enterprise = await this.enterpriseRepository.findById(enterpriseId);
+      if (!enterprise)
+        throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
+      this.enterpriseAccessService.assertCurrentEntityAccessible(
+        enterprise.id,
+        'Empresa no encontrada',
+        { resource: 'enterprises', action: 'read' },
+      );
+
+      if (!enterprise.logo) {
+        throw new HttpException(
+          'La empresa no tiene ningún archivo del logo',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Obtener la ruta del archivo en Dropbox
+      const fileExtension = enterprise.logo.split('.').pop()?.toLowerCase();
+      const filePath = this.enterpriseRepository.getLogoFilePath(
+        enterprise.id,
+        fileExtension,
+      );
+      this.logger.log(`Descargando archivo desde Dropbox: ${filePath}`);
+
+      // Descargar el archivo de Dropbox
+      const fileBuffer = await this.dropboxService.downloadFile(filePath);
+
+      // Determinar el Content-Type basado en la extensión del archivo
+      let contentType = 'application/octet-stream'; // Default
+      if (fileExtension === 'png') {
+        contentType = 'image/png';
+      } else if (fileExtension === 'jpg' || fileExtension === 'jpeg') {
+        contentType = 'image/jpeg';
+      }
+
+      // Configurar headers para la descarga
+      // Sanitizar el nombre del archivo para evitar caracteres inválidos en headers
+      // Obtener todas las partes del nombre excepto la última (que es la extensión)
+      // Esto maneja correctamente archivos con múltiples puntos, ej: "archivo.ejemplo.txt"
+      const fileNameParts = enterprise.logo.split('.');
+      const fileNameWithoutExtension = fileNameParts.slice(0, -1).join('.');
+      const sanitizedFileName = this.dropboxService.sanitizeFileName(
+        fileNameWithoutExtension,
+      );
+      const fileName = `${sanitizedFileName}.${fileExtension}`;
+
+      // Usar encoding UTF-8 para nombres de archivo con caracteres especiales
+      const encodedFileName = encodeURIComponent(fileName);
+
+      res.set({
+        'Content-Type': contentType,
+        'Content-Disposition': `attachment; filename="${fileName}"; filename*=UTF-8''${encodedFileName}`,
+        'Content-Length': fileBuffer.length.toString(),
+      });
+
+      // Enviar el archivo
+      res.send(fileBuffer);
+
+      this.logger.log(
+        `Archivo descargado exitosamente para la empresa ${enterpriseId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error al descargar archivo de la empresa ${enterpriseId}: ${error.message}`,
+        error.stack,
+      );
+      if (!res.headersSent) {
+        throw error;
       }
     }
- 
+  }
 
   /**
    * Obtiene todas las empresas con paginación, filtros y ordenación
@@ -212,8 +287,17 @@ export class EnterpriseService {
    * @param relations - Las relaciones a incluir
    * @returns Las empresas encontradas
    */
-  async findAll(page: number, pageSize: number, sort: string, order: 'ASC' | 'DESC', filter: Record<string, any>, relations?: string[]): Promise<PaginatedResponse<Enterprise>> {
-    this.logger.log(`Obteniendo empresas paginadas - Página: ${page}, Tamaño: ${pageSize}, Ordenación: ${sort} ${order}`);
+  async findAll(
+    page: number,
+    pageSize: number,
+    sort: string,
+    order: 'ASC' | 'DESC',
+    filter: Record<string, any>,
+    relations?: string[],
+  ): Promise<PaginatedResponse<Enterprise>> {
+    this.logger.log(
+      `Obteniendo empresas paginadas - Página: ${page}, Tamaño: ${pageSize}, Ordenación: ${sort} ${order}`,
+    );
     this.logger.log(`Filtros aplicados:`, JSON.stringify(filter, null, 2));
 
     const scopedFilter = this.buildEnterpriseListFilter(filter);
@@ -225,13 +309,22 @@ export class EnterpriseService {
         totalPages: 0,
       };
     }
-    
+
     if (relations && relations.length > 0) {
       this.logger.log(`Incluyendo relaciones: ${relations.join(', ')}`);
     }
-    
-    const result = await this.enterpriseRepository.findAll(page, pageSize, sort, order, scopedFilter, relations);
-    this.logger.log(`Empresas obtenidas: ${result.items.length} de ${result.total}`);
+
+    const result = await this.enterpriseRepository.findAll(
+      page,
+      pageSize,
+      sort,
+      order,
+      scopedFilter,
+      relations,
+    );
+    this.logger.log(
+      `Empresas obtenidas: ${result.items.length} de ${result.total}`,
+    );
     return result;
   }
 
@@ -242,22 +335,26 @@ export class EnterpriseService {
    * @returns La empresa encontrada
    */
   async findById(id: string, relations?: string[]): Promise<Enterprise> {
-    this.logger.log(`Buscando empresa por ID: ${id}${relations ? ` con relaciones: [${relations.join(', ')}]` : ''}`);
-    
+    this.logger.log(
+      `Buscando empresa por ID: ${id}${relations ? ` con relaciones: [${relations.join(', ')}]` : ''}`,
+    );
+
     const enterprise = await this.enterpriseRepository.findById(id, relations);
-    
+
     if (enterprise) {
-      this.logger.log(`Empresa encontrada: ${enterprise.name} (ID: ${enterprise.id})`);
+      this.logger.log(
+        `Empresa encontrada: ${enterprise.name} (ID: ${enterprise.id})`,
+      );
       this.enterpriseAccessService.assertCurrentEntityAccessible(
         enterprise.id,
         'Empresa no encontrada',
         { resource: 'enterprises', action: 'read' },
-        );
+      );
     } else {
       this.logger.log(`No se encontró ninguna empresa con ID: ${id}`);
       throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
     }
-    
+
     return enterprise;
   }
 
@@ -270,7 +367,7 @@ export class EnterpriseService {
   async updateById(id: string, enterprise: Enterprise): Promise<Enterprise> {
     this.logger.log(`Iniciando actualización de empresa con ID: ${id}`);
     this.logger.log(`Datos a actualizar:`, JSON.stringify(enterprise, null, 2));
-    
+
     const enterpriseExists = await this.enterpriseRepository.findById(id);
     if (!enterpriseExists) {
       this.logger.log(`No se encontró ninguna empresa con ID: ${id}`);
@@ -281,10 +378,11 @@ export class EnterpriseService {
       enterpriseExists.id,
       'Empresa no encontrada',
       { resource: 'enterprises', action: 'write' },
-      );
-    
+    );
+
     try {
-      const payloadForPersistence = this.buildSanitizedEnterpriseWritePayload(enterprise);
+      const payloadForPersistence =
+        this.buildSanitizedEnterpriseWritePayload(enterprise);
       const updatedEnterprise = await this.enterpriseRepository.updateById(
         id,
         payloadForPersistence as Enterprise,
@@ -306,41 +404,56 @@ export class EnterpriseService {
   async deleteById(id: string): Promise<DeleteResult> {
     this.logger.log(`Iniciando eliminación de empresa con ID: ${id}`);
 
-    const enterpriseExists = await this.enterpriseRepository.findById(id, ['recurrentEarnings']);
+    const enterpriseExists = await this.enterpriseRepository.findById(id, [
+      'recurrentEarnings',
+    ]);
     if (!enterpriseExists) {
       this.logger.log(`No se encontró ninguna empresa con ID: ${id}`);
       throw new HttpException('Empresa no encontrada', HttpStatus.NOT_FOUND);
     }
 
-    const accessContext = this.enterpriseAccessService.getCurrentAccessContextOrThrow();
+    const accessContext =
+      this.enterpriseAccessService.getCurrentAccessContextOrThrow();
     this.enterpriseAccessService.assertCurrentEntityAccessible(
       enterpriseExists.id,
       'Empresa no encontrada',
     );
     this.enterpriseAccessService.assertCanDeleteEnterprise(accessContext);
 
-    if (enterpriseExists.recurrentEarnings && enterpriseExists.recurrentEarnings.length > 0) {
-      this.logger.error(`No se puede eliminar la empresa ${id} porque tiene ingresos recurrentes asociados`);
+    if (
+      enterpriseExists.recurrentEarnings &&
+      enterpriseExists.recurrentEarnings.length > 0
+    ) {
+      this.logger.error(
+        `No se puede eliminar la empresa ${id} porque tiene ingresos recurrentes asociados`,
+      );
       throw new HttpException(
         'No se puede eliminar la empresa porque tiene ingresos recurrentes asociados',
         HttpStatus.BAD_REQUEST,
       );
     }
-    
+
     try {
       const result = await this.enterpriseRepository.deleteById(id);
-      this.logger.log(`Empresa ${id} eliminada exitosamente. Filas afectadas: ${result.affected}`);
+      this.logger.log(
+        `Empresa ${id} eliminada exitosamente. Filas afectadas: ${result.affected}`,
+      );
 
       if (result.affected && result.affected > 0) {
         // Si se eliminó la empresa, se elimina la carpeta de la empresa en Dropbox
-        const folderPath = this.enterpriseRepository.getEnterpriseFolderPath(id);
-        const folderExists = await this.dropboxService.checkFolderExists(folderPath);
+        const folderPath =
+          this.enterpriseRepository.getEnterpriseFolderPath(id);
+        const folderExists =
+          await this.dropboxService.checkFolderExists(folderPath);
         if (folderExists) {
           await this.dropboxService.deleteFile(folderPath);
-          this.logger.log(`Carpeta de la empresa ${id} eliminada exitosamente en Dropbox`);
-        }
-        else{
-          this.logger.log(`Carpeta de la empresa ${id} no encontrada en Dropbox, abortando eliminación...`);
+          this.logger.log(
+            `Carpeta de la empresa ${id} eliminada exitosamente en Dropbox`,
+          );
+        } else {
+          this.logger.log(
+            `Carpeta de la empresa ${id} no encontrada en Dropbox, abortando eliminación...`,
+          );
         }
       }
       return result;
@@ -361,7 +474,8 @@ export class EnterpriseService {
   private buildEnterpriseListFilter(
     filter: Record<string, unknown>,
   ): Record<string, unknown> | null {
-    const accessContext = this.enterpriseAccessService.getCurrentAccessContextOrThrow();
+    const accessContext =
+      this.enterpriseAccessService.getCurrentAccessContextOrThrow();
     if (accessContext.isGlobalAdmin) {
       return filter;
     }
@@ -369,7 +483,9 @@ export class EnterpriseService {
     let allowedEnterpriseIds = [...accessContext.allowedEnterpriseIds];
     const requestedId = filter.id;
     if (requestedId !== undefined && requestedId !== null) {
-      const requestedIds = Array.isArray(requestedId) ? requestedId : [requestedId];
+      const requestedIds = Array.isArray(requestedId)
+        ? requestedId
+        : [requestedId];
       allowedEnterpriseIds = allowedEnterpriseIds.filter((enterpriseId) =>
         requestedIds.includes(enterpriseId),
       );
@@ -379,12 +495,13 @@ export class EnterpriseService {
       return null;
     }
 
-    const readableEnterpriseIds = allowedEnterpriseIds.filter((linkedEnterpriseId) =>
-      hasEnterprisePermission(
-        accessContext.permissionsByEnterpriseId?.[linkedEnterpriseId] ?? {},
-        'enterprises',
-        'read',
-      ),
+    const readableEnterpriseIds = allowedEnterpriseIds.filter(
+      (linkedEnterpriseId) =>
+        hasEnterprisePermission(
+          accessContext.permissionsByEnterpriseId?.[linkedEnterpriseId] ?? {},
+          'enterprises',
+          'read',
+        ),
     );
     if (readableEnterpriseIds.length === 0) {
       throw new ForbiddenException(

@@ -73,6 +73,12 @@ export class Invoice {
   status: InvoiceStatus;
 
   /**
+   * Observaciones de la factura
+   */
+  @Column({ nullable: true })
+  observations: string | null;
+
+  /**
    * Nombre del cliente (guardado en variable a parte para preservar los datos de la factura aún cuando se modifica la entidad Client)
    */
   @Column({ name: 'client_name', nullable: true })

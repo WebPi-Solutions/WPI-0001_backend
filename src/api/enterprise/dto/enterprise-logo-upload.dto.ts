@@ -12,8 +12,7 @@ export class EnterpriseLogoUploadDto {
   @ApiProperty({
     type: 'string',
     format: 'binary',
-    description: 'Logo image file (JPEG, JPG, PNG)'
+    description: 'Logo image file (JPEG, JPG, PNG)',
   })
   file: MulterFile;
 }
-

@@ -19,7 +19,12 @@ describe('EnterpriseController', () => {
   };
 
   const enterpriseId = 'enterprise-uuid';
-  const emptyPaginatedResponse = { items: [], total: 0, currentPage: 1, totalPages: 0 };
+  const emptyPaginatedResponse = {
+    items: [],
+    total: 0,
+    currentPage: 1,
+    totalPages: 0,
+  };
 
   /**
    * Construye un archivo Multer de prueba para el logo.
@@ -64,7 +69,9 @@ describe('EnterpriseController', () => {
     it('delega la creación al servicio', async () => {
       const enterprise = { name: 'Empresa Demo' } as Enterprise;
 
-      await expect(controller.create(enterprise)).resolves.toEqual({ id: enterpriseId });
+      await expect(controller.create(enterprise)).resolves.toEqual({
+        id: enterpriseId,
+      });
       expect(enterpriseService.create).toHaveBeenCalledWith(enterprise);
     });
   });
@@ -72,7 +79,10 @@ describe('EnterpriseController', () => {
   describe('createLogoInDropbox', () => {
     it('exige un archivo', async () => {
       await expect(
-        controller.createLogoInDropbox(undefined as unknown as MulterFile, enterpriseId),
+        controller.createLogoInDropbox(
+          undefined as unknown as MulterFile,
+          enterpriseId,
+        ),
       ).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
         message: 'No se ha proporcionado ningún archivo',
@@ -81,7 +91,9 @@ describe('EnterpriseController', () => {
     });
 
     it('exige enterpriseId', async () => {
-      await expect(controller.createLogoInDropbox(buildMulterFile(), '')).rejects.toMatchObject({
+      await expect(
+        controller.createLogoInDropbox(buildMulterFile(), ''),
+      ).rejects.toMatchObject({
         status: HttpStatus.BAD_REQUEST,
         message: 'No se ha proporcionado el ID de la empresa',
       });
@@ -91,10 +103,15 @@ describe('EnterpriseController', () => {
     it('delega la subida del logo al servicio', async () => {
       const file = buildMulterFile();
 
-      await expect(controller.createLogoInDropbox(file, enterpriseId)).resolves.toEqual({
+      await expect(
+        controller.createLogoInDropbox(file, enterpriseId),
+      ).resolves.toEqual({
         id: enterpriseId,
       });
-      expect(enterpriseService.createLogoInDropbox).toHaveBeenCalledWith(enterpriseId, file);
+      expect(enterpriseService.createLogoInDropbox).toHaveBeenCalledWith(
+        enterpriseId,
+        file,
+      );
     });
 
     it('envuelve un error síncrono del servicio en 400', async () => {
@@ -138,13 +155,27 @@ describe('EnterpriseController', () => {
       await controller.findAll(1, 10, 'name', 'ASC', '{no-es-json');
 
       expect(console.error).toHaveBeenCalled();
-      expect(enterpriseService.findAll).toHaveBeenCalledWith(1, 10, 'name', 'ASC', {}, []);
+      expect(enterpriseService.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'name',
+        'ASC',
+        {},
+        [],
+      );
     });
 
     it('usa los valores por defecto cuando no hay filtro ni relaciones', async () => {
       await controller.findAll();
 
-      expect(enterpriseService.findAll).toHaveBeenCalledWith(1, 10, 'name', 'ASC', {}, []);
+      expect(enterpriseService.findAll).toHaveBeenCalledWith(
+        1,
+        10,
+        'name',
+        'ASC',
+        {},
+        [],
+      );
     });
   });
 
@@ -152,7 +183,9 @@ describe('EnterpriseController', () => {
     it('delega al servicio parseando las relaciones', async () => {
       enterpriseService.findById.mockResolvedValue({ id: enterpriseId });
 
-      await expect(controller.findById(enterpriseId, 'clients,users')).resolves.toEqual({
+      await expect(
+        controller.findById(enterpriseId, 'clients,users'),
+      ).resolves.toEqual({
         id: enterpriseId,
       });
       expect(enterpriseService.findById).toHaveBeenCalledWith(enterpriseId, [
@@ -177,20 +210,31 @@ describe('EnterpriseController', () => {
 
       await controller.downloadLogoFile(enterpriseId, response);
 
-      expect(enterpriseService.downloadLogoFile).toHaveBeenCalledWith(enterpriseId, response);
+      expect(enterpriseService.downloadLogoFile).toHaveBeenCalledWith(
+        enterpriseId,
+        response,
+      );
     });
   });
 
   describe('updateById', () => {
     it('delega la actualización al servicio', async () => {
       const payload = { name: 'Empresa Actualizada' } as Enterprise;
-      enterpriseService.updateById.mockResolvedValue({ id: enterpriseId, ...payload });
+      enterpriseService.updateById.mockResolvedValue({
+        id: enterpriseId,
+        ...payload,
+      });
 
-      await expect(controller.updateById(enterpriseId, payload)).resolves.toEqual({
+      await expect(
+        controller.updateById(enterpriseId, payload),
+      ).resolves.toEqual({
         id: enterpriseId,
         name: 'Empresa Actualizada',
       });
-      expect(enterpriseService.updateById).toHaveBeenCalledWith(enterpriseId, payload);
+      expect(enterpriseService.updateById).toHaveBeenCalledWith(
+        enterpriseId,
+        payload,
+      );
     });
   });
 
@@ -198,7 +242,10 @@ describe('EnterpriseController', () => {
     it('delega la eliminación al servicio', async () => {
       enterpriseService.deleteById.mockResolvedValue({ affected: 1, raw: [] });
 
-      await expect(controller.delete(enterpriseId)).resolves.toEqual({ affected: 1, raw: [] });
+      await expect(controller.delete(enterpriseId)).resolves.toEqual({
+        affected: 1,
+        raw: [],
+      });
       expect(enterpriseService.deleteById).toHaveBeenCalledWith(enterpriseId);
     });
   });
@@ -212,7 +259,9 @@ describe('EnterpriseController', () => {
       jest.doMock('multer', () => ({
         MulterFile: class MulterFile {},
       }));
-      const { EnterpriseController: ReloadedEnterpriseController } = require('./enterprise.controller');
+      const {
+        EnterpriseController: ReloadedEnterpriseController,
+      } = require('./enterprise.controller');
       expect(ReloadedEnterpriseController).toBeDefined();
     });
   });

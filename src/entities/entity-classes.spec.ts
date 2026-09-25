@@ -21,6 +21,7 @@ import { AiRequest } from './ai-request/ai-request.entity';
 import { Client } from './client/client.entity';
 import { DefaultSchedule } from './default-schedule/default-schedule.entity';
 import { Enterprise } from './enterprise/enterprise.entity';
+import { EnterpriseSettings } from './enterprise-settings/enterprise-settings.entity';
 import { Holiday } from './holiday/holiday.entity';
 import { Invoice } from './invoice/invoice.entity';
 import { InvoiceConcept } from './invoice-concept/invoice-concept.entity';
@@ -74,10 +75,21 @@ describe('Entidades TypeORM', () => {
       userEnterprises: [],
       invoiceSeries: [],
       defaultSchedules: [],
+      settings: [],
       holidays: [],
       recurrentEarnings: [],
       aiRequests: [],
       itemCategories: [],
+    });
+    const enterpriseSettings = Object.assign(new EnterpriseSettings(), {
+      id: 'setting-1',
+      enterpriseId: enterprise.id,
+      editable: true,
+      key: 'company.name',
+      value: 'Webpi',
+      createdAt: now,
+      updatedAt: now,
+      enterprise,
     });
     const user = Object.assign(new User(), {
       id: 'user-1',
@@ -525,6 +537,7 @@ describe('Entidades TypeORM', () => {
     expect(aiRequest.type).toBe(AiRequestType.GET_SPENT_CONCEPTS);
     expect(aiRequest.aiMode).toBe(AiMode.STANDARD);
     expect(defaultSchedule.userEnterpriseLinks).toEqual([]);
+    expect(enterpriseSettings.key).toBe('company.name');
     expect(UserRoleTypes.USER).toBe('user');
   });
 });

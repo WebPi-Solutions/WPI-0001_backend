@@ -40,6 +40,15 @@ describe('permission.catalog helpers', () => {
     expect(isPermissionActionAllowedForResource('enterprises', 'delete')).toBe(
       false,
     );
+    expect(
+      isPermissionActionAllowedForResource('enterpriseSettings', 'read'),
+    ).toBe(true);
+    expect(
+      isPermissionActionAllowedForResource('enterpriseSettings', 'write'),
+    ).toBe(true);
+    expect(
+      isPermissionActionAllowedForResource('enterpriseSettings', 'delete'),
+    ).toBe(false);
   });
 
   it('identifica los roles por defecto no eliminables', () => {

@@ -5,6 +5,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { QueryBuilderService, QueryFilterOptions, QueryRelation } from 'src/common/helpers/query-builder/query-builder.service';
 import { PaginatedResponse } from 'src/common/helpers/query-builder/Pagination';
 
+/** Construye la ruta de Dropbox del logo de una empresa. */
+export const getEnterpriseLogoFilePath = (enterpriseId: string, extension: string): string =>
+  `${process.env.DROPBOX_ENTERPRISE_LOGO_FILE_PATH.replace(':enterpriseId', enterpriseId)}.${extension}`;
+
 @Injectable()
 export class EnterpriseRepository {
 
@@ -126,6 +130,6 @@ export class EnterpriseRepository {
    * @returns La ruta del archivo del logo de la empresa en Dropbox
    */
   getLogoFilePath(enterpriseId: string, extension: string): string {
-    return `${process.env.DROPBOX_ENTERPRISE_LOGO_FILE_PATH.replace(':enterpriseId', enterpriseId)}.${extension}`;
+    return getEnterpriseLogoFilePath(enterpriseId, extension);
   }
 }

@@ -3,6 +3,7 @@ import { DataSource } from 'typeorm';
 import { AiRequest } from '../../../src/entities/ai-request/ai-request.entity';
 import { Client } from '../../../src/entities/client/client.entity';
 import { DefaultSchedule } from '../../../src/entities/default-schedule/default-schedule.entity';
+import { EnterpriseSettings } from '../../../src/entities/enterprise-settings/enterprise-settings.entity';
 import { Enterprise } from '../../../src/entities/enterprise/enterprise.entity';
 import { Holiday } from '../../../src/entities/holiday/holiday.entity';
 import { InvoiceSeries } from '../../../src/entities/invoice-series/invoice-series.entity';
@@ -108,6 +109,9 @@ export interface E2eSeed {
   holidayB: Holiday;
   defaultScheduleA: DefaultSchedule;
   defaultScheduleB: DefaultSchedule;
+  settingEditableA: EnterpriseSettings;
+  settingLockedA: EnterpriseSettings;
+  settingB: EnterpriseSettings;
   signingA: Signing;
   signingB: Signing;
   vacationA: Vacation;
@@ -124,7 +128,9 @@ export interface E2eSeed {
  * @param dataSource - Conexión TypeORM del Postgres de Testcontainers
  * @returns Identificadores y entidades sembradas
  */
-export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> {
+export async function seedE2eDatabase(
+  dataSource: DataSource,
+): Promise<E2eSeed> {
   const enterpriseA = await dataSource.getRepository(Enterprise).save({
     name: 'Empresa A',
     email: 'empresa-a@e2e.test',
@@ -420,16 +426,20 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     irpf: 0,
     quantity: 2,
   });
-  const invoiceConceptSerialA = await dataSource.getRepository(InvoiceConceptSerial).save({
-    invoiceConceptId: invoiceConceptA.id,
-    itemSerialId: itemSerialInvoiceA.id,
-    serialNumber: 'SN-A-1',
-  });
-  const invoiceConceptSerialB = await dataSource.getRepository(InvoiceConceptSerial).save({
-    invoiceConceptId: invoiceConceptB.id,
-    itemSerialId: itemSerialInvoiceB.id,
-    serialNumber: 'SN-B-1',
-  });
+  const invoiceConceptSerialA = await dataSource
+    .getRepository(InvoiceConceptSerial)
+    .save({
+      invoiceConceptId: invoiceConceptA.id,
+      itemSerialId: itemSerialInvoiceA.id,
+      serialNumber: 'SN-A-1',
+    });
+  const invoiceConceptSerialB = await dataSource
+    .getRepository(InvoiceConceptSerial)
+    .save({
+      invoiceConceptId: invoiceConceptB.id,
+      itemSerialId: itemSerialInvoiceB.id,
+      serialNumber: 'SN-B-1',
+    });
 
   const quoteConceptA = await dataSource.getRepository(QuoteConcept).save({
     quoteId: quoteA.id,
@@ -491,16 +501,20 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     irpf: 0,
     quantity: 2,
   });
-  const spentConceptSerialA = await dataSource.getRepository(SpentConceptSerial).save({
-    spentConceptId: spentConceptA.id,
-    itemSerialId: itemSerialA.id,
-    serialNumber: 'SN-SPENT-A-1',
-  });
-  const spentConceptSerialB = await dataSource.getRepository(SpentConceptSerial).save({
-    spentConceptId: spentConceptB.id,
-    itemSerialId: itemSerialB.id,
-    serialNumber: 'SN-SPENT-B-1',
-  });
+  const spentConceptSerialA = await dataSource
+    .getRepository(SpentConceptSerial)
+    .save({
+      spentConceptId: spentConceptA.id,
+      itemSerialId: itemSerialA.id,
+      serialNumber: 'SN-SPENT-A-1',
+    });
+  const spentConceptSerialB = await dataSource
+    .getRepository(SpentConceptSerial)
+    .save({
+      spentConceptId: spentConceptB.id,
+      itemSerialId: itemSerialB.id,
+      serialNumber: 'SN-SPENT-B-1',
+    });
 
   const recurrentA = await dataSource.getRepository(RecurrentEarning).save({
     enterpriseId: enterpriseA.id,
@@ -534,15 +548,42 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     calendarDate: '2026-12-26',
   });
 
-  const defaultScheduleA = await dataSource.getRepository(DefaultSchedule).save({
-    enterpriseId: enterpriseA.id,
-    name: 'Horario A',
-    schedule: { weekdays: {} },
-  });
-  const defaultScheduleB = await dataSource.getRepository(DefaultSchedule).save({
+  const defaultScheduleA = await dataSource
+    .getRepository(DefaultSchedule)
+    .save({
+      enterpriseId: enterpriseA.id,
+      name: 'Horario A',
+      schedule: { weekdays: {} },
+    });
+  const defaultScheduleB = await dataSource
+    .getRepository(DefaultSchedule)
+    .save({
+      enterpriseId: enterpriseB.id,
+      name: 'Horario B',
+      schedule: { weekdays: {} },
+    });
+
+  const settingEditableA = await dataSource
+    .getRepository(EnterpriseSettings)
+    .save({
+      enterpriseId: enterpriseA.id,
+      editable: true,
+      key: 'invoice.footer',
+      value: 'Pie de factura A',
+    });
+  const settingLockedA = await dataSource
+    .getRepository(EnterpriseSettings)
+    .save({
+      enterpriseId: enterpriseA.id,
+      editable: false,
+      key: 'system.locked',
+      value: 'No modificar',
+    });
+  const settingB = await dataSource.getRepository(EnterpriseSettings).save({
     enterpriseId: enterpriseB.id,
-    name: 'Horario B',
-    schedule: { weekdays: {} },
+    editable: true,
+    key: 'invoice.footer',
+    value: 'Pie de factura B',
   });
 
   const signingA = await dataSource.getRepository(Signing).save({
@@ -654,6 +695,9 @@ export async function seedE2eDatabase(dataSource: DataSource): Promise<E2eSeed> 
     holidayB,
     defaultScheduleA,
     defaultScheduleB,
+    settingEditableA,
+    settingLockedA,
+    settingB,
     signingA,
     signingB,
     vacationA,
